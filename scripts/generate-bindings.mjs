@@ -70,7 +70,7 @@ writeFileSync(bindingPath, canonicalBinding, "utf8");
 
 const packagePath = join(outputDir, "package.json");
 const packageJson = JSON.parse(readFileSync(packagePath, "utf8"));
-packageJson.version = "2.0.0";
+packageJson.version = "3.0.0";
 packageJson.dependencies["@stellar/stellar-sdk"] = "17.2.1";
 writeFileSync(packagePath, `${JSON.stringify(packageJson, null, 2)}\n`, "utf8");
 

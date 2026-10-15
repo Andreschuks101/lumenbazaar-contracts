@@ -9,7 +9,7 @@ const outputPath = join(
   repoRoot,
   "artifacts",
   "interface",
-  "upto-session-v2.json",
+  "upto-session-v3.json",
 );
 const check = process.argv.includes("--check");
 const specText = readFileSync(specPath, "utf8").replace(/\r\n/g, "\n");
@@ -63,8 +63,8 @@ if (!methods.includes("interface_version")) {
 }
 
 const fixture = {
-  contractVersion: "0.2.0",
-  interfaceVersion: 2,
+  contractVersion: "0.3.0",
+  interfaceVersion: 3,
   sourceSpecSha256: createHash("sha256").update(specText).digest("hex"),
   methods,
   events,

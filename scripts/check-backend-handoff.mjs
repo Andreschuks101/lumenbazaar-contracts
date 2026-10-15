@@ -15,8 +15,8 @@ const hashes = JSON.parse(
   ),
 );
 
-if (hashes.contractVersion !== "0.2.0" || hashes.interfaceVersion !== 2) {
-  throw new Error("Backend handoff fixture must target contract 0.2.0 interface 2");
+if (hashes.contractVersion !== "0.3.0" || hashes.interfaceVersion !== 3) {
+  throw new Error("Backend handoff fixture must target contract 0.3.0 interface 3");
 }
 
 const requiredFunctions = [
@@ -65,7 +65,12 @@ assertHash(
   hashes.resourceHashHex,
   "resourceHashHex",
 );
-assertHash(hashes.usageReceiptCanonicalJson, hashes.usageHashHex, "usageHashHex");
+assertHash(
+  hashes.usageReceiptCanonicalJson,
+  hashes.measurementHashHex,
+  "measurementHashHex",
+);
+assertHexHash(hashes.usageCommitmentPreimageHex, hashes.usageHashHex, "usageHashHex");
 
 console.log("backend handoff check passed");
 
@@ -74,4 +79,11 @@ function assertHash(input, expected, label) {
   if (actual !== expected || !/^[0-9a-f]{64}$/.test(expected)) {
     throw new Error(`Invalid ${label}`);
   }
+}
+
+function assertHexHash(input, expected, label) {
+  if (!/^(?:[0-9a-f]{2})+$/.test(input)) {
+    throw new Error(`Invalid ${label} preimage`);
+  }
+  assertHash(Buffer.from(input, "hex"), expected, label);
 }

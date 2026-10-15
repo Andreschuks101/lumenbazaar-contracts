@@ -24,6 +24,28 @@
       },
       "canonicalUtf8": "{\"schemaVersion\":1,\"protocol\":\"lumenbazaar\",\"interfaceVersion\":2,\"networkPassphrase\":\"Test SDF Network ; September 2015\",\"contractId\":\"CCENNI5ZMMD3DCJXG5MURDXWUU3NG6JCFHDCDSEI4OMNWDJRY2IR36L3\",\"sessionId\":\"4a0c93c17417d5d2d603db55a20bc2fd06fca1a3129ca68a38d0420960c57742\",\"amount\":\"420000000\",\"resourceHash\":\"e71d5d8aa20ab6db9ae07e7095e6781b20a5996337493f7397c033f18e1be989\",\"measurement\":{\"unit\":\"request\",\"quantity\":\"42\",\"startedAtLedger\":5067500,\"endedAtLedger\":5067542},\"receiptId\":\"usage_01HZYK7G7MN5P85V3QP4Q8Y9X2\"}",
       "sha256": "52db4c21fedfb83b5589b0dd8d40b38e0cbbe8a91625f0ac894f139f728fd39e"
+    },
+    {
+      "name": "v3-domain-measurement",
+      "receipt": {
+        "schemaVersion": 1,
+        "protocol": "lumenbazaar",
+        "interfaceVersion": 3,
+        "networkPassphrase": "Synthetic test network id 07x32",
+        "contractId": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+        "sessionId": "1e40041a83cce938f7084a2394738cae4a6403745e92ba829d353d903affa836",
+        "amount": "210000000",
+        "resourceHash": "0909090909090909090909090909090909090909090909090909090909090909",
+        "measurement": {
+          "unit": "request",
+          "quantity": "42",
+          "startedAtLedger": 5067500,
+          "endedAtLedger": 5067542
+        },
+        "receiptId": "usage_01HZYK7G7MN5P85V3QP4Q8Y9X2"
+      },
+      "canonicalUtf8": "{\"schemaVersion\":1,\"protocol\":\"lumenbazaar\",\"interfaceVersion\":3,\"networkPassphrase\":\"Synthetic test network id 07x32\",\"contractId\":\"CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM\",\"sessionId\":\"1e40041a83cce938f7084a2394738cae4a6403745e92ba829d353d903affa836\",\"amount\":\"210000000\",\"resourceHash\":\"0909090909090909090909090909090909090909090909090909090909090909\",\"measurement\":{\"unit\":\"request\",\"quantity\":\"42\",\"startedAtLedger\":5067500,\"endedAtLedger\":5067542},\"receiptId\":\"usage_01HZYK7G7MN5P85V3QP4Q8Y9X2\"}",
+      "sha256": "674638318729bd03424eaf364acbeb1274d205ce271125737e474c1e507c63c2"
     }
   ],
   "invalidEncodings": [

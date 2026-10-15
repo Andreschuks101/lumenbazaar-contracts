@@ -96,16 +96,6 @@ export interface Client {
   extend_ttl: ({session_id}: {session_id: Buffer}, options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>
 
   /**
-   * Construct and simulate a initialize transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-   */
-  initialize: ({admin, supported_assets}: {admin: string, supported_assets: Array<string>}, options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>
-
-  /**
-   * Construct and simulate a get_session transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-   */
-  get_session: ({session_id}: {session_id: Buffer}, options?: MethodOptions) => Promise<AssembledTransaction<Result<Session>>>
-
-  /**
    * Construct and simulate a create_session transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    */
   create_session: ({buyer, seller, asset, max_amount, expires_at_ledger, resource_hash}: {buyer: string, seller: string, asset: string, max_amount: i128, expires_at_ledger: u32, resource_hash: Buffer}, options?: MethodOptions) => Promise<AssembledTransaction<Result<Buffer>>>
@@ -119,6 +109,16 @@ export interface Client {
    * Construct and simulate a interface_version transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    */
   interface_version: (options?: MethodOptions) => Promise<AssembledTransaction<u32>>
+
+  /**
+   * Construct and simulate a initialize transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   */
+  initialize: ({admin, supported_assets}: {admin: string, supported_assets: Array<string>}, options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>
+
+  /**
+   * Construct and simulate a get_session transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   */
+  get_session: ({session_id}: {session_id: Buffer}, options?: MethodOptions) => Promise<AssembledTransaction<Result<Session>>>
 
 }
 export class Client extends ContractClient {
@@ -162,11 +162,11 @@ export class Client extends ContractClient {
     cancel: this.txFromJSON<Result<void>>,
         settle: this.txFromJSON<Result<void>>,
         extend_ttl: this.txFromJSON<Result<void>>,
-        initialize: this.txFromJSON<Result<void>>,
-        get_session: this.txFromJSON<Result<Session>>,
         create_session: this.txFromJSON<Result<Buffer>>,
         recover_expired: this.txFromJSON<Result<void>>,
-        interface_version: this.txFromJSON<u32>
+        interface_version: this.txFromJSON<u32>,
+        initialize: this.txFromJSON<Result<void>>,
+        get_session: this.txFromJSON<Result<Session>>
   }
 }
 
