@@ -24,3 +24,24 @@ pub struct Session {
     pub usage_hash: Option<BytesN<32>>,
     pub status: SessionStatus,
 }
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum BatchRecoveryStatus {
+    Recovered,
+    NotFound,
+    NotExpired,
+    AlreadySettled,
+    AlreadyCancelled,
+    AlreadyRecovered,
+    Duplicate,
+    EscrowUnavailable,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct BatchRecoveryResult {
+    pub session_id: BytesN<32>,
+    pub status: BatchRecoveryStatus,
+    pub refunded_amount: i128,
+}

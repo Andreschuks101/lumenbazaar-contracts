@@ -9,7 +9,7 @@ const outputPath = join(
   repoRoot,
   "artifacts",
   "interface",
-  "upto-session-v2.json",
+  "upto-session-v3.json",
 );
 const check = process.argv.includes("--check");
 const specText = readFileSync(specPath, "utf8").replace(/\r\n/g, "\n");
@@ -47,10 +47,10 @@ if (events.map((event) => event.name).join(",") !== expectedEventNames.join(",")
   throw new Error("Canonical spec public event set changed.");
 }
 if (
-  errorEntry.udt_error_enum_v0.cases.length !== 22 ||
+  errorEntry.udt_error_enum_v0.cases.length !== 23 ||
   errorEntry.udt_error_enum_v0.cases.some((entry, index) => entry.value !== index + 1)
 ) {
-  throw new Error("ContractError golden mapping must contain contiguous codes 1 through 22.");
+  throw new Error("ContractError golden mapping must contain contiguous codes 1 through 23.");
 }
 for (const event of events) {
   const version = event.fields.find((field) => field.name === "event_version");
@@ -63,8 +63,8 @@ if (!methods.includes("interface_version")) {
 }
 
 const fixture = {
-  contractVersion: "0.2.0",
-  interfaceVersion: 2,
+  contractVersion: "0.3.0",
+  interfaceVersion: 3,
   sourceSpecSha256: createHash("sha256").update(specText).digest("hex"),
   methods,
   events,

@@ -25,28 +25,36 @@ No production contract ID is committed in this repository yet.
 
 - TypeScript package: `bindings/upto-session`
 - Canonical spec artifact: `artifacts/spec/upto-session.json`
-- Decoding fixture: `artifacts/interface/upto-session-v2.json`
+- Current decoding fixture: `artifacts/interface/upto-session-v3.json`
+- Retained v2 decoding fixture: `artifacts/interface/upto-session-v2.json`
 - Binding regeneration: `node scripts/generate-bindings.mjs`
 - Spec regeneration: `node scripts/generate-specs.mjs`
 
 Backend services should prefer the generated TypeScript package for transaction construction and result decoding.
 
-The corrected escrow contract and generated package are version `0.2.0`; the
-public `interface_version()` result and every public event use interface/event
-version `2`.
+The escrow contract is version `0.3.0` and the generated package is version
+`3.0.0`; `interface_version()` returns `3`. Existing session events retain
+event version `2` because their payloads are unchanged.
 
 ## Upto Session Functions
 
 | Function | Backend use |
 | --- | --- |
-| `interface_version()` | Require result `2` before decoding v2 session state or events. |
+| `interface_version()` | Require result `3` before using the batch-recovery interface. |
 | `initialize(admin, supported_assets)` | One-time deployment setup with an immutable non-empty token allowlist. Do not call from request handlers. |
 | `create_session(buyer, seller, asset, max_amount, expires_at_ledger, resource_hash)` | Create a buyer-authorized spending cap and escrow the full cap for a resource. |
 | `get_session(session_id)` | Read current session state for API responses, reconciliation, and settlement guards. |
 | `settle(session_id, actual_amount, usage_hash)` | Seller-authorized settlement for actual usage. |
 | `cancel(session_id)` | Buyer-authorized cancellation before settlement. |
 | `recover_expired(session_id)` | Permissionless full refund to the stored buyer at or after expiry. |
+| `recover_expired_batch(session_ids)` | Recover up to eight caller-supplied IDs with ordered per-item results. Missing, premature, terminal, and repeated IDs do not block eligible recoveries. |
 | `extend_ttl(session_id)` | Extend storage TTL for still-open sessions. |
+
+## V2 To V3 Compatibility
+
+Version 3 adds bounded batch recovery and its result schema. Existing v2
+methods, session records, and event payloads retain their shapes. Backends must
+select the v3 fixture before invoking `recover_expired_batch`.
 
 ## V1 To V2 Compatibility
 
@@ -56,7 +64,8 @@ Version 2 is a new deployment, not an in-place upgrade. It changes
 `interface_version`, and replaces the old event payloads with versioned escrow
 payloads. A backend must reject a contract whose `interface_version()` is not
 `2`; decoding it with v2 types is not supported. Error codes 1 through 13 retain
-their names and values, while codes 14 through 22 are additive.
+their names and values, while codes 14 through 22 are additive. Version 3 adds
+code 23 without changing the earlier mappings.
 
 ## Stable Errors
 
@@ -84,6 +93,7 @@ their names and values, while codes 14 through 22 are additive.
 | 20 | `NotInitialized` | Initialize a new deployment before creating sessions. |
 | 21 | `SessionExpired` | Treat as finalized by expiry recovery. |
 | 22 | `SessionNotExpired` | Do not recover before the exact expiry ledger. |
+| 23 | `InvalidBatchSize` | Supply between one and eight session IDs. |
 
 ## Hash Inputs
 
@@ -127,3 +137,4 @@ Example hashes are committed in `artifacts/backend-handoff/usage-hashes.example.
 - Record settlement attempt ID, `usage_hash`, ledger, transaction hash, and decoded result.
 - Treat duplicate settlement attempts as idempotent by fetching `get_session` after `SessionAlreadySettled`.
 - At or after expiry, call `recover_expired`; it requires no caller signature and can refund only the stored buyer.
+- Batch recovery has partial semantics for invalid session IDs and returns one ordered result per input. Repeated IDs are marked `Duplicate` and cannot double-refund. A trapped token invocation aborts the transaction atomically.

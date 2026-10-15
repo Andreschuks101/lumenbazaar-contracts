@@ -15,8 +15,8 @@ const hashes = JSON.parse(
   ),
 );
 
-if (hashes.contractVersion !== "0.2.0" || hashes.interfaceVersion !== 2) {
-  throw new Error("Backend handoff fixture must target contract 0.2.0 interface 2");
+if (hashes.contractVersion !== "0.3.0" || hashes.interfaceVersion !== 3) {
+  throw new Error("Backend handoff fixture must target contract 0.3.0 interface 3");
 }
 
 const requiredFunctions = [
@@ -27,6 +27,7 @@ const requiredFunctions = [
   "settle",
   "cancel",
   "recover_expired",
+  "recover_expired_batch",
   "extend_ttl",
 ];
 const requiredErrors = [
@@ -52,6 +53,7 @@ const requiredErrors = [
   "NotInitialized",
   "SessionExpired",
   "SessionNotExpired",
+  "InvalidBatchSize",
 ];
 
 for (const item of [...requiredFunctions, ...requiredErrors]) {
