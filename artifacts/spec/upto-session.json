@@ -362,6 +362,29 @@
   {
     "function_v0": {
       "doc": "",
+      "inputs": [],
+      "name": "get_configuration",
+      "outputs": [
+        {
+          "result": {
+            "error_type": {
+              "udt": {
+                "name": "ContractError"
+              }
+            },
+            "ok_type": {
+              "udt": {
+                "name": "ContractConfiguration"
+              }
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "function_v0": {
+      "doc": "",
       "inputs": [
         {
           "doc": "",
@@ -633,6 +656,68 @@
       "fields": [
         {
           "doc": "",
+          "name": "admin",
+          "type": "address"
+        },
+        {
+          "doc": "",
+          "name": "instance_ttl_extension",
+          "type": "u32"
+        },
+        {
+          "doc": "",
+          "name": "instance_ttl_threshold",
+          "type": "u32"
+        },
+        {
+          "doc": "",
+          "name": "interface_version",
+          "type": "u32"
+        },
+        {
+          "doc": "",
+          "name": "max_supported_assets",
+          "type": "u32"
+        },
+        {
+          "doc": "",
+          "name": "operational_state",
+          "type": {
+            "udt": {
+              "name": "OperationalState"
+            }
+          }
+        },
+        {
+          "doc": "",
+          "name": "response_version",
+          "type": "u32"
+        },
+        {
+          "doc": "",
+          "name": "storage_layout_version",
+          "type": "u32"
+        },
+        {
+          "doc": "",
+          "name": "supported_assets",
+          "type": {
+            "vec": {
+              "element_type": "address"
+            }
+          }
+        }
+      ],
+      "lib": "",
+      "name": "ContractConfiguration"
+    }
+  },
+  {
+    "udt_struct_v0": {
+      "doc": "",
+      "fields": [
+        {
+          "doc": "",
           "name": "asset",
           "type": "address"
         },
@@ -709,6 +794,33 @@
       ],
       "lib": "",
       "name": "Session"
+    }
+  },
+  {
+    "udt_union_v0": {
+      "cases": [
+        {
+          "void_v0": {
+            "doc": "",
+            "name": "Active"
+          }
+        },
+        {
+          "void_v0": {
+            "doc": "",
+            "name": "Paused"
+          }
+        },
+        {
+          "void_v0": {
+            "doc": "",
+            "name": "Deprecated"
+          }
+        }
+      ],
+      "doc": "",
+      "lib": "",
+      "name": "OperationalState"
     }
   },
   {

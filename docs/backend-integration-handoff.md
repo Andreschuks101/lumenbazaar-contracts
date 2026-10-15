@@ -25,28 +25,42 @@ No production contract ID is committed in this repository yet.
 
 - TypeScript package: `bindings/upto-session`
 - Canonical spec artifact: `artifacts/spec/upto-session.json`
-- Decoding fixture: `artifacts/interface/upto-session-v2.json`
+- Current decoding fixture: `artifacts/interface/upto-session-v3.json`
+- Retained v2 decoding fixture: `artifacts/interface/upto-session-v2.json`
 - Binding regeneration: `node scripts/generate-bindings.mjs`
 - Spec regeneration: `node scripts/generate-specs.mjs`
 
 Backend services should prefer the generated TypeScript package for transaction construction and result decoding.
 
-The corrected escrow contract and generated package are version `0.2.0`; the
-public `interface_version()` result and every public event use interface/event
-version `2`.
+The escrow contract is version `0.3.0` and the generated package is version
+`3.0.0`; `interface_version()` returns `3`. Existing session events retain
+event version `2` because their payloads are unchanged.
 
 ## Upto Session Functions
 
 | Function | Backend use |
 | --- | --- |
-| `interface_version()` | Require result `2` before decoding v2 session state or events. |
-| `initialize(admin, supported_assets)` | One-time deployment setup with an immutable non-empty token allowlist. Do not call from request handlers. |
+| `interface_version()` | Require result `3` before decoding the v3 configuration response. |
+| `initialize(admin, supported_assets)` | One-time deployment setup with an immutable allowlist of one to 16 token contracts. Do not call from request handlers. |
+| `get_configuration()` | Read response/interface/storage versions, administrator, bounded supported assets, operational state, and instance TTL policy without authorization. |
 | `create_session(buyer, seller, asset, max_amount, expires_at_ledger, resource_hash)` | Create a buyer-authorized spending cap and escrow the full cap for a resource. |
 | `get_session(session_id)` | Read current session state for API responses, reconciliation, and settlement guards. |
 | `settle(session_id, actual_amount, usage_hash)` | Seller-authorized settlement for actual usage. |
 | `cancel(session_id)` | Buyer-authorized cancellation before settlement. |
 | `recover_expired(session_id)` | Permissionless full refund to the stored buyer at or after expiry. |
 | `extend_ttl(session_id)` | Extend storage TTL for still-open sessions. |
+
+## V2 To V3 Compatibility
+
+Version 3 adds `get_configuration` and stores a bounded initialization-order
+asset list plus the operational state. Existing v2 session methods, records,
+and event payloads retain their shapes. The response has its own
+`response_version` field, currently `1`, so backend decoders can fail closed on
+future schema revisions.
+
+`operational_state` can decode `Active`, `Paused`, or `Deprecated`. This release
+initializes new contracts as `Active` and exposes no public state-transition
+method; pause and deprecation authority remain outside this query-only change.
 
 ## V1 To V2 Compatibility
 

@@ -8,14 +8,16 @@ mod types;
 pub mod validation;
 
 pub use errors::ContractError;
-pub use types::{Session, SessionStatus};
+pub use types::{ContractConfiguration, OperationalState, Session, SessionStatus};
 
 use soroban_sdk::{contract, contractimpl, token, Address, BytesN, Env, Vec};
 
 #[contract]
 pub struct UptoSessionContract;
 
-pub const INTERFACE_VERSION: u32 = 2;
+pub const INTERFACE_VERSION: u32 = 3;
+pub const CONFIGURATION_RESPONSE_VERSION: u32 = 1;
+pub const MAX_SUPPORTED_ASSETS: u32 = 16;
 
 #[contractimpl]
 impl UptoSessionContract {
@@ -33,7 +35,7 @@ impl UptoSessionContract {
         }
 
         admin.require_auth();
-        if supported_assets.is_empty() {
+        if supported_assets.is_empty() || supported_assets.len() > MAX_SUPPORTED_ASSETS {
             return Err(ContractError::InvalidSupportedAssets);
         }
         for asset in supported_assets.iter() {
@@ -42,11 +44,29 @@ impl UptoSessionContract {
             }
             storage::write_supported_asset(&env, &asset);
         }
+        storage::write_supported_assets(&env, &supported_assets);
+        storage::write_operational_state(&env, &OperationalState::Active);
         storage::write_admin(&env, &admin);
         storage::write_storage_layout_version(&env);
         storage::extend_instance_ttl(&env);
 
         Ok(())
+    }
+
+    pub fn get_configuration(env: Env) -> Result<ContractConfiguration, ContractError> {
+        let admin = storage::read_admin(&env).ok_or(ContractError::NotInitialized)?;
+        Ok(ContractConfiguration {
+            response_version: CONFIGURATION_RESPONSE_VERSION,
+            interface_version: INTERFACE_VERSION,
+            storage_layout_version: storage::read_storage_layout_version(&env)
+                .unwrap_or(storage::STORAGE_LAYOUT_VERSION),
+            admin,
+            supported_assets: storage::read_supported_assets(&env),
+            max_supported_assets: MAX_SUPPORTED_ASSETS,
+            operational_state: storage::read_operational_state(&env),
+            instance_ttl_threshold: storage::DEFAULT_TTL_THRESHOLD,
+            instance_ttl_extension: storage::TTL_EXTENSION_AMOUNT,
+        })
     }
 
     pub fn create_session(
