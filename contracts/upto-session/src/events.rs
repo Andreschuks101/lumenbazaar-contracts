@@ -2,6 +2,16 @@ use crate::Session;
 use soroban_sdk::{contractevent, Address, BytesN, Env};
 
 #[contractevent]
+pub struct AssetSessionCapUpdated {
+    #[topic]
+    pub asset: Address,
+    pub admin: Address,
+    pub previous_max_session_amount: i128,
+    pub new_max_session_amount: i128,
+    pub event_version: u32,
+}
+
+#[contractevent]
 pub struct SessionCreated {
     #[topic]
     pub session_id: BytesN<32>,
@@ -60,6 +70,23 @@ pub fn publish_session_created(env: &Env, session: &Session) {
         resource_hash: session.resource_hash.clone(),
         event_version: 2,
         escrowed_amount: session.escrowed_amount,
+    }
+    .publish(env);
+}
+
+pub fn publish_asset_session_cap_updated(
+    env: &Env,
+    asset: &Address,
+    admin: &Address,
+    previous_max_session_amount: i128,
+    new_max_session_amount: i128,
+) {
+    AssetSessionCapUpdated {
+        asset: asset.clone(),
+        admin: admin.clone(),
+        previous_max_session_amount,
+        new_max_session_amount,
+        event_version: 3,
     }
     .publish(env);
 }

@@ -84,17 +84,24 @@ fn initialize(
     admin: &Address,
     assets: &soroban_sdk::Vec<Address>,
 ) {
+    let mut policies = soroban_sdk::Vec::new(env);
+    for asset in assets.iter() {
+        policies.push_back(AssetPolicy {
+            asset,
+            max_session_amount: i128::MAX,
+        });
+    }
     client
         .mock_auths(&[MockAuth {
             address: admin,
             invoke: &MockAuthInvoke {
                 contract,
                 fn_name: "initialize",
-                args: (admin.clone(), assets.clone()).into_val(env),
+                args: (admin.clone(), policies.clone()).into_val(env),
                 sub_invokes: &[],
             },
         }])
-        .initialize(admin, assets);
+        .initialize(admin, &policies);
 }
 
 struct CreateInput<'a> {

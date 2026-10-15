@@ -1,7 +1,7 @@
 use crate::{ContractError, Session};
 use soroban_sdk::{contracttype, Address, BytesN, Env};
 
-pub const STORAGE_LAYOUT_VERSION: u32 = 2;
+pub const STORAGE_LAYOUT_VERSION: u32 = 3;
 pub const DEFAULT_TTL_THRESHOLD: u32 = 100_000;
 pub const TTL_EXTENSION_AMOUNT: u32 = 1_000_000;
 
@@ -13,6 +13,7 @@ pub enum DataKey {
     Session(BytesN<32>),
     StorageLayoutVersion,
     SupportedAsset(Address),
+    AssetMaxSessionAmount(Address),
     Liability(Address),
 }
 
@@ -47,6 +48,18 @@ pub fn is_supported_asset(env: &Env, asset: &Address) -> bool {
         .instance()
         .get(&DataKey::SupportedAsset(asset.clone()))
         .unwrap_or(false)
+}
+
+pub fn write_asset_max_session_amount(env: &Env, asset: &Address, amount: i128) {
+    env.storage()
+        .instance()
+        .set(&DataKey::AssetMaxSessionAmount(asset.clone()), &amount);
+}
+
+pub fn read_asset_max_session_amount(env: &Env, asset: &Address) -> Option<i128> {
+    env.storage()
+        .instance()
+        .get(&DataKey::AssetMaxSessionAmount(asset.clone()))
 }
 
 pub fn read_liability(env: &Env, asset: &Address) -> i128 {

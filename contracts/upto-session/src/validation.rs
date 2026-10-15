@@ -3,6 +3,13 @@ use soroban_sdk::{Address, BytesN, Env};
 
 pub const MAX_SESSION_DURATION_LEDGERS: u32 = 518_400;
 
+pub fn validate_asset_cap(max_session_amount: i128) -> Result<(), ContractError> {
+    if max_session_amount <= 0 {
+        return Err(ContractError::InvalidAssetCap);
+    }
+    Ok(())
+}
+
 pub fn validate_create_session(
     env: &Env,
     buyer: &Address,
@@ -95,6 +102,13 @@ mod tests {
             validate_create_session(&env, &buyer, &seller, &asset, 100, 10, &resource_hash),
             Ok(())
         );
+    }
+
+    #[test]
+    fn asset_caps_must_be_positive() {
+        assert_eq!(validate_asset_cap(1), Ok(()));
+        assert_eq!(validate_asset_cap(0), Err(ContractError::InvalidAssetCap));
+        assert_eq!(validate_asset_cap(-1), Err(ContractError::InvalidAssetCap));
     }
 
     #[test]

@@ -5,7 +5,7 @@ use soroban_sdk::{
     testutils::{Address as _, Ledger as _},
     vec, Address, BytesN, Env,
 };
-use upto_session::{ContractError, UptoSessionContract, UptoSessionContractClient};
+use upto_session::{AssetPolicy, ContractError, UptoSessionContract, UptoSessionContractClient};
 
 fn initialized_wallet(
     env: &Env,
@@ -148,7 +148,16 @@ fn policy_wallet_storage_is_isolated_from_upto_session() {
         Err(Ok(ContractError::SessionNotFound))
     );
     assert!(upto_client
-        .try_initialize(&owner, &soroban_sdk::vec![&env, asset])
+        .try_initialize(
+            &owner,
+            &soroban_sdk::vec![
+                &env,
+                AssetPolicy {
+                    asset,
+                    max_session_amount: 1,
+                }
+            ]
+        )
         .is_ok());
 }
 

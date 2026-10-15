@@ -8,14 +8,14 @@ mod types;
 pub mod validation;
 
 pub use errors::ContractError;
-pub use types::{Session, SessionStatus};
+pub use types::{AssetPolicy, Session, SessionStatus};
 
 use soroban_sdk::{contract, contractimpl, token, Address, BytesN, Env, Vec};
 
 #[contract]
 pub struct UptoSessionContract;
 
-pub const INTERFACE_VERSION: u32 = 2;
+pub const INTERFACE_VERSION: u32 = 3;
 
 #[contractimpl]
 impl UptoSessionContract {
@@ -26,27 +26,63 @@ impl UptoSessionContract {
     pub fn initialize(
         env: Env,
         admin: Address,
-        supported_assets: Vec<Address>,
+        asset_policies: Vec<AssetPolicy>,
     ) -> Result<(), ContractError> {
         if storage::has_admin(&env) {
             return Err(ContractError::AlreadyInitialized);
         }
 
         admin.require_auth();
-        if supported_assets.is_empty() {
+        if asset_policies.is_empty() {
             return Err(ContractError::InvalidSupportedAssets);
         }
-        for asset in supported_assets.iter() {
-            if storage::is_supported_asset(&env, &asset) {
+        for policy in asset_policies.iter() {
+            validation::validate_asset_cap(policy.max_session_amount)?;
+            if storage::is_supported_asset(&env, &policy.asset) {
                 return Err(ContractError::InvalidSupportedAssets);
             }
-            storage::write_supported_asset(&env, &asset);
+            storage::write_supported_asset(&env, &policy.asset);
+            storage::write_asset_max_session_amount(&env, &policy.asset, policy.max_session_amount);
         }
         storage::write_admin(&env, &admin);
         storage::write_storage_layout_version(&env);
         storage::extend_instance_ttl(&env);
 
         Ok(())
+    }
+
+    pub fn set_asset_max_session_amount(
+        env: Env,
+        asset: Address,
+        max_session_amount: i128,
+    ) -> Result<(), ContractError> {
+        let admin = storage::read_admin(&env).ok_or(ContractError::NotInitialized)?;
+        if !storage::is_supported_asset(&env, &asset) {
+            return Err(ContractError::UnsupportedAsset);
+        }
+        validation::validate_asset_cap(max_session_amount)?;
+        admin.require_auth();
+
+        let previous_max_session_amount = storage::read_asset_max_session_amount(&env, &asset)
+            .ok_or(ContractError::AssetCapNotConfigured)?;
+        storage::write_asset_max_session_amount(&env, &asset, max_session_amount);
+        storage::extend_instance_ttl(&env);
+        events::publish_asset_session_cap_updated(
+            &env,
+            &asset,
+            &admin,
+            previous_max_session_amount,
+            max_session_amount,
+        );
+        Ok(())
+    }
+
+    pub fn get_asset_max_session_amount(env: Env, asset: Address) -> Result<i128, ContractError> {
+        if !storage::is_supported_asset(&env, &asset) {
+            return Err(ContractError::UnsupportedAsset);
+        }
+        storage::read_asset_max_session_amount(&env, &asset)
+            .ok_or(ContractError::AssetCapNotConfigured)
     }
 
     pub fn create_session(
@@ -72,6 +108,11 @@ impl UptoSessionContract {
         }
         if !storage::is_supported_asset(&env, &asset) {
             return Err(ContractError::UnsupportedAsset);
+        }
+        let asset_cap = storage::read_asset_max_session_amount(&env, &asset)
+            .ok_or(ContractError::AssetCapNotConfigured)?;
+        if max_amount > asset_cap {
+            return Err(ContractError::AmountExceedsCap);
         }
 
         buyer.require_auth();

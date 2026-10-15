@@ -23,9 +23,19 @@ use test_token::{TestTokenContract, TestTokenContractClient};
 fn create_test_asset(env: &Env, buyer: &Address, amount: i128) -> Address {
     let token_admin = Address::generate(env);
     let asset = env
-        .register_stellar_asset_contract_v2(token_admin)
+        .register_stellar_asset_contract_v2(token_admin.clone())
         .address();
-    token::StellarAssetClient::new(env, &asset).mint(buyer, &amount);
+    token::StellarAssetClient::new(env, &asset)
+        .mock_auths(&[MockAuth {
+            address: &token_admin,
+            invoke: &MockAuthInvoke {
+                contract: &asset,
+                fn_name: "mint",
+                args: (buyer.clone(), amount).into_val(env),
+                sub_invokes: &[],
+            },
+        }])
+        .mint(buyer, &amount);
     asset
 }
 
@@ -40,13 +50,23 @@ fn create_local_test_token(env: &Env, buyer: &Address, amount: i128) -> Address 
     token_id
 }
 
+fn asset_policy(asset: &Address, max_session_amount: i128) -> AssetPolicy {
+    AssetPolicy {
+        asset: asset.clone(),
+        max_session_amount,
+    }
+}
+
 fn initialize_for_asset(
     env: &Env,
     client: &UptoSessionContractClient<'_>,
     admin: &Address,
     asset: &Address,
 ) {
-    client.initialize(admin, &soroban_sdk::vec![env, asset.clone()]);
+    client.initialize(
+        admin,
+        &soroban_sdk::vec![env, asset_policy(asset, i128::MAX)],
+    );
 }
 
 fn print_resource_usage(operation: &str, env: &Env) {
@@ -101,7 +121,7 @@ fn public_interface_is_callable() {
     let asset = create_test_asset(&env, &buyer, 300);
     let resource_hash = BytesN::from_array(&env, &[7; 32]);
 
-    assert_eq!(client.interface_version(), 2);
+    assert_eq!(client.interface_version(), 3);
 
     initialize_for_asset(&env, &client, &buyer, &asset);
 
@@ -246,8 +266,8 @@ fn initialize_stores_admin_once() {
     let admin = Address::generate(&env);
 
     let asset = Address::generate(&env);
-    let supported_assets = soroban_sdk::vec![&env, asset.clone()];
-    client.initialize(&admin, &supported_assets);
+    let asset_policies = soroban_sdk::vec![&env, asset_policy(&asset, 500)];
+    client.initialize(&admin, &asset_policies);
 
     env.as_contract(&contract_id, || {
         assert_eq!(storage::read_admin(&env), Some(admin.clone()));
@@ -258,13 +278,13 @@ fn initialize_stores_admin_once() {
     });
 
     assert_eq!(
-        client.try_initialize(&admin, &supported_assets),
+        client.try_initialize(&admin, &asset_policies),
         Err(Ok(ContractError::AlreadyInitialized))
     );
 }
 
 #[test]
-fn initialize_rejects_empty_or_duplicate_supported_assets() {
+fn initialize_rejects_empty_duplicate_or_invalid_asset_policies() {
     let env = Env::default();
     env.mock_all_auths();
     let admin = Address::generate(&env);
@@ -280,9 +300,163 @@ fn initialize_rejects_empty_or_duplicate_supported_assets() {
     let duplicate_client = UptoSessionContractClient::new(&env, &duplicate_id);
     let asset = Address::generate(&env);
     assert_eq!(
-        duplicate_client.try_initialize(&admin, &soroban_sdk::vec![&env, asset.clone(), asset]),
+        duplicate_client.try_initialize(
+            &admin,
+            &soroban_sdk::vec![&env, asset_policy(&asset, 100), asset_policy(&asset, 200)]
+        ),
         Err(Ok(ContractError::InvalidSupportedAssets))
     );
+
+    let invalid_id = env.register(UptoSessionContract, ());
+    let invalid_client = UptoSessionContractClient::new(&env, &invalid_id);
+    assert_eq!(
+        invalid_client.try_initialize(&admin, &soroban_sdk::vec![&env, asset_policy(&asset, 0)]),
+        Err(Ok(ContractError::InvalidAssetCap))
+    );
+}
+
+#[test]
+fn per_asset_caps_enforce_boundaries_before_buyer_authorization() {
+    let env = Env::default();
+    let contract_id = env.register(UptoSessionContract, ());
+    let client = UptoSessionContractClient::new(&env, &contract_id);
+    let admin = Address::generate(&env);
+    let buyer = Address::generate(&env);
+    let seller = Address::generate(&env);
+    let first_asset = create_test_asset(&env, &buyer, 500);
+    let second_asset = create_test_asset(&env, &buyer, 500);
+    let policies = soroban_sdk::vec![
+        &env,
+        asset_policy(&first_asset, 100),
+        asset_policy(&second_asset, 250)
+    ];
+    client
+        .mock_auths(&[MockAuth {
+            address: &admin,
+            invoke: &MockAuthInvoke {
+                contract: &contract_id,
+                fn_name: "initialize",
+                args: (admin.clone(), policies.clone()).into_val(&env),
+                sub_invokes: &[],
+            },
+        }])
+        .initialize(&admin, &policies);
+
+    assert_eq!(client.get_asset_max_session_amount(&first_asset), 100);
+    assert_eq!(client.get_asset_max_session_amount(&second_asset), 250);
+    assert_eq!(
+        client.try_get_asset_max_session_amount(&Address::generate(&env)),
+        Err(Ok(ContractError::UnsupportedAsset))
+    );
+
+    let resource_hash = BytesN::from_array(&env, &[63; 32]);
+    assert_eq!(
+        client.try_create_session(&buyer, &seller, &first_asset, &101, &50, &resource_hash),
+        Err(Ok(ContractError::AmountExceedsCap))
+    );
+    assert_eq!(token::Client::new(&env, &first_asset).balance(&buyer), 500);
+
+    client
+        .mock_auths(&[MockAuth {
+            address: &buyer,
+            invoke: &MockAuthInvoke {
+                contract: &contract_id,
+                fn_name: "create_session",
+                args: (
+                    buyer.clone(),
+                    seller.clone(),
+                    first_asset.clone(),
+                    100_i128,
+                    50_u32,
+                    resource_hash.clone(),
+                )
+                    .into_val(&env),
+                sub_invokes: &[MockAuthInvoke {
+                    contract: &first_asset,
+                    fn_name: "transfer",
+                    args: (buyer.clone(), contract_id.clone(), 100_i128).into_val(&env),
+                    sub_invokes: &[],
+                }],
+            },
+        }])
+        .create_session(&buyer, &seller, &first_asset, &100, &50, &resource_hash);
+}
+
+#[test]
+fn admin_cap_updates_emit_events_and_do_not_rewrite_existing_sessions() {
+    let env = Env::default();
+    env.mock_all_auths_allowing_non_root_auth();
+    let contract_id = env.register(UptoSessionContract, ());
+    let client = UptoSessionContractClient::new(&env, &contract_id);
+    let admin = Address::generate(&env);
+    let buyer = Address::generate(&env);
+    let seller = Address::generate(&env);
+    let asset = create_test_asset(&env, &buyer, 250);
+    client.initialize(&admin, &soroban_sdk::vec![&env, asset_policy(&asset, 100)]);
+    let resource_hash = BytesN::from_array(&env, &[64; 32]);
+    let session_id = client.create_session(&buyer, &seller, &asset, &100, &50, &resource_hash);
+
+    client.set_asset_max_session_amount(&asset, &50);
+
+    let expected_event = events::AssetSessionCapUpdated {
+        asset: asset.clone(),
+        admin: admin.clone(),
+        previous_max_session_amount: 100,
+        new_max_session_amount: 50,
+        event_version: 3,
+    }
+    .to_xdr(&env, &contract_id);
+    assert_eq!(
+        env.events()
+            .all()
+            .filter_by_contract(&contract_id)
+            .events()
+            .last(),
+        Some(&expected_event)
+    );
+    assert_eq!(client.get_asset_max_session_amount(&asset), 50);
+    assert_eq!(client.get_session(&session_id).max_amount, 100);
+    assert_eq!(
+        client.try_create_session(&buyer, &seller, &asset, &51, &50, &resource_hash),
+        Err(Ok(ContractError::AmountExceedsCap))
+    );
+}
+
+#[test]
+fn cap_updates_require_the_current_admin() {
+    let env = Env::default();
+    let contract_id = env.register(UptoSessionContract, ());
+    let client = UptoSessionContractClient::new(&env, &contract_id);
+    let admin = Address::generate(&env);
+    let attacker = Address::generate(&env);
+    let asset = Address::generate(&env);
+    let policies = soroban_sdk::vec![&env, asset_policy(&asset, 100)];
+    client
+        .mock_auths(&[MockAuth {
+            address: &admin,
+            invoke: &MockAuthInvoke {
+                contract: &contract_id,
+                fn_name: "initialize",
+                args: (admin.clone(), policies.clone()).into_val(&env),
+                sub_invokes: &[],
+            },
+        }])
+        .initialize(&admin, &policies);
+
+    let result = client
+        .mock_auths(&[MockAuth {
+            address: &attacker,
+            invoke: &MockAuthInvoke {
+                contract: &contract_id,
+                fn_name: "set_asset_max_session_amount",
+                args: (asset.clone(), 50_i128).into_val(&env),
+                sub_invokes: &[],
+            },
+        }])
+        .try_set_asset_max_session_amount(&asset, &50);
+
+    assert!(result.is_err());
+    assert_eq!(client.get_asset_max_session_amount(&asset), 100);
 }
 
 #[test]
@@ -502,18 +676,18 @@ fn create_session_requires_buyer_auth() {
     let seller = Address::generate(&env);
     let asset = Address::generate(&env);
     let resource_hash = BytesN::from_array(&env, &[5; 32]);
-    let supported_assets = soroban_sdk::vec![&env, asset.clone()];
+    let asset_policies = soroban_sdk::vec![&env, asset_policy(&asset, 500)];
     client
         .mock_auths(&[MockAuth {
             address: &admin,
             invoke: &MockAuthInvoke {
                 contract: &contract_id,
                 fn_name: "initialize",
-                args: (admin.clone(), supported_assets.clone()).into_val(&env),
+                args: (admin.clone(), asset_policies.clone()).into_val(&env),
                 sub_invokes: &[],
             },
         }])
-        .initialize(&admin, &supported_assets);
+        .initialize(&admin, &asset_policies);
 
     let result = client.try_create_session(&buyer, &seller, &asset, &500, &25, &resource_hash);
 

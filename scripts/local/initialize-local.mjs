@@ -15,6 +15,10 @@ const contracts = manifest.contracts || {};
 const admin = process.env.LUMENBAZAAR_ADMIN || source;
 const tokenAdmin = process.env.LUMENBAZAAR_TEST_TOKEN_ADMIN || admin;
 const policyOwner = process.env.LUMENBAZAAR_POLICY_OWNER || admin;
+const maxSessionAmount = process.env.LUMENBAZAAR_MAX_SESSION_AMOUNT || "1000000000";
+if (!/^[1-9][0-9]*$/.test(maxSessionAmount)) {
+  throw new Error("LUMENBAZAAR_MAX_SESSION_AMOUNT must be a positive integer");
+}
 const uptoSessionContract =
   process.env.LUMENBAZAAR_UPTO_SESSION_CONTRACT_ID ||
   contracts["upto-session"]?.contractId ||
@@ -44,8 +48,10 @@ invokeContract({
     "initialize",
     "--admin",
     admin,
-    "--supported_assets",
-    JSON.stringify([testTokenContract]),
+    "--asset_policies",
+    JSON.stringify([
+      { asset: testTokenContract, max_session_amount: maxSessionAmount },
+    ]),
   ],
   dryRun,
 });
