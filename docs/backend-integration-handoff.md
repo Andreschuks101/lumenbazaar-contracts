@@ -25,28 +25,44 @@ No production contract ID is committed in this repository yet.
 
 - TypeScript package: `bindings/upto-session`
 - Canonical spec artifact: `artifacts/spec/upto-session.json`
-- Decoding fixture: `artifacts/interface/upto-session-v2.json`
+- Decoding fixture: `artifacts/interface/upto-session-v3.json`
 - Binding regeneration: `node scripts/generate-bindings.mjs`
 - Spec regeneration: `node scripts/generate-specs.mjs`
 
 Backend services should prefer the generated TypeScript package for transaction construction and result decoding.
 
-The corrected escrow contract and generated package are version `0.2.0`; the
-public `interface_version()` result and every public event use interface/event
-version `2`.
+The asset-lifecycle escrow contract and generated package are version `0.3.0`.
+The public `interface_version()` result is `3`; session lifecycle events retain
+event version `2`, while asset lifecycle events use version `3`.
 
 ## Upto Session Functions
 
 | Function | Backend use |
 | --- | --- |
-| `interface_version()` | Require result `2` before decoding v2 session state or events. |
+| `interface_version()` | Require result `3` before using asset lifecycle methods. |
 | `initialize(admin, supported_assets)` | One-time deployment setup with an immutable non-empty token allowlist. Do not call from request handlers. |
 | `create_session(buyer, seller, asset, max_amount, expires_at_ledger, resource_hash)` | Create a buyer-authorized spending cap and escrow the full cap for a resource. |
+| `deprecate_asset(asset)` | Admin-authorized transition from active to deprecated; blocks new sessions without changing existing sessions. |
+| `remove_asset(asset)` | Admin-authorized final removal after deprecation and only when recorded liability is exactly zero. |
 | `get_session(session_id)` | Read current session state for API responses, reconciliation, and settlement guards. |
 | `settle(session_id, actual_amount, usage_hash)` | Seller-authorized settlement for actual usage. |
 | `cancel(session_id)` | Buyer-authorized cancellation before settlement. |
 | `recover_expired(session_id)` | Permissionless full refund to the stored buyer at or after expiry. |
 | `extend_ttl(session_id)` | Extend storage TTL for still-open sessions. |
+
+## V2 To V3 Compatibility
+
+Version 3 is a replacement deployment, not an in-place upgrade. Supported
+assets use explicit `Active` and `Deprecated` states rather than a boolean
+marker. Initialize the replacement with the reviewed active set and keep every
+existing v2 session routed to its original contract. The machine-readable
+migration evidence is `artifacts/interface/migrations/v2-to-v3.json`.
+
+Deprecation changes only admission: `create_session` returns `UnsupportedAsset`
+for a deprecated asset. Settlement, cancellation, and expiry recovery use the
+asset recorded in each existing session and remain available. Removal deletes
+only the activation state and is rejected until aggregate liability is zero;
+it never transfers escrow or redirects a refund.
 
 ## V1 To V2 Compatibility
 
@@ -84,6 +100,9 @@ their names and values, while codes 14 through 22 are additive.
 | 20 | `NotInitialized` | Initialize a new deployment before creating sessions. |
 | 21 | `SessionExpired` | Treat as finalized by expiry recovery. |
 | 22 | `SessionNotExpired` | Do not recover before the exact expiry ledger. |
+| 23 | `AssetNotActive` | Do not deprecate an unknown or already deprecated asset. |
+| 24 | `AssetNotDeprecated` | Deprecate the asset before requesting final removal. |
+| 25 | `AssetLiabilityOutstanding` | Settle, cancel, or recover every open session before removal. |
 
 ## Hash Inputs
 

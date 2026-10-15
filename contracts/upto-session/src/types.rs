@@ -2,6 +2,13 @@ use soroban_sdk::{contracttype, Address, BytesN};
 
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub enum AssetStatus {
+    Active,
+    Deprecated,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum SessionStatus {
     Open,
     Settled,

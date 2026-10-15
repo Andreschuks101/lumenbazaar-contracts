@@ -101,7 +101,7 @@ fn public_interface_is_callable() {
     let asset = create_test_asset(&env, &buyer, 300);
     let resource_hash = BytesN::from_array(&env, &[7; 32]);
 
-    assert_eq!(client.interface_version(), 2);
+    assert_eq!(client.interface_version(), 3);
 
     initialize_for_asset(&env, &client, &buyer, &asset);
 
@@ -812,6 +812,185 @@ fn settlement_isolates_concurrent_sessions_sharing_an_asset() {
     assert_eq!(token_client.balance(&buyer), 250);
     assert_eq!(token_client.balance(&seller), 750);
     assert_eq!(token_client.balance(&contract_id), 0);
+}
+
+#[test]
+fn asset_deprecation_requires_admin_and_blocks_new_sessions() {
+    let env = Env::default();
+    let contract_id = env.register(UptoSessionContract, ());
+    let client = UptoSessionContractClient::new(&env, &contract_id);
+    let admin = Address::generate(&env);
+    let attacker = Address::generate(&env);
+    let asset = Address::generate(&env);
+    let supported_assets = soroban_sdk::vec![&env, asset.clone()];
+
+    client
+        .mock_auths(&[MockAuth {
+            address: &admin,
+            invoke: &MockAuthInvoke {
+                contract: &contract_id,
+                fn_name: "initialize",
+                args: (admin.clone(), supported_assets.clone()).into_val(&env),
+                sub_invokes: &[],
+            },
+        }])
+        .initialize(&admin, &supported_assets);
+
+    let unauthorized = client
+        .mock_auths(&[MockAuth {
+            address: &attacker,
+            invoke: &MockAuthInvoke {
+                contract: &contract_id,
+                fn_name: "deprecate_asset",
+                args: (asset.clone(),).into_val(&env),
+                sub_invokes: &[],
+            },
+        }])
+        .try_deprecate_asset(&asset);
+    assert!(unauthorized.is_err());
+    env.as_contract(&contract_id, || {
+        assert_eq!(
+            storage::read_asset_status(&env, &asset),
+            Some(AssetStatus::Active)
+        );
+    });
+
+    client
+        .mock_auths(&[MockAuth {
+            address: &admin,
+            invoke: &MockAuthInvoke {
+                contract: &contract_id,
+                fn_name: "deprecate_asset",
+                args: (asset.clone(),).into_val(&env),
+                sub_invokes: &[],
+            },
+        }])
+        .deprecate_asset(&asset);
+    assert_eq!(
+        env.events().all().filter_by_contract(&contract_id),
+        std::vec![events::AssetDeprecated {
+            asset: asset.clone(),
+            admin: admin.clone(),
+            event_version: 3,
+        }
+        .to_xdr(&env, &contract_id)]
+    );
+    env.as_contract(&contract_id, || {
+        assert_eq!(
+            storage::read_asset_status(&env, &asset),
+            Some(AssetStatus::Deprecated)
+        );
+    });
+    assert_eq!(
+        client
+            .mock_auths(&[MockAuth {
+                address: &admin,
+                invoke: &MockAuthInvoke {
+                    contract: &contract_id,
+                    fn_name: "deprecate_asset",
+                    args: (asset.clone(),).into_val(&env),
+                    sub_invokes: &[],
+                },
+            }])
+            .try_deprecate_asset(&asset),
+        Err(Ok(ContractError::AssetNotActive))
+    );
+
+    let buyer = Address::generate(&env);
+    let seller = Address::generate(&env);
+    let resource_hash = BytesN::from_array(&env, &[71; 32]);
+    assert_eq!(
+        client.try_create_session(&buyer, &seller, &asset, &100, &50, &resource_hash),
+        Err(Ok(ContractError::UnsupportedAsset))
+    );
+}
+
+#[test]
+fn deprecated_asset_terminal_paths_clear_liability_before_removal() {
+    let env = Env::default();
+    env.mock_all_auths_allowing_non_root_auth();
+    let contract_id = env.register(UptoSessionContract, ());
+    let client = UptoSessionContractClient::new(&env, &contract_id);
+    let admin = Address::generate(&env);
+    let buyer = Address::generate(&env);
+    let seller = Address::generate(&env);
+    let asset = create_test_asset(&env, &buyer, 900);
+    initialize_for_asset(&env, &client, &admin, &asset);
+
+    let settle_id = client.create_session(
+        &buyer,
+        &seller,
+        &asset,
+        &300,
+        &50,
+        &BytesN::from_array(&env, &[72; 32]),
+    );
+    let cancel_id = client.create_session(
+        &buyer,
+        &seller,
+        &asset,
+        &300,
+        &50,
+        &BytesN::from_array(&env, &[73; 32]),
+    );
+    let recover_id = client.create_session(
+        &buyer,
+        &seller,
+        &asset,
+        &300,
+        &50,
+        &BytesN::from_array(&env, &[74; 32]),
+    );
+
+    client.deprecate_asset(&asset);
+    assert_eq!(
+        client.try_remove_asset(&asset),
+        Err(Ok(ContractError::AssetLiabilityOutstanding))
+    );
+
+    client.settle(&settle_id, &125, &BytesN::from_array(&env, &[75; 32]));
+    client.cancel(&cancel_id);
+    env.ledger().set_sequence_number(50);
+    client.recover_expired(&recover_id);
+
+    assert_eq!(
+        client.get_session(&settle_id).status,
+        SessionStatus::Settled
+    );
+    assert_eq!(
+        client.get_session(&cancel_id).status,
+        SessionStatus::Cancelled
+    );
+    assert_eq!(
+        client.get_session(&recover_id).status,
+        SessionStatus::Expired
+    );
+    env.as_contract(&contract_id, || {
+        assert_eq!(storage::read_liability(&env, &asset), 0);
+    });
+
+    client.remove_asset(&asset);
+    let expected = events::AssetRemoved {
+        asset: asset.clone(),
+        admin: admin.clone(),
+        event_version: 3,
+    }
+    .to_xdr(&env, &contract_id);
+    assert_eq!(
+        env.events()
+            .all()
+            .filter_by_contract(&contract_id)
+            .events()
+            .last(),
+        Some(&expected)
+    );
+    env.as_contract(&contract_id, || {
+        assert_eq!(storage::read_asset_status(&env, &asset), None);
+    });
+    assert_eq!(
+        client.try_remove_asset(&asset),
+        Err(Ok(ContractError::AssetNotDeprecated))
+    );
 }
 
 #[test]

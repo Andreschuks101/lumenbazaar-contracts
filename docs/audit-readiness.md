@@ -6,16 +6,18 @@ This package describes the current review boundary for LumenBazaar contracts.
 
 The review target is the `upto-session` contract public interface:
 
-- `interface_version()` -> `2`
+- `interface_version()` -> `3`
 - `initialize(admin, supported_assets)`
 - `create_session(buyer, seller, asset, max_amount, expires_at_ledger, resource_hash)`
+- `deprecate_asset(asset)`
+- `remove_asset(asset)`
 - `get_session(session_id)`
 - `settle(session_id, actual_amount, usage_hash)`
 - `cancel(session_id)`
 - `recover_expired(session_id)`
 - `extend_ttl(session_id)`
 
-The frozen interface evidence is stored in `artifacts/audit-readiness/interface-freeze.json`. It hashes the public contract files, generated XDR spec, versioned TypeScript binding, and the complete public event/error fixture at `artifacts/interface/upto-session-v2.json`.
+The frozen interface evidence is stored in `artifacts/audit-readiness/interface-freeze.json`. It hashes the public contract files, generated XDR spec, versioned TypeScript binding, and the complete public event/error fixture at `artifacts/interface/upto-session-v3.json`.
 
 Regenerate only after an intentional interface change:
 
@@ -71,7 +73,7 @@ Out of scope until later review:
 
 The current workspace test suite covers:
 
-- `upto-session`: 66 tests, including a 128-case deterministic property campaign.
+- `upto-session`: 68 tests, including a 128-case deterministic property campaign.
 - `policy-wallet-example`: 16 tests.
 - `test-token`: 5 tests.
 

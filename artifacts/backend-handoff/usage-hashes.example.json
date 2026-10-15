@@ -1,6 +1,6 @@
 {
-  "contractVersion": "0.2.0",
-  "interfaceVersion": 2,
+  "contractVersion": "0.3.0",
+  "interfaceVersion": 3,
   "hashAlgorithm": "sha256",
   "encoding": "hex",
   "resourceDescriptorCanonicalJson": "{\"asset\":\"C...\",\"method\":\"GET\",\"resourceId\":\"seller-api-weather-hourly\",\"seller\":\"G...\",\"unit\":\"request\",\"url\":\"https://api.example.test/weather/hourly\"}",
