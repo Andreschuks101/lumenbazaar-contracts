@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "activeRole": "replacement",
+  "deployments": {
+    "old": {
+      "contractId": "C-OLD-ESCROW",
+      "release": "old-v2",
+      "interfaceVersion": 2,
+      "acceptsNewSessions": false
+    },
+    "replacement": {
+      "contractId": "C-REPLACEMENT-ESCROW",
+      "release": "replacement-v2",
+      "interfaceVersion": 2,
+      "acceptsNewSessions": true
+    }
+  },
+  "sessionRoutes": {
+    "old-session-id": "C-OLD-ESCROW",
+    "replacement-session-id": "C-REPLACEMENT-ESCROW"
+  },
+  "transitions": [
+    { "action": "initialize", "activeRole": "old" },
+    { "action": "switch", "activeRole": "replacement" },
+    { "action": "switch", "activeRole": "old" },
+    { "action": "switch", "activeRole": "replacement" },
+    { "action": "deprecate", "role": "old" }
+  ]
+}

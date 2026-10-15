@@ -48,6 +48,11 @@ jobs:
           LUMENBAZAAR_PROPERTY_CASES: "128"
         run: cargo test --workspace --all-features
 
+      - name: Check replacement deployment rehearsal
+        run: |
+          node --test scripts/local/replacement-routing.test.mjs
+          node scripts/local/rehearse-replacement.mjs --dry-run
+
       - name: Build WASM contracts
         run: stellar contract build --locked
 
