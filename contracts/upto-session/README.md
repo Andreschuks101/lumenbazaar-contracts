@@ -6,8 +6,9 @@
 This is contract version `0.3.0` and interface version `3`.
 `interface_version()` is the decoder compatibility check for clients. Version
 3 changes initialization to require an explicit positive cap for every
-supported asset and adds two-step administrator rotation. It requires a new
-deployment and is not wire-compatible with the v2 initialization payload.
+supported asset, adds two-step administrator rotation, and exposes aggregate
+escrow liability. It requires a new deployment and is not wire-compatible with
+the v2 initialization payload.
 
 ## Per-Asset Session Caps
 
@@ -35,6 +36,20 @@ proposal atomically. The old administrator loses privileges in that same
 invocation. The current administrator can call `cancel_admin_rotation()` before
 or after expiry; cancellation never transfers privileges. `get_admin()` and
 `get_admin_rotation()` expose the current state without granting authority.
+
+## Escrow Liability Query
+
+`get_escrow_liability(asset)` returns the checked aggregate amount recorded as
+escrowed across all open sessions for a supported asset. It returns zero when a
+supported asset has no open sessions, `NotInitialized` before setup, and
+`UnsupportedAsset` for an address outside the immutable allowlist.
+
+The liability increases atomically with successful session creation and
+decreases by the full session escrow on settlement, cancellation, or expiry
+recovery. It is an accounting value, not session enumeration. Integrators
+should compare it with the contract's token balance; a balance lower than the
+reported liability indicates under-collateralization, while a higher balance
+may include unsolicited token transfers.
 
 ## Session ID Derivation
 

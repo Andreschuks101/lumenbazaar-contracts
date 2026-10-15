@@ -17,6 +17,7 @@ The review target is the `upto-session` contract public interface:
 - `cancel_admin_rotation()`
 - `create_session(buyer, seller, asset, max_amount, expires_at_ledger, resource_hash)`
 - `get_session(session_id)`
+- `get_escrow_liability(asset)`
 - `settle(session_id, actual_amount, usage_hash)`
 - `cancel(session_id)`
 - `recover_expired(session_id)`
@@ -79,7 +80,7 @@ Out of scope until later review:
 
 The current workspace test suite covers:
 
-- `upto-session`: 74 tests, including a 128-case deterministic property campaign.
+- `upto-session`: 76 tests, including a 128-case deterministic property campaign.
 - `policy-wallet-example`: 16 tests.
 - `test-token`: 5 tests.
 

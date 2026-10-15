@@ -31,6 +31,7 @@ const requiredFunctions = [
   "cancel_admin_rotation",
   "create_session",
   "get_session",
+  "get_escrow_liability",
   "settle",
   "cancel",
   "recover_expired",

@@ -607,6 +607,31 @@
       "inputs": [
         {
           "doc": "",
+          "name": "asset",
+          "type": "address"
+        }
+      ],
+      "name": "get_escrow_liability",
+      "outputs": [
+        {
+          "result": {
+            "error_type": {
+              "udt": {
+                "name": "ContractError"
+              }
+            },
+            "ok_type": "i128"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "function_v0": {
+      "doc": "",
+      "inputs": [
+        {
+          "doc": "",
           "name": "session_id",
           "type": {
             "bytes_n": {

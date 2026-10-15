@@ -39,7 +39,7 @@ event version `2`; asset-cap and administrator-rotation events use version `3`.
 
 | Function | Backend use |
 | --- | --- |
-| `interface_version()` | Require result `3` before encoding v3 initialization, cap-policy calls, or administrator rotation. |
+| `interface_version()` | Require result `3` before encoding v3 initialization, cap-policy calls, administrator rotation, or liability queries. |
 | `initialize(admin, asset_policies)` | One-time deployment setup with a non-empty list of unique assets and positive explicit session caps. Do not call from request handlers. |
 | `get_asset_max_session_amount(asset)` | Read the active creation cap for a supported asset. |
 | `set_asset_max_session_amount(asset, max_session_amount)` | Authenticated administrator update for future sessions only. |
@@ -50,6 +50,7 @@ event version `2`; asset-cap and administrator-rotation events use version `3`.
 | `cancel_admin_rotation()` | Current-admin-authorized removal of a pending or expired proposal. |
 | `create_session(buyer, seller, asset, max_amount, expires_at_ledger, resource_hash)` | Create a buyer-authorized spending cap and escrow the full cap for a resource. |
 | `get_session(session_id)` | Read current session state for API responses, reconciliation, and settlement guards. |
+| `get_escrow_liability(asset)` | Read aggregate open-session escrow accounting for a supported asset and compare it with contract token custody. |
 | `settle(session_id, actual_amount, usage_hash)` | Seller-authorized settlement for actual usage. |
 | `cancel(session_id)` | Buyer-authorized cancellation before settlement. |
 | `recover_expired(session_id)` | Permissionless full refund to the stored buyer at or after expiry. |
@@ -59,11 +60,12 @@ event version `2`; asset-cap and administrator-rotation events use version `3`.
 
 Version 3 is a new deployment, not an in-place upgrade. It replaces the v2
 `initialize(admin, supported_assets)` payload with explicit `AssetPolicy`
-values, adds cap query/update methods, and adds two-step administrator rotation.
-A backend must reject a contract whose `interface_version()` is not `3` before
-using v3 calls. Existing error codes 1 through 22 retain their names and values;
-codes 23 through 29 are additive. Published v2 deployment records remain
-historical evidence and do not represent a deployed v3 contract.
+values, adds cap query/update methods, adds two-step administrator rotation,
+and exposes `get_escrow_liability(asset)`. A backend must reject a contract
+whose `interface_version()` is not `3` before using v3 calls. Existing error
+codes 1 through 22 retain their names and values; codes 23 through 29 are
+additive. Published v2 deployment records remain historical evidence and do
+not represent a deployed v3 contract.
 
 ## Stable Errors
 

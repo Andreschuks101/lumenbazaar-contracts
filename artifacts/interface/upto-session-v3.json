@@ -1,7 +1,7 @@
 {
   "contractVersion": "0.3.0",
   "interfaceVersion": 3,
-  "sourceSpecSha256": "381c49127e8d46bb5c61819b6793f38f7e0c85c7870da8f5e3610a64c9e17a98",
+  "sourceSpecSha256": "0af044b31209b83bd3c1ce63d7ca8856354cb7835b2abac2b686a07e39c5baaa",
   "methods": [
     "accept_admin",
     "cancel",
@@ -11,6 +11,7 @@
     "get_admin",
     "get_admin_rotation",
     "get_asset_max_session_amount",
+    "get_escrow_liability",
     "get_session",
     "initialize",
     "interface_version",

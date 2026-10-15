@@ -4,7 +4,7 @@
   "files": [
     {
       "path": "contracts/upto-session/src/lib.rs",
-      "sha256": "305a700805066ea51f335cb6b2fc3d9a72049cf634120113d6461864154cb1d2"
+      "sha256": "3d7b373cd9fbb3c5114724a523b298e357f2746b17e7b19842f3090ecec36b5c"
     },
     {
       "path": "contracts/upto-session/src/types.rs",
@@ -20,11 +20,11 @@
     },
     {
       "path": "artifacts/spec/upto-session.json",
-      "sha256": "381c49127e8d46bb5c61819b6793f38f7e0c85c7870da8f5e3610a64c9e17a98"
+      "sha256": "0af044b31209b83bd3c1ce63d7ca8856354cb7835b2abac2b686a07e39c5baaa"
     },
     {
       "path": "bindings/upto-session/src/index.ts",
-      "sha256": "7f36ca87b8f51d63358b96f35570e76dbb0995cd134643be7f5d5ddb02fb22a9"
+      "sha256": "e65fa6d0c03a15a836d9a1b213ea750ab9369c6bf2980dcd50148641046caa79"
     },
     {
       "path": "bindings/upto-session/package.json",
@@ -32,7 +32,7 @@
     },
     {
       "path": "artifacts/interface/upto-session-v3.json",
-      "sha256": "ca7abe36f32a99cee9b87ca2ec420d60009b05bea7a0e5746f9687e06fa063bc"
+      "sha256": "b909b06d113597fa0c0ef465cd2c603fa9efa1ca508178ea04fdd207cb23b68e"
     }
   ]
 }
