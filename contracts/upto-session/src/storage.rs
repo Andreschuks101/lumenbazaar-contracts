@@ -1,7 +1,7 @@
-use crate::{ContractError, Session};
-use soroban_sdk::{contracttype, Address, BytesN, Env};
+use crate::{ContractError, OperationalState, Session};
+use soroban_sdk::{contracttype, Address, BytesN, Env, Vec};
 
-pub const STORAGE_LAYOUT_VERSION: u32 = 2;
+pub const STORAGE_LAYOUT_VERSION: u32 = 3;
 pub const DEFAULT_TTL_THRESHOLD: u32 = 100_000;
 pub const TTL_EXTENSION_AMOUNT: u32 = 1_000_000;
 
@@ -13,6 +13,8 @@ pub enum DataKey {
     Session(BytesN<32>),
     StorageLayoutVersion,
     SupportedAsset(Address),
+    SupportedAssets,
+    OperationalState,
     Liability(Address),
 }
 
@@ -47,6 +49,32 @@ pub fn is_supported_asset(env: &Env, asset: &Address) -> bool {
         .instance()
         .get(&DataKey::SupportedAsset(asset.clone()))
         .unwrap_or(false)
+}
+
+pub fn write_supported_assets(env: &Env, assets: &Vec<Address>) {
+    env.storage()
+        .instance()
+        .set(&DataKey::SupportedAssets, assets);
+}
+
+pub fn read_supported_assets(env: &Env) -> Vec<Address> {
+    env.storage()
+        .instance()
+        .get(&DataKey::SupportedAssets)
+        .unwrap_or(Vec::new(env))
+}
+
+pub fn write_operational_state(env: &Env, state: &OperationalState) {
+    env.storage()
+        .instance()
+        .set(&DataKey::OperationalState, state);
+}
+
+pub fn read_operational_state(env: &Env) -> OperationalState {
+    env.storage()
+        .instance()
+        .get(&DataKey::OperationalState)
+        .unwrap_or(OperationalState::Active)
 }
 
 pub fn read_liability(env: &Env, asset: &Address) -> i128 {

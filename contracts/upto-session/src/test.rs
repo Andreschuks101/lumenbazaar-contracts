@@ -101,7 +101,7 @@ fn public_interface_is_callable() {
     let asset = create_test_asset(&env, &buyer, 300);
     let resource_hash = BytesN::from_array(&env, &[7; 32]);
 
-    assert_eq!(client.interface_version(), 2);
+    assert_eq!(client.interface_version(), 3);
 
     initialize_for_asset(&env, &client, &buyer, &asset);
 
@@ -264,6 +264,67 @@ fn initialize_stores_admin_once() {
 }
 
 #[test]
+fn configuration_query_returns_bounded_versioned_public_state() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let contract_id = env.register(UptoSessionContract, ());
+    let client = UptoSessionContractClient::new(&env, &contract_id);
+    let admin = Address::generate(&env);
+    let first_asset = Address::generate(&env);
+    let second_asset = Address::generate(&env);
+    let assets = soroban_sdk::vec![&env, first_asset.clone(), second_asset.clone()];
+
+    assert_eq!(
+        client.try_get_configuration(),
+        Err(Ok(ContractError::NotInitialized))
+    );
+    client.initialize(&admin, &assets);
+
+    assert_eq!(
+        client.get_configuration(),
+        ContractConfiguration {
+            response_version: CONFIGURATION_RESPONSE_VERSION,
+            interface_version: INTERFACE_VERSION,
+            storage_layout_version: storage::STORAGE_LAYOUT_VERSION,
+            admin,
+            supported_assets: assets,
+            max_supported_assets: MAX_SUPPORTED_ASSETS,
+            operational_state: OperationalState::Active,
+            instance_ttl_threshold: storage::DEFAULT_TTL_THRESHOLD,
+            instance_ttl_extension: storage::TTL_EXTENSION_AMOUNT,
+        }
+    );
+}
+
+#[test]
+fn configuration_query_decodes_paused_and_deprecated_states() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let contract_id = env.register(UptoSessionContract, ());
+    let client = UptoSessionContractClient::new(&env, &contract_id);
+    let admin = Address::generate(&env);
+    let asset = Address::generate(&env);
+    client.initialize(&admin, &soroban_sdk::vec![&env, asset]);
+
+    env.as_contract(&contract_id, || {
+        storage::write_operational_state(&env, &OperationalState::Paused);
+    });
+    assert_eq!(
+        client.get_configuration().operational_state,
+        OperationalState::Paused
+    );
+
+    env.as_contract(&contract_id, || {
+        storage::write_operational_state(&env, &OperationalState::Deprecated);
+    });
+    assert_eq!(
+        client.get_configuration().operational_state,
+        OperationalState::Deprecated
+    );
+    assert_eq!(client.interface_version(), INTERFACE_VERSION);
+}
+
+#[test]
 fn initialize_rejects_empty_or_duplicate_supported_assets() {
     let env = Env::default();
     env.mock_all_auths();
@@ -281,6 +342,17 @@ fn initialize_rejects_empty_or_duplicate_supported_assets() {
     let asset = Address::generate(&env);
     assert_eq!(
         duplicate_client.try_initialize(&admin, &soroban_sdk::vec![&env, asset.clone(), asset]),
+        Err(Ok(ContractError::InvalidSupportedAssets))
+    );
+
+    let oversized_id = env.register(UptoSessionContract, ());
+    let oversized_client = UptoSessionContractClient::new(&env, &oversized_id);
+    let mut oversized = soroban_sdk::Vec::new(&env);
+    for _ in 0..=MAX_SUPPORTED_ASSETS {
+        oversized.push_back(Address::generate(&env));
+    }
+    assert_eq!(
+        oversized_client.try_initialize(&admin, &oversized),
         Err(Ok(ContractError::InvalidSupportedAssets))
     );
 }
