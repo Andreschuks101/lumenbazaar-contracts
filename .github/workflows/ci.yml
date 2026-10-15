@@ -48,6 +48,9 @@ jobs:
           LUMENBAZAAR_PROPERTY_CASES: "128"
         run: cargo test --workspace --all-features
 
+      - name: Check native differential fixtures
+        run: node scripts/run-native-rpc-differential.mjs --native-only
+
       - name: Build WASM contracts
         run: stellar contract build --locked
 

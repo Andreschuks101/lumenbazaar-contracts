@@ -1,0 +1,55 @@
+name: Native RPC Differential
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 5 * * 3"
+
+permissions:
+  contents: read
+
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Install Rust
+        run: |
+          rustup toolchain install 1.93.1 --profile minimal
+          rustup default 1.93.1
+
+      - name: Install Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22.12.0
+
+      - name: Install Stellar CLI
+        run: |
+          curl -fsSL https://github.com/stellar/stellar-cli/releases/download/v28.0.0/stellar-cli-28.0.0-x86_64-unknown-linux-gnu.tar.gz -o stellar-cli.tar.gz
+          tar -xzf stellar-cli.tar.gz
+          sudo mv stellar /usr/local/bin/stellar
+          stellar version
+
+      - name: Run simulation-only differential
+        id: differential
+        shell: bash
+        run: |
+          set +e
+          node scripts/run-native-rpc-differential.mjs --output "${{ runner.temp }}/native-rpc-differential.json"
+          code=$?
+          set -e
+          if [ "$code" -eq 2 ]; then
+            echo "::warning::Public testnet RPC was unavailable; see the uploaded outage report."
+            exit 0
+          fi
+          exit "$code"
+
+      - name: Upload differential report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-rpc-differential
+          path: ${{ runner.temp }}/native-rpc-differential.json
+          if-no-files-found: error
