@@ -1,6 +1,6 @@
 use soroban_sdk::{
     contract, contracterror, contractimpl, contracttype, Address, BytesN, Env, Error, IntoVal,
-    Symbol,
+    String, Symbol,
 };
 
 #[contracttype]
@@ -135,6 +135,18 @@ impl ReentryTokenContract {
 
     pub fn balance(env: Env, id: Address) -> i128 {
         read_balance(&env, &id)
+    }
+
+    pub fn decimals() -> u32 {
+        7
+    }
+
+    pub fn name(env: Env) -> String {
+        String::from_str(&env, "LumenBazaar Reentry Token")
+    }
+
+    pub fn symbol(env: Env) -> String {
+        String::from_str(&env, "LRT")
     }
 
     pub fn callback_rejected(env: Env) -> bool {
