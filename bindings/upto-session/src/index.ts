@@ -169,3 +169,5 @@ export class Client extends ContractClient {
         interface_version: this.txFromJSON<u32>
   }
 }
+
+export * from "./usageReceipt.js";

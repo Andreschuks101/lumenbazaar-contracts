@@ -65,6 +65,9 @@ jobs:
           npm --prefix bindings/upto-session run build
           node scripts/smoke-upto-session-bindings.mjs
 
+      - name: Check usage receipt commitments
+        run: node scripts/check-usage-receipt-fixtures.mjs
+
       - name: Check interface fixtures
         run: node scripts/generate-interface-fixtures.mjs --check
 
