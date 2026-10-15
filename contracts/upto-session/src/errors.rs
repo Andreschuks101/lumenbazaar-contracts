@@ -27,6 +27,7 @@ pub enum ContractError {
     SessionExpired = 21,
     SessionNotExpired = 22,
     InvalidBatchSize = 23,
+    InvalidAssetInterface = 24,
 }
 
 #[cfg(test)]
@@ -58,5 +59,6 @@ mod tests {
         assert_eq!(ContractError::SessionExpired as u32, 21);
         assert_eq!(ContractError::SessionNotExpired as u32, 22);
         assert_eq!(ContractError::InvalidBatchSize as u32, 23);
+        assert_eq!(ContractError::InvalidAssetInterface as u32, 24);
     }
 }

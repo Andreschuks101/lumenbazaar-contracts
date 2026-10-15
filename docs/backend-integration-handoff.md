@@ -34,14 +34,14 @@ Backend services should prefer the generated TypeScript package for transaction 
 
 The escrow contract is version `0.3.0` and the generated package is version
 `3.0.0`; `interface_version()` returns `3`. Existing session events retain
-event version `2` because their payloads are unchanged.
+event version `2`; the asset-activation event uses version `3`.
 
 ## Upto Session Functions
 
 | Function | Backend use |
 | --- | --- |
-| `interface_version()` | Require result `3` before using the v3 configuration and batch-recovery interfaces. |
-| `initialize(admin, supported_assets)` | One-time deployment setup with an immutable allowlist of one to 16 token contracts. Do not call from request handlers. |
+| `interface_version()` | Require result `3` before using v3 configuration, batch recovery, and activation evidence. |
+| `initialize(admin, supported_assets)` | Admin-authorized one-time setup for one to 16 assets. Every asset must pass the bounded read-only probe before the immutable allowlist is committed. |
 | `get_configuration()` | Read response/interface/storage versions, administrator, bounded supported assets, operational state, and instance TTL policy without authorization. |
 | `create_session(buyer, seller, asset, max_amount, expires_at_ledger, resource_hash)` | Create a buyer-authorized spending cap and escrow the full cap for a resource. |
 | `get_session(session_id)` | Read current session state for API responses, reconciliation, and settlement guards. |
@@ -53,16 +53,25 @@ event version `2` because their payloads are unchanged.
 
 ## V2 To V3 Compatibility
 
-Version 3 adds `get_configuration`, bounded batch recovery, their result
-schemas, and a bounded initialization-order asset list plus operational state.
-Existing v2 session methods, records, and event payloads retain their shapes.
-The configuration response has its own `response_version` field, currently
-`1`, so backend decoders can fail closed on future schema revisions.
+Version 3 adds `get_configuration`, bounded batch recovery, their result schemas,
+a bounded initialization-order asset list plus operational state, and supported
+asset validation with activation events. Existing v2 session methods, records,
+and event payloads retain their shapes. The configuration response has its own
+`response_version` field, currently `1`, so backend decoders can fail closed on
+future schema revisions.
 
 `operational_state` can decode `Active`, `Paused`, or `Deprecated`. This release
 initializes new contracts as `Active` and exposes no public state-transition
 method; pause and deprecation authority remain outside this query-only change.
-Backends must select the v3 fixture before invoking either new method.
+Backends must select the v3 fixture before invoking either new method. Version 3
+also emits one `AssetActivated` event per accepted asset. Error codes 23 and 24
+and the new event are additive.
+
+The probe reads balances for the administrator and escrow address, decimals,
+name, and symbol. It rejects negative balances, decimals above 38, empty or
+oversized metadata, missing methods, and reverting contracts. It never calls
+`transfer` or `mint`. A successful probe is point-in-time compatibility
+evidence, not a guarantee of future token behavior.
 
 ## V1 To V2 Compatibility
 
@@ -73,7 +82,7 @@ Version 2 is a new deployment, not an in-place upgrade. It changes
 payloads. A backend must reject a contract whose `interface_version()` is not
 `2`; decoding it with v2 types is not supported. Error codes 1 through 13 retain
 their names and values, while codes 14 through 22 are additive. Version 3 adds
-code 23 without changing the earlier mappings.
+codes 23 and 24 without changing the earlier mappings.
 
 ## Stable Errors
 
@@ -102,6 +111,7 @@ code 23 without changing the earlier mappings.
 | 21 | `SessionExpired` | Treat as finalized by expiry recovery. |
 | 22 | `SessionNotExpired` | Do not recover before the exact expiry ledger. |
 | 23 | `InvalidBatchSize` | Supply between one and eight session IDs. |
+| 24 | `InvalidAssetInterface` | Reject an asset whose read-only SEP-41 behavior or metadata is malformed. |
 
 ## Hash Inputs
 

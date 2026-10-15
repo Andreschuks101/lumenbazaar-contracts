@@ -138,7 +138,9 @@ fn policy_wallet_storage_is_isolated_from_upto_session() {
     let upto_session_id = env.register(UptoSessionContract, ());
     let upto_client = UptoSessionContractClient::new(&env, &upto_session_id);
     let owner = Address::generate(&env);
-    let asset = Address::generate(&env);
+    let asset = env
+        .register_stellar_asset_contract_v2(Address::generate(&env))
+        .address();
     let missing_session_id = BytesN::from_array(&env, &[9; 32]);
 
     wallet_client.initialize(&owner, &upto_session_id);

@@ -1,7 +1,7 @@
 {
   "contractVersion": "0.3.0",
   "interfaceVersion": 3,
-  "sourceSpecSha256": "3cd0163ea31a5cb836b820d1dfd32c89c9e4cd1f721e208d68f109584867d281",
+  "sourceSpecSha256": "35189e035b5d57c266b6726fdd97f52ae6e92dbf891d295eabd9de777bb6781b",
   "methods": [
     "cancel",
     "create_session",
@@ -15,6 +15,29 @@
     "settle"
   ],
   "events": [
+    {
+      "name": "AssetActivated",
+      "prefixTopics": [
+        "asset_activated"
+      ],
+      "fields": [
+        {
+          "name": "asset",
+          "location": "topic_list",
+          "type": "address"
+        },
+        {
+          "name": "decimals",
+          "location": "data",
+          "type": "u32"
+        },
+        {
+          "name": "event_version",
+          "location": "data",
+          "type": "u32"
+        }
+      ]
+    },
     {
       "name": "SessionCancelled",
       "prefixTopics": [
@@ -304,6 +327,10 @@
     {
       "name": "InvalidBatchSize",
       "value": 23
+    },
+    {
+      "name": "InvalidAssetInterface",
+      "value": 24
     }
   ]
 }

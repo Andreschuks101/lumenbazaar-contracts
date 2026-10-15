@@ -33,6 +33,9 @@ if (bindings.ContractError?.[22]?.message !== "SessionNotExpired") {
   throw new Error("Expected stable SessionNotExpired error mapping");
 }
 if (bindings.ContractError?.[23]?.message !== "InvalidBatchSize") {
+  throw new Error("Expected stable InvalidBatchSize error mapping");
+}
+if (bindings.ContractError?.[24]?.message !== "InvalidAssetInterface") {
   throw new Error("Expected complete v3 ContractError mapping");
 }
 if (packageJson.version !== "3.0.0") {

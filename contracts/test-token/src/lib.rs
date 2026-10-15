@@ -1,6 +1,8 @@
 #![no_std]
 
 #[cfg(feature = "testutils")]
+pub mod asset_probe;
+#[cfg(feature = "testutils")]
 pub mod reentry;
 
 use soroban_sdk::{contract, contracterror, contractimpl, contracttype, Address, Env, String};

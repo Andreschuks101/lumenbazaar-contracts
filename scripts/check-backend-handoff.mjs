@@ -55,6 +55,7 @@ const requiredErrors = [
   "SessionExpired",
   "SessionNotExpired",
   "InvalidBatchSize",
+  "InvalidAssetInterface",
 ];
 
 for (const item of [...requiredFunctions, ...requiredErrors]) {

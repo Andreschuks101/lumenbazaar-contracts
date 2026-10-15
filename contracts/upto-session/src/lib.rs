@@ -42,11 +42,17 @@ impl UptoSessionContract {
         if supported_assets.is_empty() || supported_assets.len() > MAX_SUPPORTED_ASSETS {
             return Err(ContractError::InvalidSupportedAssets);
         }
+        let mut seen_assets = Vec::new(&env);
         for asset in supported_assets.iter() {
-            if storage::is_supported_asset(&env, &asset) {
+            if seen_assets.iter().any(|seen| seen == asset) {
                 return Err(ContractError::InvalidSupportedAssets);
             }
+            seen_assets.push_back(asset);
+        }
+        for asset in supported_assets.iter() {
+            let probe = validation::validate_supported_asset(&env, &asset, &admin)?;
             storage::write_supported_asset(&env, &asset);
+            events::publish_asset_activated(&env, &asset, probe.decimals);
         }
         storage::write_supported_assets(&env, &supported_assets);
         storage::write_operational_state(&env, &OperationalState::Active);
