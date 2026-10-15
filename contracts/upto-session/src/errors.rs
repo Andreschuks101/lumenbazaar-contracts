@@ -26,6 +26,9 @@ pub enum ContractError {
     NotInitialized = 20,
     SessionExpired = 21,
     SessionNotExpired = 22,
+    AssetNotActive = 23,
+    AssetNotDeprecated = 24,
+    AssetLiabilityOutstanding = 25,
 }
 
 #[cfg(test)]
@@ -56,5 +59,8 @@ mod tests {
         assert_eq!(ContractError::NotInitialized as u32, 20);
         assert_eq!(ContractError::SessionExpired as u32, 21);
         assert_eq!(ContractError::SessionNotExpired as u32, 22);
+        assert_eq!(ContractError::AssetNotActive as u32, 23);
+        assert_eq!(ContractError::AssetNotDeprecated as u32, 24);
+        assert_eq!(ContractError::AssetLiabilityOutstanding as u32, 25);
     }
 }

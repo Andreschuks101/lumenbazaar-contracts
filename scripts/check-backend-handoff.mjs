@@ -23,6 +23,8 @@ const requiredFunctions = [
   "interface_version",
   "initialize",
   "create_session",
+  "deprecate_asset",
+  "remove_asset",
   "get_session",
   "settle",
   "cancel",
@@ -52,6 +54,9 @@ const requiredErrors = [
   "NotInitialized",
   "SessionExpired",
   "SessionNotExpired",
+  "AssetNotActive",
+  "AssetNotDeprecated",
+  "AssetLiabilityOutstanding",
 ];
 
 for (const item of [...requiredFunctions, ...requiredErrors]) {

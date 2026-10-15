@@ -9,6 +9,8 @@ The review target is the `upto-session` contract public interface:
 - `interface_version()` -> `3`
 - `initialize(admin, supported_assets)`
 - `create_session(buyer, seller, asset, max_amount, expires_at_ledger, resource_hash)`
+- `deprecate_asset(asset)`
+- `remove_asset(asset)`
 - `get_session(session_id)`
 - `settle(session_id, actual_amount, usage_hash)`
 - `cancel(session_id)`
@@ -88,7 +90,7 @@ Out of scope until later review:
 
 The current workspace test suite covers:
 
-- `upto-session`: 69 tests, including a 128-case deterministic property campaign.
+- `upto-session`: 73 tests, including a 128-case deterministic property campaign.
 - `policy-wallet-example`: 16 tests.
 - `test-token`: 5 tests.
 

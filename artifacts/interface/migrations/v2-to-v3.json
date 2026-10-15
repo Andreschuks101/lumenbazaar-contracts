@@ -6,11 +6,13 @@
   "deploymentStrategy": "replacement-contract",
   "breakingChanges": [
     "New session IDs include protocol, interface, network, and contract domains.",
-    "Usage commitments use a separately domain-separated XDR preimage."
+    "Usage commitments use a separately domain-separated XDR preimage.",
+    "Supported asset storage changes from a boolean marker to an explicit lifecycle state."
   ],
   "compatibilityNotes": [
     "Route every existing v2 session to its original v2 contract ID.",
     "Do not recompute or reinterpret v2 identifiers using the v3 domain rules.",
-    "Create all new domain-separated sessions on a v3 replacement deployment."
+    "Create all new domain-separated sessions on a v3 replacement deployment initialized with the reviewed active asset set.",
+    "Do not copy a deprecated asset into v3 unless an administrator explicitly reactivates it during deployment review."
   ]
 }

@@ -34,10 +34,12 @@ const methods = spec
   .map((entry) => entry.function_v0.name)
   .sort(compareAscii);
 
-if (events.length !== 4 || errorEntry === undefined) {
-  throw new Error("Expected four public events and ContractError in the canonical spec.");
+if (events.length !== 6 || errorEntry === undefined) {
+  throw new Error("Expected six public events and ContractError in the canonical spec.");
 }
 const expectedEventNames = [
+  "AssetDeprecated",
+  "AssetRemoved",
   "SessionCancelled",
   "SessionCreated",
   "SessionRecovered",
@@ -47,10 +49,10 @@ if (events.map((event) => event.name).join(",") !== expectedEventNames.join(",")
   throw new Error("Canonical spec public event set changed.");
 }
 if (
-  errorEntry.udt_error_enum_v0.cases.length !== 22 ||
+  errorEntry.udt_error_enum_v0.cases.length !== 25 ||
   errorEntry.udt_error_enum_v0.cases.some((entry, index) => entry.value !== index + 1)
 ) {
-  throw new Error("ContractError golden mapping must contain contiguous codes 1 through 22.");
+  throw new Error("ContractError golden mapping must contain contiguous codes 1 through 25.");
 }
 for (const event of events) {
   const version = event.fields.find((field) => field.name === "event_version");

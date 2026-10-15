@@ -1,18 +1,66 @@
 {
   "contractVersion": "0.3.0",
   "interfaceVersion": 3,
-  "sourceSpecSha256": "67ed1207b47164340dd63126c21dbd9cd60967e4c3acd8e8973391232e4450a4",
+  "sourceSpecSha256": "555e30f2790814519d1994deb3f8e786b7b3d069739ce51c8315efd991daf397",
   "methods": [
     "cancel",
     "create_session",
+    "deprecate_asset",
     "extend_ttl",
     "get_session",
     "initialize",
     "interface_version",
     "recover_expired",
+    "remove_asset",
     "settle"
   ],
   "events": [
+    {
+      "name": "AssetDeprecated",
+      "prefixTopics": [
+        "asset_deprecated"
+      ],
+      "fields": [
+        {
+          "name": "asset",
+          "location": "topic_list",
+          "type": "address"
+        },
+        {
+          "name": "admin",
+          "location": "data",
+          "type": "address"
+        },
+        {
+          "name": "event_version",
+          "location": "data",
+          "type": "u32"
+        }
+      ]
+    },
+    {
+      "name": "AssetRemoved",
+      "prefixTopics": [
+        "asset_removed"
+      ],
+      "fields": [
+        {
+          "name": "asset",
+          "location": "topic_list",
+          "type": "address"
+        },
+        {
+          "name": "admin",
+          "location": "data",
+          "type": "address"
+        },
+        {
+          "name": "event_version",
+          "location": "data",
+          "type": "u32"
+        }
+      ]
+    },
     {
       "name": "SessionCancelled",
       "prefixTopics": [
@@ -298,6 +346,18 @@
     {
       "name": "SessionNotExpired",
       "value": 22
+    },
+    {
+      "name": "AssetNotActive",
+      "value": 23
+    },
+    {
+      "name": "AssetNotDeprecated",
+      "value": 24
+    },
+    {
+      "name": "AssetLiabilityOutstanding",
+      "value": 25
     }
   ]
 }

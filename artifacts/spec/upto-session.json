@@ -4,6 +4,68 @@
       "data_format": "map",
       "doc": "",
       "lib": "",
+      "name": "AssetDeprecated",
+      "params": [
+        {
+          "doc": "",
+          "location": "topic_list",
+          "name": "asset",
+          "type": "address"
+        },
+        {
+          "doc": "",
+          "location": "data",
+          "name": "admin",
+          "type": "address"
+        },
+        {
+          "doc": "",
+          "location": "data",
+          "name": "event_version",
+          "type": "u32"
+        }
+      ],
+      "prefix_topics": [
+        "asset_deprecated"
+      ]
+    }
+  },
+  {
+    "event_v0": {
+      "data_format": "map",
+      "doc": "",
+      "lib": "",
+      "name": "AssetRemoved",
+      "params": [
+        {
+          "doc": "",
+          "location": "topic_list",
+          "name": "asset",
+          "type": "address"
+        },
+        {
+          "doc": "",
+          "location": "data",
+          "name": "admin",
+          "type": "address"
+        },
+        {
+          "doc": "",
+          "location": "data",
+          "name": "event_version",
+          "type": "u32"
+        }
+      ],
+      "prefix_topics": [
+        "asset_removed"
+      ]
+    }
+  },
+  {
+    "event_v0": {
+      "data_format": "map",
+      "doc": "",
+      "lib": "",
       "name": "SessionCancelled",
       "params": [
         {
@@ -336,6 +398,31 @@
       "inputs": [
         {
           "doc": "",
+          "name": "asset",
+          "type": "address"
+        }
+      ],
+      "name": "deprecate_asset",
+      "outputs": [
+        {
+          "result": {
+            "error_type": {
+              "udt": {
+                "name": "ContractError"
+              }
+            },
+            "ok_type": "void"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "function_v0": {
+      "doc": "",
+      "inputs": [
+        {
+          "doc": "",
           "name": "session_id",
           "type": {
             "bytes_n": {
@@ -451,6 +538,31 @@
         }
       ],
       "name": "recover_expired",
+      "outputs": [
+        {
+          "result": {
+            "error_type": {
+              "udt": {
+                "name": "ContractError"
+              }
+            },
+            "ok_type": "void"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "function_v0": {
+      "doc": "",
+      "inputs": [
+        {
+          "doc": "",
+          "name": "asset",
+          "type": "address"
+        }
+      ],
+      "name": "remove_asset",
       "outputs": [
         {
           "result": {
@@ -620,6 +732,21 @@
           "doc": "",
           "name": "SessionNotExpired",
           "value": 22
+        },
+        {
+          "doc": "",
+          "name": "AssetNotActive",
+          "value": 23
+        },
+        {
+          "doc": "",
+          "name": "AssetNotDeprecated",
+          "value": 24
+        },
+        {
+          "doc": "",
+          "name": "AssetLiabilityOutstanding",
+          "value": 25
         }
       ],
       "doc": "",
