@@ -6,8 +6,8 @@
 This is contract version `0.3.0` and interface version `3`.
 `interface_version()` is the decoder compatibility check for clients. Version
 3 changes initialization to require an explicit positive cap for every
-supported asset. It requires a new deployment and is not wire-compatible with
-the v2 initialization payload.
+supported asset and adds two-step administrator rotation. It requires a new
+deployment and is not wire-compatible with the v2 initialization payload.
 
 ## Per-Asset Session Caps
 
@@ -21,6 +21,20 @@ The authenticated administrator may call
 supported asset. A change applies only to later session creation; it does not
 rewrite the cap or escrow accounting of an existing session. Integrators can
 read the active value with `get_asset_max_session_amount(asset)`.
+
+## Administrator Rotation
+
+The current administrator calls `propose_admin(pending_admin,
+expires_at_ledger)` to create one pending rotation. The proposal cannot target
+the current administrator, cannot overwrite another pending rotation, and must
+expire within 17,280 ledgers.
+
+Only the stored pending administrator can call `accept_admin()` before the
+expiry ledger. Acceptance changes the active administrator and removes the
+proposal atomically. The old administrator loses privileges in that same
+invocation. The current administrator can call `cancel_admin_rotation()` before
+or after expiry; cancellation never transfers privileges. `get_admin()` and
+`get_admin_rotation()` expose the current state without granting authority.
 
 ## Session ID Derivation
 
@@ -53,6 +67,24 @@ Data:
 - `previous_max_session_amount`
 - `new_max_session_amount`
 - `event_version` (`3`)
+
+### `AdminRotationProposed`
+
+Topics: `pending_admin`.
+
+Data: `current_admin`, `expires_at_ledger`, and `event_version` (`3`).
+
+### `AdminRotationAccepted`
+
+Topics: `new_admin`.
+
+Data: `previous_admin` and `event_version` (`3`).
+
+### `AdminRotationCancelled`
+
+Topics: `pending_admin`.
+
+Data: `current_admin` and `event_version` (`3`).
 
 ### `SessionCreated`
 

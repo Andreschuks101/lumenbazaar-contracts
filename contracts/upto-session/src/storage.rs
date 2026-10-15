@@ -1,4 +1,4 @@
-use crate::{ContractError, Session};
+use crate::{AdminRotation, ContractError, Session};
 use soroban_sdk::{contracttype, Address, BytesN, Env};
 
 pub const STORAGE_LAYOUT_VERSION: u32 = 3;
@@ -9,6 +9,7 @@ pub const TTL_EXTENSION_AMOUNT: u32 = 1_000_000;
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum DataKey {
     Admin,
+    AdminRotation,
     NextSessionSequence,
     Session(BytesN<32>),
     StorageLayoutVersion,
@@ -29,6 +30,20 @@ pub fn has_admin(env: &Env) -> bool {
 
 pub fn write_admin(env: &Env, admin: &Address) {
     env.storage().instance().set(&DataKey::Admin, admin);
+}
+
+pub fn write_admin_rotation(env: &Env, rotation: &AdminRotation) {
+    env.storage()
+        .instance()
+        .set(&DataKey::AdminRotation, rotation);
+}
+
+pub fn read_admin_rotation(env: &Env) -> Option<AdminRotation> {
+    env.storage().instance().get(&DataKey::AdminRotation)
+}
+
+pub fn remove_admin_rotation(env: &Env) {
+    env.storage().instance().remove(&DataKey::AdminRotation);
 }
 
 pub fn extend_instance_ttl(env: &Env) {

@@ -2,6 +2,25 @@ use crate::{ContractError, Session};
 use soroban_sdk::{Address, BytesN, Env};
 
 pub const MAX_SESSION_DURATION_LEDGERS: u32 = 518_400;
+pub const MAX_ADMIN_ROTATION_DURATION_LEDGERS: u32 = 17_280;
+
+pub fn validate_admin_rotation(
+    env: &Env,
+    current_admin: &Address,
+    pending_admin: &Address,
+    expires_at_ledger: u32,
+) -> Result<(), ContractError> {
+    if current_admin == pending_admin {
+        return Err(ContractError::InvalidAdmin);
+    }
+    let current_ledger = env.ledger().sequence();
+    if expires_at_ledger <= current_ledger
+        || expires_at_ledger - current_ledger > MAX_ADMIN_ROTATION_DURATION_LEDGERS
+    {
+        return Err(ContractError::InvalidAdminRotationExpiry);
+    }
+    Ok(())
+}
 
 pub fn validate_asset_cap(max_session_amount: i128) -> Result<(), ContractError> {
     if max_session_amount <= 0 {
@@ -109,6 +128,36 @@ mod tests {
         assert_eq!(validate_asset_cap(1), Ok(()));
         assert_eq!(validate_asset_cap(0), Err(ContractError::InvalidAssetCap));
         assert_eq!(validate_asset_cap(-1), Err(ContractError::InvalidAssetCap));
+    }
+
+    #[test]
+    fn validates_admin_rotation_parties_and_expiry() {
+        let env = Env::default();
+        env.ledger().set_sequence_number(10);
+        let current_admin = Address::generate(&env);
+        let pending_admin = Address::generate(&env);
+
+        assert_eq!(
+            validate_admin_rotation(&env, &current_admin, &pending_admin, 11),
+            Ok(())
+        );
+        assert_eq!(
+            validate_admin_rotation(&env, &current_admin, &current_admin, 11),
+            Err(ContractError::InvalidAdmin)
+        );
+        assert_eq!(
+            validate_admin_rotation(&env, &current_admin, &pending_admin, 10),
+            Err(ContractError::InvalidAdminRotationExpiry)
+        );
+        assert_eq!(
+            validate_admin_rotation(
+                &env,
+                &current_admin,
+                &pending_admin,
+                11 + MAX_ADMIN_ROTATION_DURATION_LEDGERS
+            ),
+            Err(ContractError::InvalidAdminRotationExpiry)
+        );
     }
 
     #[test]

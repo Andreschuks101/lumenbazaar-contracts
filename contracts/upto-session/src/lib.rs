@@ -8,7 +8,7 @@ mod types;
 pub mod validation;
 
 pub use errors::ContractError;
-pub use types::{AssetPolicy, Session, SessionStatus};
+pub use types::{AdminRotation, AssetPolicy, Session, SessionStatus};
 
 use soroban_sdk::{contract, contractimpl, token, Address, BytesN, Env, Vec};
 
@@ -83,6 +83,76 @@ impl UptoSessionContract {
         }
         storage::read_asset_max_session_amount(&env, &asset)
             .ok_or(ContractError::AssetCapNotConfigured)
+    }
+
+    pub fn propose_admin(
+        env: Env,
+        pending_admin: Address,
+        expires_at_ledger: u32,
+    ) -> Result<(), ContractError> {
+        let current_admin = storage::read_admin(&env).ok_or(ContractError::NotInitialized)?;
+        current_admin.require_auth();
+        if storage::read_admin_rotation(&env).is_some() {
+            return Err(ContractError::AdminRotationPending);
+        }
+        validation::validate_admin_rotation(
+            &env,
+            &current_admin,
+            &pending_admin,
+            expires_at_ledger,
+        )?;
+
+        storage::write_admin_rotation(
+            &env,
+            &AdminRotation {
+                pending_admin: pending_admin.clone(),
+                expires_at_ledger,
+            },
+        );
+        storage::extend_instance_ttl(&env);
+        events::publish_admin_rotation_proposed(
+            &env,
+            &current_admin,
+            &pending_admin,
+            expires_at_ledger,
+        );
+        Ok(())
+    }
+
+    pub fn accept_admin(env: Env) -> Result<(), ContractError> {
+        let current_admin = storage::read_admin(&env).ok_or(ContractError::NotInitialized)?;
+        let rotation =
+            storage::read_admin_rotation(&env).ok_or(ContractError::AdminRotationNotFound)?;
+        if env.ledger().sequence() >= rotation.expires_at_ledger {
+            return Err(ContractError::AdminRotationExpired);
+        }
+        rotation.pending_admin.require_auth();
+
+        storage::write_admin(&env, &rotation.pending_admin);
+        storage::remove_admin_rotation(&env);
+        storage::extend_instance_ttl(&env);
+        events::publish_admin_rotation_accepted(&env, &current_admin, &rotation.pending_admin);
+        Ok(())
+    }
+
+    pub fn cancel_admin_rotation(env: Env) -> Result<(), ContractError> {
+        let current_admin = storage::read_admin(&env).ok_or(ContractError::NotInitialized)?;
+        current_admin.require_auth();
+        let rotation =
+            storage::read_admin_rotation(&env).ok_or(ContractError::AdminRotationNotFound)?;
+
+        storage::remove_admin_rotation(&env);
+        storage::extend_instance_ttl(&env);
+        events::publish_admin_rotation_cancelled(&env, &current_admin, &rotation.pending_admin);
+        Ok(())
+    }
+
+    pub fn get_admin(env: Env) -> Result<Address, ContractError> {
+        storage::read_admin(&env).ok_or(ContractError::NotInitialized)
+    }
+
+    pub fn get_admin_rotation(env: Env) -> Option<AdminRotation> {
+        storage::read_admin_rotation(&env)
     }
 
     pub fn create_session(

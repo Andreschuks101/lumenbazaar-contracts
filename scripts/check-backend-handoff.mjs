@@ -24,6 +24,11 @@ const requiredFunctions = [
   "initialize",
   "get_asset_max_session_amount",
   "set_asset_max_session_amount",
+  "get_admin",
+  "get_admin_rotation",
+  "propose_admin",
+  "accept_admin",
+  "cancel_admin_rotation",
   "create_session",
   "get_session",
   "settle",
@@ -56,6 +61,11 @@ const requiredErrors = [
   "SessionNotExpired",
   "InvalidAssetCap",
   "AssetCapNotConfigured",
+  "InvalidAdmin",
+  "InvalidAdminRotationExpiry",
+  "AdminRotationPending",
+  "AdminRotationNotFound",
+  "AdminRotationExpired",
 ];
 
 for (const item of [...requiredFunctions, ...requiredErrors]) {

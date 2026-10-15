@@ -28,6 +28,11 @@ pub enum ContractError {
     SessionNotExpired = 22,
     InvalidAssetCap = 23,
     AssetCapNotConfigured = 24,
+    InvalidAdmin = 25,
+    InvalidAdminRotationExpiry = 26,
+    AdminRotationPending = 27,
+    AdminRotationNotFound = 28,
+    AdminRotationExpired = 29,
 }
 
 #[cfg(test)]
@@ -60,5 +65,10 @@ mod tests {
         assert_eq!(ContractError::SessionNotExpired as u32, 22);
         assert_eq!(ContractError::InvalidAssetCap as u32, 23);
         assert_eq!(ContractError::AssetCapNotConfigured as u32, 24);
+        assert_eq!(ContractError::InvalidAdmin as u32, 25);
+        assert_eq!(ContractError::InvalidAdminRotationExpiry as u32, 26);
+        assert_eq!(ContractError::AdminRotationPending as u32, 27);
+        assert_eq!(ContractError::AdminRotationNotFound as u32, 28);
+        assert_eq!(ContractError::AdminRotationExpired as u32, 29);
     }
 }

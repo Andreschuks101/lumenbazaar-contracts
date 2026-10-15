@@ -12,6 +12,31 @@ pub struct AssetSessionCapUpdated {
 }
 
 #[contractevent]
+pub struct AdminRotationProposed {
+    #[topic]
+    pub pending_admin: Address,
+    pub current_admin: Address,
+    pub expires_at_ledger: u32,
+    pub event_version: u32,
+}
+
+#[contractevent]
+pub struct AdminRotationAccepted {
+    #[topic]
+    pub new_admin: Address,
+    pub previous_admin: Address,
+    pub event_version: u32,
+}
+
+#[contractevent]
+pub struct AdminRotationCancelled {
+    #[topic]
+    pub pending_admin: Address,
+    pub current_admin: Address,
+    pub event_version: u32,
+}
+
+#[contractevent]
 pub struct SessionCreated {
     #[topic]
     pub session_id: BytesN<32>,
@@ -86,6 +111,43 @@ pub fn publish_asset_session_cap_updated(
         admin: admin.clone(),
         previous_max_session_amount,
         new_max_session_amount,
+        event_version: 3,
+    }
+    .publish(env);
+}
+
+pub fn publish_admin_rotation_proposed(
+    env: &Env,
+    current_admin: &Address,
+    pending_admin: &Address,
+    expires_at_ledger: u32,
+) {
+    AdminRotationProposed {
+        pending_admin: pending_admin.clone(),
+        current_admin: current_admin.clone(),
+        expires_at_ledger,
+        event_version: 3,
+    }
+    .publish(env);
+}
+
+pub fn publish_admin_rotation_accepted(env: &Env, previous_admin: &Address, new_admin: &Address) {
+    AdminRotationAccepted {
+        new_admin: new_admin.clone(),
+        previous_admin: previous_admin.clone(),
+        event_version: 3,
+    }
+    .publish(env);
+}
+
+pub fn publish_admin_rotation_cancelled(
+    env: &Env,
+    current_admin: &Address,
+    pending_admin: &Address,
+) {
+    AdminRotationCancelled {
+        pending_admin: pending_admin.clone(),
+        current_admin: current_admin.clone(),
         event_version: 3,
     }
     .publish(env);

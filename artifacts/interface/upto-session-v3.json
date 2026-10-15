@@ -1,20 +1,99 @@
 {
   "contractVersion": "0.3.0",
   "interfaceVersion": 3,
-  "sourceSpecSha256": "5fb1fb95ec15ef98bab2eb7b644076f44aaccc93c53e700e600da2cc6983d2fa",
+  "sourceSpecSha256": "381c49127e8d46bb5c61819b6793f38f7e0c85c7870da8f5e3610a64c9e17a98",
   "methods": [
+    "accept_admin",
     "cancel",
+    "cancel_admin_rotation",
     "create_session",
     "extend_ttl",
+    "get_admin",
+    "get_admin_rotation",
     "get_asset_max_session_amount",
     "get_session",
     "initialize",
     "interface_version",
+    "propose_admin",
     "recover_expired",
     "set_asset_max_session_amount",
     "settle"
   ],
   "events": [
+    {
+      "name": "AdminRotationAccepted",
+      "prefixTopics": [
+        "admin_rotation_accepted"
+      ],
+      "fields": [
+        {
+          "name": "new_admin",
+          "location": "topic_list",
+          "type": "address"
+        },
+        {
+          "name": "previous_admin",
+          "location": "data",
+          "type": "address"
+        },
+        {
+          "name": "event_version",
+          "location": "data",
+          "type": "u32"
+        }
+      ]
+    },
+    {
+      "name": "AdminRotationCancelled",
+      "prefixTopics": [
+        "admin_rotation_cancelled"
+      ],
+      "fields": [
+        {
+          "name": "pending_admin",
+          "location": "topic_list",
+          "type": "address"
+        },
+        {
+          "name": "current_admin",
+          "location": "data",
+          "type": "address"
+        },
+        {
+          "name": "event_version",
+          "location": "data",
+          "type": "u32"
+        }
+      ]
+    },
+    {
+      "name": "AdminRotationProposed",
+      "prefixTopics": [
+        "admin_rotation_proposed"
+      ],
+      "fields": [
+        {
+          "name": "pending_admin",
+          "location": "topic_list",
+          "type": "address"
+        },
+        {
+          "name": "current_admin",
+          "location": "data",
+          "type": "address"
+        },
+        {
+          "name": "expires_at_ledger",
+          "location": "data",
+          "type": "u32"
+        },
+        {
+          "name": "event_version",
+          "location": "data",
+          "type": "u32"
+        }
+      ]
+    },
     {
       "name": "AssetSessionCapUpdated",
       "prefixTopics": [
@@ -341,6 +420,26 @@
     {
       "name": "AssetCapNotConfigured",
       "value": 24
+    },
+    {
+      "name": "InvalidAdmin",
+      "value": 25
+    },
+    {
+      "name": "InvalidAdminRotationExpiry",
+      "value": 26
+    },
+    {
+      "name": "AdminRotationPending",
+      "value": 27
+    },
+    {
+      "name": "AdminRotationNotFound",
+      "value": 28
+    },
+    {
+      "name": "AdminRotationExpired",
+      "value": 29
     }
   ]
 }

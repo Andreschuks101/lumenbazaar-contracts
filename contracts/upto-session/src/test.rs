@@ -460,6 +460,200 @@ fn cap_updates_require_the_current_admin() {
 }
 
 #[test]
+fn admin_rotation_requires_acceptance_and_changes_privileges_atomically() {
+    let env = Env::default();
+    let contract_id = env.register(UptoSessionContract, ());
+    let client = UptoSessionContractClient::new(&env, &contract_id);
+    let admin = Address::generate(&env);
+    let pending_admin = Address::generate(&env);
+    let attacker = Address::generate(&env);
+    let later_admin = Address::generate(&env);
+    let asset_policies = soroban_sdk::vec![&env, asset_policy(&Address::generate(&env), i128::MAX)];
+    client
+        .mock_auths(&[MockAuth {
+            address: &admin,
+            invoke: &MockAuthInvoke {
+                contract: &contract_id,
+                fn_name: "initialize",
+                args: (admin.clone(), asset_policies.clone()).into_val(&env),
+                sub_invokes: &[],
+            },
+        }])
+        .initialize(&admin, &asset_policies);
+
+    client
+        .mock_auths(&[MockAuth {
+            address: &admin,
+            invoke: &MockAuthInvoke {
+                contract: &contract_id,
+                fn_name: "propose_admin",
+                args: (pending_admin.clone(), 10_u32).into_val(&env),
+                sub_invokes: &[],
+            },
+        }])
+        .propose_admin(&pending_admin, &10);
+    let proposed_event = events::AdminRotationProposed {
+        pending_admin: pending_admin.clone(),
+        current_admin: admin.clone(),
+        expires_at_ledger: 10,
+        event_version: 3,
+    }
+    .to_xdr(&env, &contract_id);
+    assert_eq!(
+        env.events()
+            .all()
+            .filter_by_contract(&contract_id)
+            .events()
+            .last(),
+        Some(&proposed_event)
+    );
+    assert_eq!(
+        client.get_admin_rotation(),
+        Some(AdminRotation {
+            pending_admin: pending_admin.clone(),
+            expires_at_ledger: 10,
+        })
+    );
+    assert_eq!(client.get_admin(), admin);
+
+    let wrong_canceller = client
+        .mock_auths(&[MockAuth {
+            address: &attacker,
+            invoke: &MockAuthInvoke {
+                contract: &contract_id,
+                fn_name: "cancel_admin_rotation",
+                args: ().into_val(&env),
+                sub_invokes: &[],
+            },
+        }])
+        .try_cancel_admin_rotation();
+    assert!(wrong_canceller.is_err());
+    assert!(client.get_admin_rotation().is_some());
+
+    let wrong_signer = client
+        .mock_auths(&[MockAuth {
+            address: &attacker,
+            invoke: &MockAuthInvoke {
+                contract: &contract_id,
+                fn_name: "accept_admin",
+                args: ().into_val(&env),
+                sub_invokes: &[],
+            },
+        }])
+        .try_accept_admin();
+    assert!(wrong_signer.is_err());
+    assert_eq!(client.get_admin(), admin);
+
+    client
+        .mock_auths(&[MockAuth {
+            address: &pending_admin,
+            invoke: &MockAuthInvoke {
+                contract: &contract_id,
+                fn_name: "accept_admin",
+                args: ().into_val(&env),
+                sub_invokes: &[],
+            },
+        }])
+        .accept_admin();
+    let accepted_event = events::AdminRotationAccepted {
+        new_admin: pending_admin.clone(),
+        previous_admin: admin.clone(),
+        event_version: 3,
+    }
+    .to_xdr(&env, &contract_id);
+    assert_eq!(
+        env.events()
+            .all()
+            .filter_by_contract(&contract_id)
+            .events()
+            .last(),
+        Some(&accepted_event)
+    );
+    assert_eq!(client.get_admin(), pending_admin.clone());
+    assert_eq!(client.get_admin_rotation(), None);
+
+    let old_admin_result = client
+        .mock_auths(&[MockAuth {
+            address: &admin,
+            invoke: &MockAuthInvoke {
+                contract: &contract_id,
+                fn_name: "propose_admin",
+                args: (later_admin.clone(), 11_u32).into_val(&env),
+                sub_invokes: &[],
+            },
+        }])
+        .try_propose_admin(&later_admin, &11);
+    assert!(old_admin_result.is_err());
+}
+
+#[test]
+fn admin_rotation_rejects_overwrite_expiry_and_replay() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let contract_id = env.register(UptoSessionContract, ());
+    let client = UptoSessionContractClient::new(&env, &contract_id);
+    let admin = Address::generate(&env);
+    let first_pending = Address::generate(&env);
+    let second_pending = Address::generate(&env);
+    client.initialize(
+        &admin,
+        &soroban_sdk::vec![&env, asset_policy(&Address::generate(&env), i128::MAX)],
+    );
+
+    client.propose_admin(&first_pending, &5);
+    assert_eq!(
+        client.try_propose_admin(&second_pending, &6),
+        Err(Ok(ContractError::AdminRotationPending))
+    );
+    env.ledger().set_sequence_number(5);
+    assert_eq!(
+        client.try_accept_admin(),
+        Err(Ok(ContractError::AdminRotationExpired))
+    );
+    assert_eq!(client.get_admin(), admin.clone());
+
+    client.cancel_admin_rotation();
+    let cancelled_event = events::AdminRotationCancelled {
+        pending_admin: first_pending,
+        current_admin: admin,
+        event_version: 3,
+    }
+    .to_xdr(&env, &contract_id);
+    assert_eq!(
+        env.events()
+            .all()
+            .filter_by_contract(&contract_id)
+            .events()
+            .last(),
+        Some(&cancelled_event)
+    );
+    assert_eq!(
+        client.try_cancel_admin_rotation(),
+        Err(Ok(ContractError::AdminRotationNotFound))
+    );
+
+    client.propose_admin(&second_pending, &6);
+    client.accept_admin();
+    assert_eq!(
+        client.try_accept_admin(),
+        Err(Ok(ContractError::AdminRotationNotFound))
+    );
+}
+
+#[test]
+fn admin_rotation_queries_are_deterministic_before_initialization() {
+    let env = Env::default();
+    let contract_id = env.register(UptoSessionContract, ());
+    let client = UptoSessionContractClient::new(&env, &contract_id);
+
+    assert_eq!(
+        client.try_get_admin(),
+        Err(Ok(ContractError::NotInitialized))
+    );
+    assert_eq!(client.get_admin_rotation(), None);
+}
+
+#[test]
 fn create_rejects_uninitialized_unsupported_and_excessive_duration() {
     let env = Env::default();
     env.mock_all_auths_allowing_non_root_auth();

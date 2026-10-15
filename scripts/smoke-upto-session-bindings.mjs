@@ -14,6 +14,11 @@ const requiredMethods = [
   "initialize",
   "get_asset_max_session_amount",
   "set_asset_max_session_amount",
+  "get_admin",
+  "get_admin_rotation",
+  "propose_admin",
+  "accept_admin",
+  "cancel_admin_rotation",
   "create_session",
   "get_session",
   "settle",
@@ -33,6 +38,9 @@ if (bindings.ContractError?.[22]?.message !== "SessionNotExpired") {
   throw new Error("Expected stable SessionNotExpired error mapping");
 }
 if (bindings.ContractError?.[24]?.message !== "AssetCapNotConfigured") {
+  throw new Error("Expected stable asset cap error mapping");
+}
+if (bindings.ContractError?.[29]?.message !== "AdminRotationExpired") {
   throw new Error("Expected complete v3 ContractError mapping");
 }
 if (packageJson.version !== "3.0.0") {
