@@ -65,6 +65,14 @@ const controls = [
     name: "Generated state-machine invariants",
     tests: ["generated_sequences_preserve_value_caps_and_isolation"],
   },
+  {
+    name: "Adversarial token behavior",
+    tests: [
+      "adversarial_create_failures_roll_back_funds_liability_and_sequence",
+      "adversarial_terminal_failures_leave_the_session_open_and_funded",
+      "nested_token_callback_cannot_reenter_a_terminal_transition",
+    ],
+  },
 ];
 
 for (const control of controls) {

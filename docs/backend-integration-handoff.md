@@ -84,6 +84,7 @@ their names and values, while codes 14 through 22 are additive.
 | 20 | `NotInitialized` | Initialize a new deployment before creating sessions. |
 | 21 | `SessionExpired` | Treat as finalized by expiry recovery. |
 | 22 | `SessionNotExpired` | Do not recover before the exact expiry ledger. |
+| 23 | `TokenInvariantViolation` | Stop processing and quarantine the configured asset; an observed transfer balance delta did not match the requested amount. |
 
 ## Hash Inputs
 
