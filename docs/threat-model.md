@@ -30,6 +30,12 @@ testnet deployment and lifecycle evidence are published in
 - Before expiry, `cancel` requires the stored buyer's authorization, refunds the escrow, and prevents later settlement.
 - At or after expiry, `recover_expired` requires no caller authorization and can refund only the stored buyer.
 - Repeated settlement and cancellation attempts fail against finalized state.
+- Soroban rejects a callback that tries to invoke the active escrow contract
+  again while its token transfer is on the call stack. Test-only callback-token
+  fixtures cover create, settle, cancel, and recovery and assert that no second
+  success event, authorization, balance movement, or liability transition is
+  produced. This regression evidence does not make arbitrary token behavior
+  trustworthy.
 
 ## Amount, expiry, and storage risks
 

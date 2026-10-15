@@ -18,7 +18,10 @@ use soroban_sdk::{
     testutils::{Address as _, Events as _, Ledger as _, MockAuth, MockAuthInvoke},
     token, Address, BytesN, Env, Event, IntoVal,
 };
-use test_token::{TestTokenContract, TestTokenContractClient};
+use test_token::{
+    reentry::{ReentryAction, ReentryTokenContract, ReentryTokenContractClient},
+    TestTokenContract, TestTokenContractClient,
+};
 
 fn create_test_asset(env: &Env, buyer: &Address, amount: i128) -> Address {
     let token_admin = Address::generate(env);
@@ -38,6 +41,23 @@ fn create_local_test_token(env: &Env, buyer: &Address, amount: i128) -> Address 
     token_client.mint(buyer, &amount);
 
     token_id
+}
+
+fn create_reentry_token(env: &Env, buyer: &Address, amount: i128) -> (Address, Address) {
+    let admin = Address::generate(env);
+    let token_id = env.register(ReentryTokenContract, ());
+    let token = ReentryTokenContractClient::new(env, &token_id);
+    token.initialize(&admin);
+    token.mint(buyer, &amount);
+    (admin, token_id)
+}
+
+fn escrow_event_count(env: &Env, contract_id: &Address) -> usize {
+    env.events()
+        .all()
+        .filter_by_contract(contract_id)
+        .events()
+        .len()
 }
 
 fn initialize_for_asset(
@@ -88,6 +108,179 @@ fn print_resource_usage(operation: &str, env: &Env) {
         resources.temporary_entry_rent_bumps,
         fee.total,
     );
+}
+
+#[test]
+fn nested_create_during_funding_is_rejected_without_duplicate_state() {
+    let env = Env::default();
+    env.mock_all_auths_allowing_non_root_auth();
+    let contract_id = env.register(UptoSessionContract, ());
+    let client = UptoSessionContractClient::new(&env, &contract_id);
+    let buyer = Address::generate(&env);
+    let seller = Address::generate(&env);
+    let (token_admin, asset) = create_reentry_token(&env, &buyer, 500);
+    let token = ReentryTokenContractClient::new(&env, &asset);
+    initialize_for_asset(&env, &client, &buyer, &asset);
+    let resource_hash = BytesN::from_array(&env, &[70; 32]);
+    token.configure_create(&contract_id, &buyer, &seller, &100, &50, &resource_hash);
+
+    let session_id = client.create_session(&buyer, &seller, &asset, &100, &50, &resource_hash);
+    let event_count = escrow_event_count(&env, &contract_id);
+    let auth_count = env.auths().len();
+
+    assert!(token.callback_rejected());
+    assert_eq!(client.get_session(&session_id).status, SessionStatus::Open);
+    assert_eq!(token.balance(&buyer), 400);
+    assert_eq!(token.balance(&contract_id), 100);
+    assert_eq!(token.balance(&token_admin), 0);
+    assert_eq!(event_count, 1);
+    assert_eq!(auth_count, 1);
+    env.as_contract(&contract_id, || {
+        assert_eq!(storage::read_next_session_sequence(&env), 1);
+        assert_eq!(storage::read_liability(&env, &asset), 100);
+    });
+}
+
+#[test]
+fn nested_settle_during_payout_cannot_finalize_twice() {
+    let env = Env::default();
+    env.mock_all_auths_allowing_non_root_auth();
+    let contract_id = env.register(UptoSessionContract, ());
+    let client = UptoSessionContractClient::new(&env, &contract_id);
+    let buyer = Address::generate(&env);
+    let seller = Address::generate(&env);
+    let (_, asset) = create_reentry_token(&env, &buyer, 500);
+    let token = ReentryTokenContractClient::new(&env, &asset);
+    initialize_for_asset(&env, &client, &buyer, &asset);
+    let session_id = client.create_session(
+        &buyer,
+        &seller,
+        &asset,
+        &100,
+        &50,
+        &BytesN::from_array(&env, &[71; 32]),
+    );
+    let usage_hash = BytesN::from_array(&env, &[72; 32]);
+    token.configure_terminal(
+        &contract_id,
+        &ReentryAction::Settle,
+        &session_id,
+        &60,
+        &usage_hash,
+    );
+
+    client.settle(&session_id, &60, &usage_hash);
+    let event_count = escrow_event_count(&env, &contract_id);
+    let auth_count = env.auths().len();
+
+    let session = client.get_session(&session_id);
+    assert!(token.callback_rejected());
+    assert_eq!(session.status, SessionStatus::Settled);
+    assert_eq!(session.settled_amount, 60);
+    assert_eq!(session.escrowed_amount, 0);
+    assert_eq!(token.balance(&buyer), 440);
+    assert_eq!(token.balance(&seller), 60);
+    assert_eq!(token.balance(&contract_id), 0);
+    assert_eq!(event_count, 1);
+    assert_eq!(auth_count, 1);
+    env.as_contract(&contract_id, || {
+        assert_eq!(storage::read_liability(&env, &asset), 0);
+    });
+}
+
+#[test]
+fn nested_cancel_during_refund_cannot_finalize_twice() {
+    let env = Env::default();
+    env.mock_all_auths_allowing_non_root_auth();
+    let contract_id = env.register(UptoSessionContract, ());
+    let client = UptoSessionContractClient::new(&env, &contract_id);
+    let buyer = Address::generate(&env);
+    let seller = Address::generate(&env);
+    let (_, asset) = create_reentry_token(&env, &buyer, 500);
+    let token = ReentryTokenContractClient::new(&env, &asset);
+    initialize_for_asset(&env, &client, &buyer, &asset);
+    let session_id = client.create_session(
+        &buyer,
+        &seller,
+        &asset,
+        &100,
+        &50,
+        &BytesN::from_array(&env, &[73; 32]),
+    );
+    token.configure_terminal(
+        &contract_id,
+        &ReentryAction::Cancel,
+        &session_id,
+        &1,
+        &BytesN::from_array(&env, &[74; 32]),
+    );
+
+    client.cancel(&session_id);
+    let event_count = escrow_event_count(&env, &contract_id);
+    let auth_count = env.auths().len();
+
+    assert!(token.callback_rejected());
+    assert_eq!(
+        client.get_session(&session_id).status,
+        SessionStatus::Cancelled
+    );
+    assert_eq!(token.balance(&buyer), 500);
+    assert_eq!(token.balance(&seller), 0);
+    assert_eq!(token.balance(&contract_id), 0);
+    assert_eq!(event_count, 1);
+    assert_eq!(auth_count, 1);
+    env.as_contract(&contract_id, || {
+        assert_eq!(storage::read_liability(&env, &asset), 0);
+    });
+}
+
+#[test]
+fn nested_recovery_during_refund_cannot_finalize_twice() {
+    let env = Env::default();
+    env.mock_all_auths_allowing_non_root_auth();
+    let contract_id = env.register(UptoSessionContract, ());
+    let client = UptoSessionContractClient::new(&env, &contract_id);
+    let buyer = Address::generate(&env);
+    let seller = Address::generate(&env);
+    let caller = Address::generate(&env);
+    let (_, asset) = create_reentry_token(&env, &buyer, 500);
+    let token = ReentryTokenContractClient::new(&env, &asset);
+    initialize_for_asset(&env, &client, &buyer, &asset);
+    let session_id = client.create_session(
+        &buyer,
+        &seller,
+        &asset,
+        &100,
+        &10,
+        &BytesN::from_array(&env, &[75; 32]),
+    );
+    token.configure_terminal(
+        &contract_id,
+        &ReentryAction::Recover,
+        &session_id,
+        &1,
+        &BytesN::from_array(&env, &[76; 32]),
+    );
+    env.ledger().set_sequence_number(10);
+
+    client.recover_expired(&session_id);
+    let event_count = escrow_event_count(&env, &contract_id);
+    let auth_count = env.auths().len();
+
+    assert!(token.callback_rejected());
+    assert_eq!(
+        client.get_session(&session_id).status,
+        SessionStatus::Expired
+    );
+    assert_eq!(token.balance(&buyer), 500);
+    assert_eq!(token.balance(&seller), 0);
+    assert_eq!(token.balance(&caller), 0);
+    assert_eq!(token.balance(&contract_id), 0);
+    assert_eq!(event_count, 1);
+    assert_eq!(auth_count, 0);
+    env.as_contract(&contract_id, || {
+        assert_eq!(storage::read_liability(&env, &asset), 0);
+    });
 }
 
 #[test]
