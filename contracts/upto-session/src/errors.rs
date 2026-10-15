@@ -26,6 +26,7 @@ pub enum ContractError {
     NotInitialized = 20,
     SessionExpired = 21,
     SessionNotExpired = 22,
+    TokenInvariantViolation = 23,
 }
 
 #[cfg(test)]
@@ -56,5 +57,6 @@ mod tests {
         assert_eq!(ContractError::NotInitialized as u32, 20);
         assert_eq!(ContractError::SessionExpired as u32, 21);
         assert_eq!(ContractError::SessionNotExpired as u32, 22);
+        assert_eq!(ContractError::TokenInvariantViolation as u32, 23);
     }
 }

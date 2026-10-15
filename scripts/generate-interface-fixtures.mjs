@@ -47,10 +47,10 @@ if (events.map((event) => event.name).join(",") !== expectedEventNames.join(",")
   throw new Error("Canonical spec public event set changed.");
 }
 if (
-  errorEntry.udt_error_enum_v0.cases.length !== 22 ||
+  errorEntry.udt_error_enum_v0.cases.length !== 23 ||
   errorEntry.udt_error_enum_v0.cases.some((entry, index) => entry.value !== index + 1)
 ) {
-  throw new Error("ContractError golden mapping must contain contiguous codes 1 through 22.");
+  throw new Error("ContractError golden mapping must contain contiguous codes 1 through 23.");
 }
 for (const event of events) {
   const version = event.fields.find((field) => field.name === "event_version");

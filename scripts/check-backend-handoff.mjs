@@ -52,6 +52,7 @@ const requiredErrors = [
   "NotInitialized",
   "SessionExpired",
   "SessionNotExpired",
+  "TokenInvariantViolation",
 ];
 
 for (const item of [...requiredFunctions, ...requiredErrors]) {

@@ -18,7 +18,10 @@ use soroban_sdk::{
     testutils::{Address as _, Events as _, Ledger as _, MockAuth, MockAuthInvoke},
     token, Address, BytesN, Env, Event, IntoVal,
 };
-use test_token::{TestTokenContract, TestTokenContractClient};
+use test_token::{
+    adversarial::{AdversarialBehavior, AdversarialTokenContract, AdversarialTokenContractClient},
+    TestTokenContract, TestTokenContractClient,
+};
 
 fn create_test_asset(env: &Env, buyer: &Address, amount: i128) -> Address {
     let token_admin = Address::generate(env);
@@ -38,6 +41,51 @@ fn create_local_test_token(env: &Env, buyer: &Address, amount: i128) -> Address 
     token_client.mint(buyer, &amount);
 
     token_id
+}
+
+fn create_adversarial_token(env: &Env, buyer: &Address, amount: i128) -> Address {
+    let admin = Address::generate(env);
+    let token_id = env.register(AdversarialTokenContract, ());
+    let token = AdversarialTokenContractClient::new(env, &token_id);
+    token.initialize(&admin);
+    token.mint(buyer, &amount);
+    token_id
+}
+
+fn assert_adversarial_creation_rolls_back(behavior: AdversarialBehavior) {
+    let env = Env::default();
+    env.mock_all_auths_allowing_non_root_auth();
+    let contract_id = env.register(UptoSessionContract, ());
+    let client = UptoSessionContractClient::new(&env, &contract_id);
+    let buyer = Address::generate(&env);
+    let seller = Address::generate(&env);
+    let asset = create_adversarial_token(&env, &buyer, 500);
+    let token = AdversarialTokenContractClient::new(&env, &asset);
+    initialize_for_asset(&env, &client, &buyer, &asset);
+    token.set_behavior(&behavior);
+
+    assert!(client
+        .try_create_session(
+            &buyer,
+            &seller,
+            &asset,
+            &500,
+            &50,
+            &BytesN::from_array(&env, &[71; 32]),
+        )
+        .is_err());
+    assert_eq!(token.raw_balance(&buyer), 500);
+    assert_eq!(token.raw_balance(&contract_id), 0);
+    env.as_contract(&contract_id, || {
+        assert_eq!(storage::read_liability(&env, &asset), 0);
+        assert_eq!(storage::read_next_session_sequence(&env), 0);
+    });
+    assert!(env
+        .events()
+        .all()
+        .filter_by_contract(&contract_id)
+        .events()
+        .is_empty());
 }
 
 fn initialize_for_asset(
@@ -871,6 +919,100 @@ fn settle_accepts_local_test_token_contract() {
     assert_eq!(
         client.get_session(&session_id).status,
         SessionStatus::Settled
+    );
+}
+
+#[test]
+fn adversarial_create_failures_roll_back_funds_liability_and_sequence() {
+    assert_adversarial_creation_rolls_back(AdversarialBehavior::FailTransfer);
+    assert_adversarial_creation_rolls_back(AdversarialBehavior::FalseBalance);
+    assert_adversarial_creation_rolls_back(AdversarialBehavior::PartialTransfer);
+}
+
+#[test]
+fn adversarial_terminal_failures_leave_the_session_open_and_funded() {
+    let env = Env::default();
+    env.mock_all_auths_allowing_non_root_auth();
+    let contract_id = env.register(UptoSessionContract, ());
+    let client = UptoSessionContractClient::new(&env, &contract_id);
+    let buyer = Address::generate(&env);
+    let seller = Address::generate(&env);
+    let asset = create_adversarial_token(&env, &buyer, 500);
+    let token = AdversarialTokenContractClient::new(&env, &asset);
+    initialize_for_asset(&env, &client, &buyer, &asset);
+    let session_id = client.create_session(
+        &buyer,
+        &seller,
+        &asset,
+        &500,
+        &50,
+        &BytesN::from_array(&env, &[72; 32]),
+    );
+    let usage_hash = BytesN::from_array(&env, &[73; 32]);
+
+    for behavior in [
+        AdversarialBehavior::FailTransfer,
+        AdversarialBehavior::FalseBalance,
+        AdversarialBehavior::PartialTransfer,
+    ] {
+        token.set_behavior(&behavior);
+        assert!(client.try_settle(&session_id, &100, &usage_hash).is_err());
+        let session = client.get_session(&session_id);
+        assert_eq!(session.status, SessionStatus::Open);
+        assert_eq!(session.escrowed_amount, 500);
+        assert_eq!(token.raw_balance(&contract_id), 500);
+        assert_eq!(token.raw_balance(&seller), 0);
+        assert_eq!(token.raw_balance(&buyer), 0);
+        env.as_contract(&contract_id, || {
+            assert_eq!(storage::read_liability(&env, &asset), 500);
+        });
+    }
+
+    token.set_behavior(&AdversarialBehavior::Honest);
+    client.settle(&session_id, &100, &usage_hash);
+    assert_eq!(
+        client.get_session(&session_id).status,
+        SessionStatus::Settled
+    );
+    assert_eq!(token.raw_balance(&seller), 100);
+    assert_eq!(token.raw_balance(&buyer), 400);
+    assert_eq!(token.raw_balance(&contract_id), 0);
+}
+
+#[test]
+fn nested_token_callback_cannot_reenter_a_terminal_transition() {
+    let env = Env::default();
+    env.mock_all_auths_allowing_non_root_auth();
+    let contract_id = env.register(UptoSessionContract, ());
+    let client = UptoSessionContractClient::new(&env, &contract_id);
+    let buyer = Address::generate(&env);
+    let seller = Address::generate(&env);
+    let asset = create_adversarial_token(&env, &buyer, 500);
+    let token = AdversarialTokenContractClient::new(&env, &asset);
+    initialize_for_asset(&env, &client, &buyer, &asset);
+    let session_id = client.create_session(
+        &buyer,
+        &seller,
+        &asset,
+        &500,
+        &50,
+        &BytesN::from_array(&env, &[74; 32]),
+    );
+    let usage_hash = BytesN::from_array(&env, &[75; 32]);
+    token.configure_nested_attempt(&contract_id, &session_id, &100, &usage_hash);
+
+    client.settle(&session_id, &100, &usage_hash);
+
+    let session = client.get_session(&session_id);
+    assert_eq!(session.status, SessionStatus::Settled);
+    assert_eq!(session.settled_amount, 100);
+    assert!(token.callback_rejected());
+    assert_eq!(token.raw_balance(&seller), 100);
+    assert_eq!(token.raw_balance(&buyer), 400);
+    assert_eq!(token.raw_balance(&contract_id), 0);
+    assert_eq!(
+        client.try_settle(&session_id, &100, &usage_hash),
+        Err(Ok(ContractError::SessionAlreadySettled))
     );
 }
 

@@ -620,6 +620,11 @@
           "doc": "",
           "name": "SessionNotExpired",
           "value": 22
+        },
+        {
+          "doc": "",
+          "name": "TokenInvariantViolation",
+          "value": 23
         }
       ],
       "doc": "",

@@ -1,7 +1,7 @@
 {
   "contractVersion": "0.2.0",
   "interfaceVersion": 2,
-  "sourceSpecSha256": "67ed1207b47164340dd63126c21dbd9cd60967e4c3acd8e8973391232e4450a4",
+  "sourceSpecSha256": "5ba286a8a7eb8daacdedf9e9d4ef61e7f88a840287f1b663f89362877db2f901",
   "methods": [
     "cancel",
     "create_session",
@@ -298,6 +298,10 @@
     {
       "name": "SessionNotExpired",
       "value": 22
+    },
+    {
+      "name": "TokenInvariantViolation",
+      "value": 23
     }
   ]
 }
