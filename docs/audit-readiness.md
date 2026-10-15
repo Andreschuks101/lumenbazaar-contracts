@@ -17,6 +17,22 @@ The review target is the `upto-session` contract public interface:
 
 The frozen interface evidence is stored in `artifacts/audit-readiness/interface-freeze.json`. It hashes the public contract files, generated XDR spec, versioned TypeScript binding, and the complete public event/error fixture at `artifacts/interface/upto-session-v2.json`.
 
+Cross-release review uses `artifacts/interface/upto-session-release-baseline.json`,
+which records the released tag, normalized spec checksum, methods, argument and
+return types, errors, events, user-defined types, storage layout version, and
+interface version. Run these checks for every interface change:
+
+```bash
+node scripts/test-abi-compatibility.mjs
+node scripts/check-abi-compatibility.mjs
+```
+
+The checker reports compatible, additive, and breaking changes separately. A
+breaking change is accepted only when `INTERFACE_VERSION` increases and a
+matching `artifacts/interface/migrations/v<old>-to-v<new>.json` file identifies
+the pinned baseline checksum and provides migration compatibility notes. This
+allows reviewed replacement releases without silently weakening ABI review.
+
 Regenerate only after an intentional interface change:
 
 ```bash
@@ -97,10 +113,11 @@ Before deployment:
 7. Run `stellar contract build --locked`.
 8. Run `node scripts/generate-specs.mjs --skip-build` and check no spec drift.
 9. Run `node scripts/generate-bindings.mjs --skip-build` and check no binding drift.
-10. Run `npm --prefix bindings/upto-session audit --omit=dev`.
-11. Run `node scripts/check-backend-handoff.mjs`.
-12. Run `node scripts/check-security-checklist.mjs`.
-13. Run `node scripts/check-audit-readiness.mjs`.
+10. Run `node scripts/test-abi-compatibility.mjs` and `node scripts/check-abi-compatibility.mjs`.
+11. Run `npm --prefix bindings/upto-session audit --omit=dev`.
+12. Run `node scripts/check-backend-handoff.mjs`.
+13. Run `node scripts/check-security-checklist.mjs`.
+14. Run `node scripts/check-audit-readiness.mjs`.
 
 Local deployment:
 

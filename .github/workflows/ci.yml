@@ -68,6 +68,11 @@ jobs:
       - name: Check interface fixtures
         run: node scripts/generate-interface-fixtures.mjs --check
 
+      - name: Check cross-release ABI compatibility
+        run: |
+          node scripts/test-abi-compatibility.mjs
+          node scripts/check-abi-compatibility.mjs
+
       - name: Check backend handoff
         run: node scripts/check-backend-handoff.mjs
 
