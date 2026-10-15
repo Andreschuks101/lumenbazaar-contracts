@@ -101,22 +101,24 @@ fn public_interface_is_callable() {
     let asset = create_test_asset(&env, &buyer, 300);
     let resource_hash = BytesN::from_array(&env, &[7; 32]);
 
-    assert_eq!(client.interface_version(), 2);
+    assert_eq!(client.interface_version(), 3);
 
     initialize_for_asset(&env, &client, &buyer, &asset);
 
-    let expected_id = ids::derive_session_id(
-        &env,
-        &ids::SessionIdInput {
-            buyer: &buyer,
-            seller: &seller,
-            asset: &asset,
-            max_amount: 100,
-            expires_at_ledger: 10,
-            resource_hash: &resource_hash,
-            sequence: 0,
-        },
-    );
+    let expected_id = env.as_contract(&contract_id, || {
+        ids::derive_session_id(
+            &env,
+            &ids::SessionIdInput {
+                buyer: &buyer,
+                seller: &seller,
+                asset: &asset,
+                max_amount: 100,
+                expires_at_ledger: 10,
+                resource_hash: &resource_hash,
+                sequence: 0,
+            },
+        )
+    });
     let session_id = client.create_session(&buyer, &seller, &asset, &100, &10, &resource_hash);
 
     assert_eq!(session_id, expected_id);

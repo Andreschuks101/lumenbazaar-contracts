@@ -69,7 +69,9 @@ jobs:
         run: node scripts/generate-interface-fixtures.mjs --check
 
       - name: Check backend handoff
-        run: node scripts/check-backend-handoff.mjs
+        run: |
+          node scripts/check-domain-vectors.mjs
+          node scripts/check-backend-handoff.mjs
 
       - name: Check security checklist
         run: node scripts/check-security-checklist.mjs

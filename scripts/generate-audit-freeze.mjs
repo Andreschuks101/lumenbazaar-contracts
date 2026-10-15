@@ -14,7 +14,7 @@ const files = [
   "artifacts/spec/upto-session.json",
   "bindings/upto-session/src/index.ts",
   "bindings/upto-session/package.json",
-  "artifacts/interface/upto-session-v2.json",
+  "artifacts/interface/upto-session-v3.json",
 ];
 
 const freeze = {

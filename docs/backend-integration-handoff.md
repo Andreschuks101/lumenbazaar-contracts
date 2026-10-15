@@ -25,21 +25,21 @@ No production contract ID is committed in this repository yet.
 
 - TypeScript package: `bindings/upto-session`
 - Canonical spec artifact: `artifacts/spec/upto-session.json`
-- Decoding fixture: `artifacts/interface/upto-session-v2.json`
+- Decoding fixture: `artifacts/interface/upto-session-v3.json`
 - Binding regeneration: `node scripts/generate-bindings.mjs`
 - Spec regeneration: `node scripts/generate-specs.mjs`
 
 Backend services should prefer the generated TypeScript package for transaction construction and result decoding.
 
-The corrected escrow contract and generated package are version `0.2.0`; the
-public `interface_version()` result and every public event use interface/event
-version `2`.
+The domain-separated escrow contract and generated package are version `0.3.0`.
+The public `interface_version()` result is `3`; unchanged session lifecycle
+event payloads retain event version `2`.
 
 ## Upto Session Functions
 
 | Function | Backend use |
 | --- | --- |
-| `interface_version()` | Require result `2` before decoding v2 session state or events. |
+| `interface_version()` | Require result `3` before deriving v3 session IDs or usage commitments. |
 | `initialize(admin, supported_assets)` | One-time deployment setup with an immutable non-empty token allowlist. Do not call from request handlers. |
 | `create_session(buyer, seller, asset, max_amount, expires_at_ledger, resource_hash)` | Create a buyer-authorized spending cap and escrow the full cap for a resource. |
 | `get_session(session_id)` | Read current session state for API responses, reconciliation, and settlement guards. |
@@ -47,6 +47,32 @@ version `2`.
 | `cancel(session_id)` | Buyer-authorized cancellation before settlement. |
 | `recover_expired(session_id)` | Permissionless full refund to the stored buyer at or after expiry. |
 | `extend_ttl(session_id)` | Extend storage TTL for still-open sessions. |
+
+## V2 To V3 Compatibility
+
+Version 3 is a replacement deployment. It intentionally changes new session
+identifiers without changing the `create_session` arguments: the SHA-256
+preimage is Soroban ScVal XDR for `(domain_xdr, payload_xdr)`. The session
+domain is the ordered tuple `("lumenbazaar/session-id", 3, network_id,
+contract_address)`. The payload tuple remains `(buyer, seller, asset,
+max_amount, expires_at_ledger, resource_hash, sequence)`.
+
+Usage commitments use the separate domain tuple
+`("lumenbazaar/usage-commitment", 3, network_id, contract_address)` and the
+payload `(receipt_schema_version, session_id, actual_amount, resource_hash,
+measurement_hash)`. The domain and payload are each encoded to ScVal XDR, then
+the outer two-element tuple is encoded and hashed with SHA-256. Never substitute
+the session domain for the usage domain.
+
+Canonical vectors are in
+`artifacts/backend-handoff/domain-separation-v3.json` and checked in Rust and
+Node. A change to any field boundary, network ID, contract address, interface
+version, or domain label produces an intentionally different digest.
+
+Existing v2 session IDs remain valid only at their original v2 contract ID.
+Backends must route them there and must not recompute, migrate, or reinterpret
+them under v3. The machine-readable migration record is
+`artifacts/interface/migrations/v2-to-v3.json`.
 
 ## V1 To V2 Compatibility
 
@@ -89,7 +115,10 @@ their names and values, while codes 14 through 22 are additive.
 
 `resource_hash` and `usage_hash` are both `BytesN<32>`.
 
-Use SHA-256 over canonical UTF-8 JSON with sorted keys. Store the original JSON in backend records so API, worker, and audit flows can recompute the hash.
+Version 3 uses the domain-separated XDR commitments described above. Store the
+canonical receipt and measurement preimage in backend records so API, worker,
+and audit flows can recompute `measurement_hash` and the final on-chain
+`usage_hash`. Do not store private receipt contents on-chain.
 
 Example resource descriptor:
 
@@ -104,7 +133,7 @@ Example resource descriptor:
 }
 ```
 
-Example usage receipt:
+Legacy v2 usage receipt example (do not use as a v3 final commitment):
 
 ```json
 {
@@ -116,7 +145,9 @@ Example usage receipt:
 }
 ```
 
-Example hashes are committed in `artifacts/backend-handoff/usage-hashes.example.json`.
+Versioned examples are committed in
+`artifacts/backend-handoff/usage-hashes.example.json` and
+`artifacts/backend-handoff/domain-separation-v3.json`.
 
 ## Settlement Guardrails
 

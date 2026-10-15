@@ -1,0 +1,16 @@
+{
+  "fromInterfaceVersion": 2,
+  "toInterfaceVersion": 3,
+  "baselineReleaseTag": "v0.2.0-testnet.20261007",
+  "baselineSpecSha256": "67ed1207b47164340dd63126c21dbd9cd60967e4c3acd8e8973391232e4450a4",
+  "deploymentStrategy": "replacement-contract",
+  "breakingChanges": [
+    "New session IDs include protocol, interface, network, and contract domains.",
+    "Usage commitments use a separately domain-separated XDR preimage."
+  ],
+  "compatibilityNotes": [
+    "Route every existing v2 session to its original v2 contract ID.",
+    "Do not recompute or reinterpret v2 identifiers using the v3 domain rules.",
+    "Create all new domain-separated sessions on a v3 replacement deployment."
+  ]
+}
