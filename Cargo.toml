@@ -3,6 +3,7 @@ members = [
     "contracts/policy-wallet-example",
     "contracts/test-token",
     "contracts/upto-session",
+    "formal/escrow-model",
 ]
 resolver = "2"
 

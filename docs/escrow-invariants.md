@@ -46,3 +46,38 @@ All arithmetic that changes aggregate liabilities uses checked operations.
 
 Creation events use `event_version = 2` and expose only public settlement
 metadata. Resource and usage hashes remain opaque fixed-length digests.
+
+## Bounded State Model
+
+`formal/escrow-model` exhaustively explores the reachable states of one
+session through bounded sequences of initialization, creation, settlement,
+cancellation, expiry, and recovery actions. The finite model checks:
+
+- at most one terminal transition succeeds;
+- seller payout never exceeds the recorded cap;
+- deposited value equals contract balance plus seller payout plus buyer refund;
+- open liability equals the full escrowed cap and terminal liability is zero;
+- cancellation and expiry recovery refund only the recorded buyer; and
+- initialization, creation, settlement, and cancellation authorization gates
+  reject unauthorized actions without changing state.
+
+The model checker visits actions in a fixed order and reports the shortest
+known action trace when an invariant fails. CI runs it with `--nocapture`, so a
+counterexample can be reproduced locally with:
+
+```console
+cargo test -p escrow-model -- --nocapture
+```
+
+The model is a protocol-level abstraction. It does not prove that the Rust
+contract implements the model. The following traceability table links each
+model action to implementation and test evidence that must remain green.
+
+| Model action | Rust method or gate | Implementation tests |
+| --- | --- | --- |
+| `Initialize` | `initialize` and `admin.require_auth()` | `initialize_stores_admin_once`, `initialize_rejects_empty_or_duplicate_supported_assets` |
+| `Create` | `create_session`, supported-asset gate, buyer authorization, token transfer, liability increase | `create_session_stores_open_session`, `create_session_requires_buyer_auth`, `insufficient_funding_prevents_session_creation` |
+| `Settle` | `settle`, seller authorization, amount and expiry validation, liability decrease | `settle_rejects_wrong_seller_auth`, `settle_accepts_exact_cap_without_refund`, `settlement_isolates_concurrent_sessions_sharing_an_asset` |
+| `Cancel` | `cancel`, buyer authorization, pre-expiry gate, full refund | `cancel_requires_buyer_auth`, `cancel_allows_buyer_cancellation_before_settlement`, `cancel_rejects_already_cancelled_session` |
+| `AdvanceToExpiry` | ledger sequence compared with `expires_at_ledger` | `expiry_boundary_selects_exactly_one_terminal_path` |
+| `Recover` | `recover_expired`, fixed stored buyer recipient, full refund | `expiry_recovery_is_permissionless_fixed_recipient_and_single_use`, `expiry_recovery_rejects_missing_settled_and_cancelled_sessions` |
