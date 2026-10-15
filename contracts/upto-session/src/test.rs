@@ -101,7 +101,7 @@ fn public_interface_is_callable() {
     let asset = create_test_asset(&env, &buyer, 300);
     let resource_hash = BytesN::from_array(&env, &[7; 32]);
 
-    assert_eq!(client.interface_version(), 2);
+    assert_eq!(client.interface_version(), 3);
 
     initialize_for_asset(&env, &client, &buyer, &asset);
 
@@ -357,6 +357,97 @@ fn liability_arithmetic_is_checked() {
             Err(ContractError::LiabilityUnderflow)
         );
     });
+}
+
+#[test]
+fn public_liability_query_handles_initialization_support_and_multiple_assets() {
+    let env = Env::default();
+    env.mock_all_auths_allowing_non_root_auth();
+    let contract_id = env.register(UptoSessionContract, ());
+    let client = UptoSessionContractClient::new(&env, &contract_id);
+    let admin = Address::generate(&env);
+    let buyer = Address::generate(&env);
+    let seller = Address::generate(&env);
+    let first_asset = create_test_asset(&env, &buyer, 300);
+    let second_asset = create_test_asset(&env, &buyer, 400);
+    let unsupported_asset = Address::generate(&env);
+
+    assert_eq!(
+        client.try_get_escrow_liability(&first_asset),
+        Err(Ok(ContractError::NotInitialized))
+    );
+    client.initialize(
+        &admin,
+        &soroban_sdk::vec![&env, first_asset.clone(), second_asset.clone()],
+    );
+    assert_eq!(client.get_escrow_liability(&first_asset), 0);
+    assert_eq!(client.get_escrow_liability(&second_asset), 0);
+    assert_eq!(
+        client.try_get_escrow_liability(&unsupported_asset),
+        Err(Ok(ContractError::UnsupportedAsset))
+    );
+
+    let first_hash = BytesN::from_array(&env, &[65; 32]);
+    let second_hash = BytesN::from_array(&env, &[66; 32]);
+    client.create_session(&buyer, &seller, &first_asset, &100, &50, &first_hash);
+    client.create_session(&buyer, &seller, &second_asset, &250, &50, &second_hash);
+
+    assert_eq!(client.get_escrow_liability(&first_asset), 100);
+    assert_eq!(client.get_escrow_liability(&second_asset), 250);
+}
+
+#[test]
+fn public_liability_reconciles_concurrent_sessions_and_all_terminal_paths() {
+    let env = Env::default();
+    env.mock_all_auths_allowing_non_root_auth();
+    let contract_id = env.register(UptoSessionContract, ());
+    let client = UptoSessionContractClient::new(&env, &contract_id);
+    let admin = Address::generate(&env);
+    let buyer = Address::generate(&env);
+    let seller = Address::generate(&env);
+    let asset = create_test_asset(&env, &buyer, 600);
+    initialize_for_asset(&env, &client, &admin, &asset);
+    let token = token::Client::new(&env, &asset);
+
+    let settled_id = client.create_session(
+        &buyer,
+        &seller,
+        &asset,
+        &100,
+        &50,
+        &BytesN::from_array(&env, &[67; 32]),
+    );
+    let cancelled_id = client.create_session(
+        &buyer,
+        &seller,
+        &asset,
+        &200,
+        &50,
+        &BytesN::from_array(&env, &[68; 32]),
+    );
+    let expired_id = client.create_session(
+        &buyer,
+        &seller,
+        &asset,
+        &300,
+        &50,
+        &BytesN::from_array(&env, &[69; 32]),
+    );
+    assert_eq!(client.get_escrow_liability(&asset), 600);
+    assert_eq!(token.balance(&contract_id), 600);
+
+    client.settle(&settled_id, &60, &BytesN::from_array(&env, &[70; 32]));
+    assert_eq!(client.get_escrow_liability(&asset), 500);
+    assert_eq!(token.balance(&contract_id), 500);
+
+    client.cancel(&cancelled_id);
+    assert_eq!(client.get_escrow_liability(&asset), 300);
+    assert_eq!(token.balance(&contract_id), 300);
+
+    env.ledger().set_sequence_number(50);
+    client.recover_expired(&expired_id);
+    assert_eq!(client.get_escrow_liability(&asset), 0);
+    assert_eq!(token.balance(&contract_id), 0);
 }
 
 #[test]

@@ -25,38 +25,36 @@ No production contract ID is committed in this repository yet.
 
 - TypeScript package: `bindings/upto-session`
 - Canonical spec artifact: `artifacts/spec/upto-session.json`
-- Decoding fixture: `artifacts/interface/upto-session-v2.json`
+- Decoding fixture: `artifacts/interface/upto-session-v3.json`
 - Binding regeneration: `node scripts/generate-bindings.mjs`
 - Spec regeneration: `node scripts/generate-specs.mjs`
 
 Backend services should prefer the generated TypeScript package for transaction construction and result decoding.
 
-The corrected escrow contract and generated package are version `0.2.0`; the
-public `interface_version()` result and every public event use interface/event
-version `2`.
+The current escrow contract and generated package are version `0.3.0`; the
+public `interface_version()` result is `3`. Existing public events retain event
+version `2` because their payloads are unchanged.
 
 ## Upto Session Functions
 
 | Function | Backend use |
 | --- | --- |
-| `interface_version()` | Require result `2` before decoding v2 session state or events. |
+| `interface_version()` | Require result `3` before using the public liability query. |
 | `initialize(admin, supported_assets)` | One-time deployment setup with an immutable non-empty token allowlist. Do not call from request handlers. |
 | `create_session(buyer, seller, asset, max_amount, expires_at_ledger, resource_hash)` | Create a buyer-authorized spending cap and escrow the full cap for a resource. |
 | `get_session(session_id)` | Read current session state for API responses, reconciliation, and settlement guards. |
+| `get_escrow_liability(asset)` | Read aggregate open-session escrow accounting for a supported asset and compare it with contract token custody. |
 | `settle(session_id, actual_amount, usage_hash)` | Seller-authorized settlement for actual usage. |
 | `cancel(session_id)` | Buyer-authorized cancellation before settlement. |
 | `recover_expired(session_id)` | Permissionless full refund to the stored buyer at or after expiry. |
 | `extend_ttl(session_id)` | Extend storage TTL for still-open sessions. |
 
-## V1 To V2 Compatibility
+## V2 To V3 Compatibility
 
-Version 2 is a new deployment, not an in-place upgrade. It changes
-`initialize` by adding `supported_assets`, adds `escrowed_amount` and the
-`Expired` status to session decoding, adds `recover_expired` and
-`interface_version`, and replaces the old event payloads with versioned escrow
-payloads. A backend must reject a contract whose `interface_version()` is not
-`2`; decoding it with v2 types is not supported. Error codes 1 through 13 retain
-their names and values, while codes 14 through 22 are additive.
+Version 3 adds `get_escrow_liability(asset)` without changing existing session
+or event shapes. Existing error codes 1 through 22 retain their names and
+values. Published v2 deployment records remain historical evidence and do not
+represent a deployed v3 contract.
 
 ## Stable Errors
 

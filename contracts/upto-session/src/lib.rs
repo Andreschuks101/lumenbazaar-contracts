@@ -15,7 +15,7 @@ use soroban_sdk::{contract, contractimpl, token, Address, BytesN, Env, Vec};
 #[contract]
 pub struct UptoSessionContract;
 
-pub const INTERFACE_VERSION: u32 = 2;
+pub const INTERFACE_VERSION: u32 = 3;
 
 #[contractimpl]
 impl UptoSessionContract {
@@ -241,6 +241,16 @@ impl UptoSessionContract {
 
     pub fn get_session(env: Env, session_id: BytesN<32>) -> Result<Session, ContractError> {
         storage::read_session(&env, &session_id).ok_or(ContractError::SessionNotFound)
+    }
+
+    pub fn get_escrow_liability(env: Env, asset: Address) -> Result<i128, ContractError> {
+        if !storage::has_admin(&env) {
+            return Err(ContractError::NotInitialized);
+        }
+        if !storage::is_supported_asset(&env, &asset) {
+            return Err(ContractError::UnsupportedAsset);
+        }
+        Ok(storage::read_liability(&env, &asset))
     }
 
     pub fn extend_ttl(env: Env, session_id: BytesN<32>) -> Result<(), ContractError> {

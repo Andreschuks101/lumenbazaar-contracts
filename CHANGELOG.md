@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Add a supported-asset escrow liability query for custody reconciliation.
 - Add branch, review, ownership, release, and emergency-change governance.
 
 ## v0.2.0-testnet.20261007

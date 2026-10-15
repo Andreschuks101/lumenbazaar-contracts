@@ -3,10 +3,24 @@
 `upto-session` enforces capped metered payment sessions for LumenBazaar x402
 `upto` flows.
 
-This is contract version `0.2.0` and interface version `2`.
+This is contract version `0.3.0` and interface version `3`.
 `interface_version()` is the decoder compatibility check for clients. Version
-2 requires a new deployment and is not wire-compatible with the unfunded v1
-session and event shapes.
+3 adds the public aggregate escrow-liability query and requires clients that
+use that method to target a v3 deployment.
+
+## Escrow Liability Query
+
+`get_escrow_liability(asset)` returns the checked aggregate amount recorded as
+escrowed across all open sessions for a supported asset. It returns zero when a
+supported asset has no open sessions, `NotInitialized` before setup, and
+`UnsupportedAsset` for an address outside the immutable allowlist.
+
+The liability increases atomically with successful session creation and
+decreases by the full session escrow on settlement, cancellation, or expiry
+recovery. It is an accounting value, not session enumeration. Integrators
+should compare it with the contract's token balance; a balance lower than the
+reported liability indicates under-collateralization, while a higher balance
+may include unsolicited token transfers.
 
 ## Session ID Derivation
 

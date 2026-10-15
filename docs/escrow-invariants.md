@@ -11,6 +11,11 @@ liability[a] = sum(session.escrowed_amount for every open session using a)
 token.balance(contract, a) >= liability[a]
 ```
 
+`get_escrow_liability(a)` exposes the first value for supported assets without
+enumerating sessions. It returns the stored aggregate maintained by checked
+arithmetic. The token balance remains a separate token-contract query so
+integrators can reconcile custody against accounting.
+
 Creation, liability accounting, session storage, and event publication execute
 in one Soroban transaction. A failed authorization, insufficient token balance,
 arithmetic error, or under-collateralization check rolls the complete invocation
