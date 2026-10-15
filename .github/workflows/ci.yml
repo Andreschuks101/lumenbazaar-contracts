@@ -48,6 +48,9 @@ jobs:
           LUMENBAZAAR_PROPERTY_CASES: "128"
         run: cargo test --workspace --all-features
 
+      - name: Model-check escrow state machine
+        run: cargo test -p escrow-model -- --nocapture
+
       - name: Build WASM contracts
         run: stellar contract build --locked
 
