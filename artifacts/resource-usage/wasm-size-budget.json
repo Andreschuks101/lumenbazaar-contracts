@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "25876dafffe3b31bd665fb4bc4e725b935f3eb52",
+  "build": {
+    "command": "stellar contract build --locked",
+    "optimized": true,
+    "rustc": "1.93.1",
+    "target": "wasm32v1-none",
+    "sorobanSdk": "28.0.0",
+    "stellarCli": "28.0.0",
+    "optimizer": {
+      "provider": "stellar-cli",
+      "version": "28.0.0"
+    }
+  },
+  "contracts": [
+    {
+      "name": "upto-session",
+      "artifact": "target/wasm32v1-none/release/upto_session.wasm",
+      "baselineBytes": 17761,
+      "maxBytes": 21314,
+      "maxIncreasePercent": 20
+    },
+    {
+      "name": "policy-wallet-example",
+      "artifact": "target/wasm32v1-none/release/policy_wallet_example.wasm",
+      "baselineBytes": 8742,
+      "maxBytes": 10490,
+      "maxIncreasePercent": 20
+    },
+    {
+      "name": "test-token",
+      "artifact": "target/wasm32v1-none/release/test_token.wasm",
+      "baselineBytes": 3273,
+      "maxBytes": 4092,
+      "maxIncreasePercent": 25
+    }
+  ]
+}
