@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -35,6 +35,11 @@ execFileSync(
   },
 );
 
+copyFileSync(
+  join(repoRoot, "scripts", "templates", "usageReceipt.ts"),
+  join(outputDir, "src", "usageReceipt.ts"),
+);
+
 const bindingPath = join(outputDir, "src", "index.ts");
 const binding = readFileSync(bindingPath, "utf8");
 const contractSpecPattern = /new ContractSpec\(\[\s*([\s\S]*?)\s*\]\)/;
@@ -56,7 +61,12 @@ const canonicalContractSpec = `new ContractSpec([\n${encodedEntries
   .map((entry) => `        ${JSON.stringify(entry)}`)
   .join(",\n")}\n      ])`;
 
-writeFileSync(bindingPath, binding.replace(contractSpecPattern, canonicalContractSpec), "utf8");
+let canonicalBinding = binding.replace(contractSpecPattern, canonicalContractSpec);
+const usageReceiptExport = 'export * from "./usageReceipt.js";';
+if (!canonicalBinding.includes(usageReceiptExport)) {
+  canonicalBinding = `${canonicalBinding.trimEnd()}\n\n${usageReceiptExport}\n`;
+}
+writeFileSync(bindingPath, canonicalBinding, "utf8");
 
 const packagePath = join(outputDir, "package.json");
 const packageJson = JSON.parse(readFileSync(packagePath, "utf8"));

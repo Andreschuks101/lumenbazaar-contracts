@@ -260,4 +260,6 @@ impl UptoSessionContract {
 }
 
 #[cfg(test)]
+mod receipt_test;
+#[cfg(test)]
 mod test;

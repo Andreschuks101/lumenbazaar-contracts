@@ -89,7 +89,30 @@ their names and values, while codes 14 through 22 are additive.
 
 `resource_hash` and `usage_hash` are both `BytesN<32>`.
 
-Use SHA-256 over canonical UTF-8 JSON with sorted keys. Store the original JSON in backend records so API, worker, and audit flows can recompute the hash.
+Usage commitments use the versioned schema in
+`artifacts/backend-handoff/usage-receipt-v1.schema.json`. Encode exactly these
+fields in this order with no whitespace or trailing newline:
+
+1. `schemaVersion`, fixed to `1`.
+2. `protocol`, fixed to `lumenbazaar`.
+3. `interfaceVersion`, the target contract interface.
+4. `networkPassphrase` and `contractId`, which bind the environment and deployment.
+5. `sessionId`, lowercase 32-byte hex.
+6. `amount`, a positive base-unit integer encoded as a canonical decimal string.
+7. `resourceHash`, lowercase 32-byte hex.
+8. `measurement`, containing `unit`, decimal-string `quantity`, `startedAtLedger`, and `endedAtLedger` in that order.
+9. `receiptId`, the backend's non-secret idempotency identifier.
+
+Strings must already be NFC-normalized and must not contain leading or trailing
+whitespace. Objects must contain exactly the schema fields. Producers must
+reject duplicate or unknown fields, numeric encodings of `amount` or
+`quantity`, reordered fields, non-lowercase hashes, and any byte sequence that
+does not equal the canonical re-encoding. Hash the resulting UTF-8 bytes with
+SHA-256 and pass that digest as `usage_hash`.
+
+The generated binding exports `canonicalizeUsageReceipt`, `hashUsageReceipt`,
+and `parseCanonicalUsageReceipt`. Shared Rust and TypeScript vectors are in
+`artifacts/backend-handoff/usage-receipt-v1.fixtures.json`.
 
 Example resource descriptor:
 
@@ -108,15 +131,31 @@ Example usage receipt:
 
 ```json
 {
-  "meteredAtLedger": 123456,
-  "quantity": 42,
-  "requestId": "req_01HZYK7G7MN5P85V3QP4Q8Y9X2",
-  "sessionId": "32-byte-session-id-hex",
-  "unit": "request"
+  "schemaVersion": 1,
+  "protocol": "lumenbazaar",
+  "interfaceVersion": 2,
+  "networkPassphrase": "Test SDF Network ; September 2015",
+  "contractId": "CCENNI5ZMMD3DCJXG5MURDXWUU3NG6JCFHDCDSEI4OMNWDJRY2IR36L3",
+  "sessionId": "4a0c93c17417d5d2d603db55a20bc2fd06fca1a3129ca68a38d0420960c57742",
+  "amount": "420000000",
+  "resourceHash": "e71d5d8aa20ab6db9ae07e7095e6781b20a5996337493f7397c033f18e1be989",
+  "measurement": {
+    "unit": "request",
+    "quantity": "42",
+    "startedAtLedger": 5067500,
+    "endedAtLedger": 5067542
+  },
+  "receiptId": "usage_01HZYK7G7MN5P85V3QP4Q8Y9X2"
 }
 ```
 
 Example hashes are committed in `artifacts/backend-handoff/usage-hashes.example.json`.
+
+Only the canonical commitment belongs on-chain. Raw request/response bodies,
+customer identifiers, access tokens, IP addresses, URLs containing private
+parameters, and fine-grained usage logs must remain in access-controlled
+off-chain storage. Use opaque `receiptId` values and coarse measurement units
+that do not reveal private activity.
 
 ## Settlement Guardrails
 

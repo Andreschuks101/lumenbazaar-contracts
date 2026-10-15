@@ -17,3 +17,7 @@ soroban-sdk.workspace = true
 soroban-sdk = { workspace = true, features = ["testutils"] }
 test-token = { path = "../test-token" }
 proptest = "1.11.0"
+hex = "0.4.3"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+sha2 = "0.10.9"
