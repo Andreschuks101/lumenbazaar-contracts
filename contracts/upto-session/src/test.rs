@@ -23,9 +23,19 @@ use test_token::{TestTokenContract, TestTokenContractClient};
 fn create_test_asset(env: &Env, buyer: &Address, amount: i128) -> Address {
     let token_admin = Address::generate(env);
     let asset = env
-        .register_stellar_asset_contract_v2(token_admin)
+        .register_stellar_asset_contract_v2(token_admin.clone())
         .address();
-    token::StellarAssetClient::new(env, &asset).mint(buyer, &amount);
+    token::StellarAssetClient::new(env, &asset)
+        .mock_auths(&[MockAuth {
+            address: &token_admin,
+            invoke: &MockAuthInvoke {
+                contract: &asset,
+                fn_name: "mint",
+                args: (buyer.clone(), amount).into_val(env),
+                sub_invokes: &[],
+            },
+        }])
+        .mint(buyer, &amount);
     asset
 }
 
@@ -40,13 +50,23 @@ fn create_local_test_token(env: &Env, buyer: &Address, amount: i128) -> Address 
     token_id
 }
 
+fn asset_policy(asset: &Address, max_session_amount: i128) -> AssetPolicy {
+    AssetPolicy {
+        asset: asset.clone(),
+        max_session_amount,
+    }
+}
+
 fn initialize_for_asset(
     env: &Env,
     client: &UptoSessionContractClient<'_>,
     admin: &Address,
     asset: &Address,
 ) {
-    client.initialize(admin, &soroban_sdk::vec![env, asset.clone()]);
+    client.initialize(
+        admin,
+        &soroban_sdk::vec![env, asset_policy(asset, i128::MAX)],
+    );
 }
 
 fn print_resource_usage(operation: &str, env: &Env) {
@@ -101,7 +121,7 @@ fn public_interface_is_callable() {
     let asset = create_test_asset(&env, &buyer, 300);
     let resource_hash = BytesN::from_array(&env, &[7; 32]);
 
-    assert_eq!(client.interface_version(), 2);
+    assert_eq!(client.interface_version(), 3);
 
     initialize_for_asset(&env, &client, &buyer, &asset);
 
@@ -246,8 +266,8 @@ fn initialize_stores_admin_once() {
     let admin = Address::generate(&env);
 
     let asset = Address::generate(&env);
-    let supported_assets = soroban_sdk::vec![&env, asset.clone()];
-    client.initialize(&admin, &supported_assets);
+    let asset_policies = soroban_sdk::vec![&env, asset_policy(&asset, 500)];
+    client.initialize(&admin, &asset_policies);
 
     env.as_contract(&contract_id, || {
         assert_eq!(storage::read_admin(&env), Some(admin.clone()));
@@ -258,13 +278,13 @@ fn initialize_stores_admin_once() {
     });
 
     assert_eq!(
-        client.try_initialize(&admin, &supported_assets),
+        client.try_initialize(&admin, &asset_policies),
         Err(Ok(ContractError::AlreadyInitialized))
     );
 }
 
 #[test]
-fn initialize_rejects_empty_or_duplicate_supported_assets() {
+fn initialize_rejects_empty_duplicate_or_invalid_asset_policies() {
     let env = Env::default();
     env.mock_all_auths();
     let admin = Address::generate(&env);
@@ -280,9 +300,357 @@ fn initialize_rejects_empty_or_duplicate_supported_assets() {
     let duplicate_client = UptoSessionContractClient::new(&env, &duplicate_id);
     let asset = Address::generate(&env);
     assert_eq!(
-        duplicate_client.try_initialize(&admin, &soroban_sdk::vec![&env, asset.clone(), asset]),
+        duplicate_client.try_initialize(
+            &admin,
+            &soroban_sdk::vec![&env, asset_policy(&asset, 100), asset_policy(&asset, 200)]
+        ),
         Err(Ok(ContractError::InvalidSupportedAssets))
     );
+
+    let invalid_id = env.register(UptoSessionContract, ());
+    let invalid_client = UptoSessionContractClient::new(&env, &invalid_id);
+    assert_eq!(
+        invalid_client.try_initialize(&admin, &soroban_sdk::vec![&env, asset_policy(&asset, 0)]),
+        Err(Ok(ContractError::InvalidAssetCap))
+    );
+}
+
+#[test]
+fn per_asset_caps_enforce_boundaries_before_buyer_authorization() {
+    let env = Env::default();
+    let contract_id = env.register(UptoSessionContract, ());
+    let client = UptoSessionContractClient::new(&env, &contract_id);
+    let admin = Address::generate(&env);
+    let buyer = Address::generate(&env);
+    let seller = Address::generate(&env);
+    let first_asset = create_test_asset(&env, &buyer, 500);
+    let second_asset = create_test_asset(&env, &buyer, 500);
+    let policies = soroban_sdk::vec![
+        &env,
+        asset_policy(&first_asset, 100),
+        asset_policy(&second_asset, 250)
+    ];
+    client
+        .mock_auths(&[MockAuth {
+            address: &admin,
+            invoke: &MockAuthInvoke {
+                contract: &contract_id,
+                fn_name: "initialize",
+                args: (admin.clone(), policies.clone()).into_val(&env),
+                sub_invokes: &[],
+            },
+        }])
+        .initialize(&admin, &policies);
+
+    assert_eq!(client.get_asset_max_session_amount(&first_asset), 100);
+    assert_eq!(client.get_asset_max_session_amount(&second_asset), 250);
+    assert_eq!(
+        client.try_get_asset_max_session_amount(&Address::generate(&env)),
+        Err(Ok(ContractError::UnsupportedAsset))
+    );
+
+    let resource_hash = BytesN::from_array(&env, &[63; 32]);
+    assert_eq!(
+        client.try_create_session(&buyer, &seller, &first_asset, &101, &50, &resource_hash),
+        Err(Ok(ContractError::AmountExceedsCap))
+    );
+    assert_eq!(token::Client::new(&env, &first_asset).balance(&buyer), 500);
+
+    client
+        .mock_auths(&[MockAuth {
+            address: &buyer,
+            invoke: &MockAuthInvoke {
+                contract: &contract_id,
+                fn_name: "create_session",
+                args: (
+                    buyer.clone(),
+                    seller.clone(),
+                    first_asset.clone(),
+                    100_i128,
+                    50_u32,
+                    resource_hash.clone(),
+                )
+                    .into_val(&env),
+                sub_invokes: &[MockAuthInvoke {
+                    contract: &first_asset,
+                    fn_name: "transfer",
+                    args: (buyer.clone(), contract_id.clone(), 100_i128).into_val(&env),
+                    sub_invokes: &[],
+                }],
+            },
+        }])
+        .create_session(&buyer, &seller, &first_asset, &100, &50, &resource_hash);
+}
+
+#[test]
+fn admin_cap_updates_emit_events_and_do_not_rewrite_existing_sessions() {
+    let env = Env::default();
+    env.mock_all_auths_allowing_non_root_auth();
+    let contract_id = env.register(UptoSessionContract, ());
+    let client = UptoSessionContractClient::new(&env, &contract_id);
+    let admin = Address::generate(&env);
+    let buyer = Address::generate(&env);
+    let seller = Address::generate(&env);
+    let asset = create_test_asset(&env, &buyer, 250);
+    client.initialize(&admin, &soroban_sdk::vec![&env, asset_policy(&asset, 100)]);
+    let resource_hash = BytesN::from_array(&env, &[64; 32]);
+    let session_id = client.create_session(&buyer, &seller, &asset, &100, &50, &resource_hash);
+
+    client.set_asset_max_session_amount(&asset, &50);
+
+    let expected_event = events::AssetSessionCapUpdated {
+        asset: asset.clone(),
+        admin: admin.clone(),
+        previous_max_session_amount: 100,
+        new_max_session_amount: 50,
+        event_version: 3,
+    }
+    .to_xdr(&env, &contract_id);
+    assert_eq!(
+        env.events()
+            .all()
+            .filter_by_contract(&contract_id)
+            .events()
+            .last(),
+        Some(&expected_event)
+    );
+    assert_eq!(client.get_asset_max_session_amount(&asset), 50);
+    assert_eq!(client.get_session(&session_id).max_amount, 100);
+    assert_eq!(
+        client.try_create_session(&buyer, &seller, &asset, &51, &50, &resource_hash),
+        Err(Ok(ContractError::AmountExceedsCap))
+    );
+}
+
+#[test]
+fn cap_updates_require_the_current_admin() {
+    let env = Env::default();
+    let contract_id = env.register(UptoSessionContract, ());
+    let client = UptoSessionContractClient::new(&env, &contract_id);
+    let admin = Address::generate(&env);
+    let attacker = Address::generate(&env);
+    let asset = Address::generate(&env);
+    let policies = soroban_sdk::vec![&env, asset_policy(&asset, 100)];
+    client
+        .mock_auths(&[MockAuth {
+            address: &admin,
+            invoke: &MockAuthInvoke {
+                contract: &contract_id,
+                fn_name: "initialize",
+                args: (admin.clone(), policies.clone()).into_val(&env),
+                sub_invokes: &[],
+            },
+        }])
+        .initialize(&admin, &policies);
+
+    let result = client
+        .mock_auths(&[MockAuth {
+            address: &attacker,
+            invoke: &MockAuthInvoke {
+                contract: &contract_id,
+                fn_name: "set_asset_max_session_amount",
+                args: (asset.clone(), 50_i128).into_val(&env),
+                sub_invokes: &[],
+            },
+        }])
+        .try_set_asset_max_session_amount(&asset, &50);
+
+    assert!(result.is_err());
+    assert_eq!(client.get_asset_max_session_amount(&asset), 100);
+}
+
+#[test]
+fn admin_rotation_requires_acceptance_and_changes_privileges_atomically() {
+    let env = Env::default();
+    let contract_id = env.register(UptoSessionContract, ());
+    let client = UptoSessionContractClient::new(&env, &contract_id);
+    let admin = Address::generate(&env);
+    let pending_admin = Address::generate(&env);
+    let attacker = Address::generate(&env);
+    let later_admin = Address::generate(&env);
+    let asset_policies = soroban_sdk::vec![&env, asset_policy(&Address::generate(&env), i128::MAX)];
+    client
+        .mock_auths(&[MockAuth {
+            address: &admin,
+            invoke: &MockAuthInvoke {
+                contract: &contract_id,
+                fn_name: "initialize",
+                args: (admin.clone(), asset_policies.clone()).into_val(&env),
+                sub_invokes: &[],
+            },
+        }])
+        .initialize(&admin, &asset_policies);
+
+    client
+        .mock_auths(&[MockAuth {
+            address: &admin,
+            invoke: &MockAuthInvoke {
+                contract: &contract_id,
+                fn_name: "propose_admin",
+                args: (pending_admin.clone(), 10_u32).into_val(&env),
+                sub_invokes: &[],
+            },
+        }])
+        .propose_admin(&pending_admin, &10);
+    let proposed_event = events::AdminRotationProposed {
+        pending_admin: pending_admin.clone(),
+        current_admin: admin.clone(),
+        expires_at_ledger: 10,
+        event_version: 3,
+    }
+    .to_xdr(&env, &contract_id);
+    assert_eq!(
+        env.events()
+            .all()
+            .filter_by_contract(&contract_id)
+            .events()
+            .last(),
+        Some(&proposed_event)
+    );
+    assert_eq!(
+        client.get_admin_rotation(),
+        Some(AdminRotation {
+            pending_admin: pending_admin.clone(),
+            expires_at_ledger: 10,
+        })
+    );
+    assert_eq!(client.get_admin(), admin);
+
+    let wrong_canceller = client
+        .mock_auths(&[MockAuth {
+            address: &attacker,
+            invoke: &MockAuthInvoke {
+                contract: &contract_id,
+                fn_name: "cancel_admin_rotation",
+                args: ().into_val(&env),
+                sub_invokes: &[],
+            },
+        }])
+        .try_cancel_admin_rotation();
+    assert!(wrong_canceller.is_err());
+    assert!(client.get_admin_rotation().is_some());
+
+    let wrong_signer = client
+        .mock_auths(&[MockAuth {
+            address: &attacker,
+            invoke: &MockAuthInvoke {
+                contract: &contract_id,
+                fn_name: "accept_admin",
+                args: ().into_val(&env),
+                sub_invokes: &[],
+            },
+        }])
+        .try_accept_admin();
+    assert!(wrong_signer.is_err());
+    assert_eq!(client.get_admin(), admin);
+
+    client
+        .mock_auths(&[MockAuth {
+            address: &pending_admin,
+            invoke: &MockAuthInvoke {
+                contract: &contract_id,
+                fn_name: "accept_admin",
+                args: ().into_val(&env),
+                sub_invokes: &[],
+            },
+        }])
+        .accept_admin();
+    let accepted_event = events::AdminRotationAccepted {
+        new_admin: pending_admin.clone(),
+        previous_admin: admin.clone(),
+        event_version: 3,
+    }
+    .to_xdr(&env, &contract_id);
+    assert_eq!(
+        env.events()
+            .all()
+            .filter_by_contract(&contract_id)
+            .events()
+            .last(),
+        Some(&accepted_event)
+    );
+    assert_eq!(client.get_admin(), pending_admin.clone());
+    assert_eq!(client.get_admin_rotation(), None);
+
+    let old_admin_result = client
+        .mock_auths(&[MockAuth {
+            address: &admin,
+            invoke: &MockAuthInvoke {
+                contract: &contract_id,
+                fn_name: "propose_admin",
+                args: (later_admin.clone(), 11_u32).into_val(&env),
+                sub_invokes: &[],
+            },
+        }])
+        .try_propose_admin(&later_admin, &11);
+    assert!(old_admin_result.is_err());
+}
+
+#[test]
+fn admin_rotation_rejects_overwrite_expiry_and_replay() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let contract_id = env.register(UptoSessionContract, ());
+    let client = UptoSessionContractClient::new(&env, &contract_id);
+    let admin = Address::generate(&env);
+    let first_pending = Address::generate(&env);
+    let second_pending = Address::generate(&env);
+    client.initialize(
+        &admin,
+        &soroban_sdk::vec![&env, asset_policy(&Address::generate(&env), i128::MAX)],
+    );
+
+    client.propose_admin(&first_pending, &5);
+    assert_eq!(
+        client.try_propose_admin(&second_pending, &6),
+        Err(Ok(ContractError::AdminRotationPending))
+    );
+    env.ledger().set_sequence_number(5);
+    assert_eq!(
+        client.try_accept_admin(),
+        Err(Ok(ContractError::AdminRotationExpired))
+    );
+    assert_eq!(client.get_admin(), admin.clone());
+
+    client.cancel_admin_rotation();
+    let cancelled_event = events::AdminRotationCancelled {
+        pending_admin: first_pending,
+        current_admin: admin,
+        event_version: 3,
+    }
+    .to_xdr(&env, &contract_id);
+    assert_eq!(
+        env.events()
+            .all()
+            .filter_by_contract(&contract_id)
+            .events()
+            .last(),
+        Some(&cancelled_event)
+    );
+    assert_eq!(
+        client.try_cancel_admin_rotation(),
+        Err(Ok(ContractError::AdminRotationNotFound))
+    );
+
+    client.propose_admin(&second_pending, &6);
+    client.accept_admin();
+    assert_eq!(
+        client.try_accept_admin(),
+        Err(Ok(ContractError::AdminRotationNotFound))
+    );
+}
+
+#[test]
+fn admin_rotation_queries_are_deterministic_before_initialization() {
+    let env = Env::default();
+    let contract_id = env.register(UptoSessionContract, ());
+    let client = UptoSessionContractClient::new(&env, &contract_id);
+
+    assert_eq!(
+        client.try_get_admin(),
+        Err(Ok(ContractError::NotInitialized))
+    );
+    assert_eq!(client.get_admin_rotation(), None);
 }
 
 #[test]
@@ -357,6 +725,101 @@ fn liability_arithmetic_is_checked() {
             Err(ContractError::LiabilityUnderflow)
         );
     });
+}
+
+#[test]
+fn public_liability_query_handles_initialization_support_and_multiple_assets() {
+    let env = Env::default();
+    env.mock_all_auths_allowing_non_root_auth();
+    let contract_id = env.register(UptoSessionContract, ());
+    let client = UptoSessionContractClient::new(&env, &contract_id);
+    let admin = Address::generate(&env);
+    let buyer = Address::generate(&env);
+    let seller = Address::generate(&env);
+    let first_asset = create_test_asset(&env, &buyer, 300);
+    let second_asset = create_test_asset(&env, &buyer, 400);
+    let unsupported_asset = Address::generate(&env);
+
+    assert_eq!(
+        client.try_get_escrow_liability(&first_asset),
+        Err(Ok(ContractError::NotInitialized))
+    );
+    client.initialize(
+        &admin,
+        &soroban_sdk::vec![
+            &env,
+            asset_policy(&first_asset, 300),
+            asset_policy(&second_asset, 400)
+        ],
+    );
+    assert_eq!(client.get_escrow_liability(&first_asset), 0);
+    assert_eq!(client.get_escrow_liability(&second_asset), 0);
+    assert_eq!(
+        client.try_get_escrow_liability(&unsupported_asset),
+        Err(Ok(ContractError::UnsupportedAsset))
+    );
+
+    let first_hash = BytesN::from_array(&env, &[65; 32]);
+    let second_hash = BytesN::from_array(&env, &[66; 32]);
+    client.create_session(&buyer, &seller, &first_asset, &100, &50, &first_hash);
+    client.create_session(&buyer, &seller, &second_asset, &250, &50, &second_hash);
+
+    assert_eq!(client.get_escrow_liability(&first_asset), 100);
+    assert_eq!(client.get_escrow_liability(&second_asset), 250);
+}
+
+#[test]
+fn public_liability_reconciles_concurrent_sessions_and_all_terminal_paths() {
+    let env = Env::default();
+    env.mock_all_auths_allowing_non_root_auth();
+    let contract_id = env.register(UptoSessionContract, ());
+    let client = UptoSessionContractClient::new(&env, &contract_id);
+    let admin = Address::generate(&env);
+    let buyer = Address::generate(&env);
+    let seller = Address::generate(&env);
+    let asset = create_test_asset(&env, &buyer, 600);
+    initialize_for_asset(&env, &client, &admin, &asset);
+    let token = token::Client::new(&env, &asset);
+
+    let settled_id = client.create_session(
+        &buyer,
+        &seller,
+        &asset,
+        &100,
+        &50,
+        &BytesN::from_array(&env, &[67; 32]),
+    );
+    let cancelled_id = client.create_session(
+        &buyer,
+        &seller,
+        &asset,
+        &200,
+        &50,
+        &BytesN::from_array(&env, &[68; 32]),
+    );
+    let expired_id = client.create_session(
+        &buyer,
+        &seller,
+        &asset,
+        &300,
+        &50,
+        &BytesN::from_array(&env, &[69; 32]),
+    );
+    assert_eq!(client.get_escrow_liability(&asset), 600);
+    assert_eq!(token.balance(&contract_id), 600);
+
+    client.settle(&settled_id, &60, &BytesN::from_array(&env, &[70; 32]));
+    assert_eq!(client.get_escrow_liability(&asset), 500);
+    assert_eq!(token.balance(&contract_id), 500);
+
+    client.cancel(&cancelled_id);
+    assert_eq!(client.get_escrow_liability(&asset), 300);
+    assert_eq!(token.balance(&contract_id), 300);
+
+    env.ledger().set_sequence_number(50);
+    client.recover_expired(&expired_id);
+    assert_eq!(client.get_escrow_liability(&asset), 0);
+    assert_eq!(token.balance(&contract_id), 0);
 }
 
 #[test]
@@ -502,18 +965,18 @@ fn create_session_requires_buyer_auth() {
     let seller = Address::generate(&env);
     let asset = Address::generate(&env);
     let resource_hash = BytesN::from_array(&env, &[5; 32]);
-    let supported_assets = soroban_sdk::vec![&env, asset.clone()];
+    let asset_policies = soroban_sdk::vec![&env, asset_policy(&asset, 500)];
     client
         .mock_auths(&[MockAuth {
             address: &admin,
             invoke: &MockAuthInvoke {
                 contract: &contract_id,
                 fn_name: "initialize",
-                args: (admin.clone(), supported_assets.clone()).into_val(&env),
+                args: (admin.clone(), asset_policies.clone()).into_val(&env),
                 sub_invokes: &[],
             },
         }])
-        .initialize(&admin, &supported_assets);
+        .initialize(&admin, &asset_policies);
 
     let result = client.try_create_session(&buyer, &seller, &asset, &500, &25, &resource_hash);
 

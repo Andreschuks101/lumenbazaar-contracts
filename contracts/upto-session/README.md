@@ -3,10 +3,53 @@
 `upto-session` enforces capped metered payment sessions for LumenBazaar x402
 `upto` flows.
 
-This is contract version `0.2.0` and interface version `2`.
+This is contract version `0.3.0` and interface version `3`.
 `interface_version()` is the decoder compatibility check for clients. Version
-2 requires a new deployment and is not wire-compatible with the unfunded v1
-session and event shapes.
+3 changes initialization to require an explicit positive cap for every
+supported asset, adds two-step administrator rotation, and exposes aggregate
+escrow liability. It requires a new deployment and is not wire-compatible with
+the v2 initialization payload.
+
+## Per-Asset Session Caps
+
+`initialize(admin, asset_policies)` accepts a non-empty list of `AssetPolicy`
+values. Each value pairs a unique supported asset with a positive
+`max_session_amount`. `create_session` rejects a requested cap above the
+current asset policy before buyer authorization or token transfer.
+
+The authenticated administrator may call
+`set_asset_max_session_amount(asset, max_session_amount)` for an existing
+supported asset. A change applies only to later session creation; it does not
+rewrite the cap or escrow accounting of an existing session. Integrators can
+read the active value with `get_asset_max_session_amount(asset)`.
+
+## Administrator Rotation
+
+The current administrator calls `propose_admin(pending_admin,
+expires_at_ledger)` to create one pending rotation. The proposal cannot target
+the current administrator, cannot overwrite another pending rotation, and must
+expire within 17,280 ledgers.
+
+Only the stored pending administrator can call `accept_admin()` before the
+expiry ledger. Acceptance changes the active administrator and removes the
+proposal atomically. The old administrator loses privileges in that same
+invocation. The current administrator can call `cancel_admin_rotation()` before
+or after expiry; cancellation never transfers privileges. `get_admin()` and
+`get_admin_rotation()` expose the current state without granting authority.
+
+## Escrow Liability Query
+
+`get_escrow_liability(asset)` returns the checked aggregate amount recorded as
+escrowed across all open sessions for a supported asset. It returns zero when a
+supported asset has no open sessions, `NotInitialized` before setup, and
+`UnsupportedAsset` for an address outside the immutable allowlist.
+
+The liability increases atomically with successful session creation and
+decreases by the full session escrow on settlement, cancellation, or expiry
+recovery. It is an accounting value, not session enumeration. Integrators
+should compare it with the contract's token balance; a balance lower than the
+reported liability indicates under-collateralization, while a higher balance
+may include unsolicited token transfers.
 
 ## Session ID Derivation
 
@@ -26,6 +69,37 @@ overwriting an existing session while keeping the derivation reproducible from
 stored inputs and sequence evidence.
 
 ## Events
+
+### `AssetSessionCapUpdated`
+
+Topics:
+
+- `asset`
+
+Data:
+
+- `admin`
+- `previous_max_session_amount`
+- `new_max_session_amount`
+- `event_version` (`3`)
+
+### `AdminRotationProposed`
+
+Topics: `pending_admin`.
+
+Data: `current_admin`, `expires_at_ledger`, and `event_version` (`3`).
+
+### `AdminRotationAccepted`
+
+Topics: `new_admin`.
+
+Data: `previous_admin` and `event_version` (`3`).
+
+### `AdminRotationCancelled`
+
+Topics: `pending_admin`.
+
+Data: `current_admin` and `event_version` (`3`).
 
 ### `SessionCreated`
 

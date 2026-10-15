@@ -1,0 +1,446 @@
+{
+  "contractVersion": "0.3.0",
+  "interfaceVersion": 3,
+  "sourceSpecSha256": "0af044b31209b83bd3c1ce63d7ca8856354cb7835b2abac2b686a07e39c5baaa",
+  "methods": [
+    "accept_admin",
+    "cancel",
+    "cancel_admin_rotation",
+    "create_session",
+    "extend_ttl",
+    "get_admin",
+    "get_admin_rotation",
+    "get_asset_max_session_amount",
+    "get_escrow_liability",
+    "get_session",
+    "initialize",
+    "interface_version",
+    "propose_admin",
+    "recover_expired",
+    "set_asset_max_session_amount",
+    "settle"
+  ],
+  "events": [
+    {
+      "name": "AdminRotationAccepted",
+      "prefixTopics": [
+        "admin_rotation_accepted"
+      ],
+      "fields": [
+        {
+          "name": "new_admin",
+          "location": "topic_list",
+          "type": "address"
+        },
+        {
+          "name": "previous_admin",
+          "location": "data",
+          "type": "address"
+        },
+        {
+          "name": "event_version",
+          "location": "data",
+          "type": "u32"
+        }
+      ]
+    },
+    {
+      "name": "AdminRotationCancelled",
+      "prefixTopics": [
+        "admin_rotation_cancelled"
+      ],
+      "fields": [
+        {
+          "name": "pending_admin",
+          "location": "topic_list",
+          "type": "address"
+        },
+        {
+          "name": "current_admin",
+          "location": "data",
+          "type": "address"
+        },
+        {
+          "name": "event_version",
+          "location": "data",
+          "type": "u32"
+        }
+      ]
+    },
+    {
+      "name": "AdminRotationProposed",
+      "prefixTopics": [
+        "admin_rotation_proposed"
+      ],
+      "fields": [
+        {
+          "name": "pending_admin",
+          "location": "topic_list",
+          "type": "address"
+        },
+        {
+          "name": "current_admin",
+          "location": "data",
+          "type": "address"
+        },
+        {
+          "name": "expires_at_ledger",
+          "location": "data",
+          "type": "u32"
+        },
+        {
+          "name": "event_version",
+          "location": "data",
+          "type": "u32"
+        }
+      ]
+    },
+    {
+      "name": "AssetSessionCapUpdated",
+      "prefixTopics": [
+        "asset_session_cap_updated"
+      ],
+      "fields": [
+        {
+          "name": "asset",
+          "location": "topic_list",
+          "type": "address"
+        },
+        {
+          "name": "admin",
+          "location": "data",
+          "type": "address"
+        },
+        {
+          "name": "previous_max_session_amount",
+          "location": "data",
+          "type": "i128"
+        },
+        {
+          "name": "new_max_session_amount",
+          "location": "data",
+          "type": "i128"
+        },
+        {
+          "name": "event_version",
+          "location": "data",
+          "type": "u32"
+        }
+      ]
+    },
+    {
+      "name": "SessionCancelled",
+      "prefixTopics": [
+        "session_cancelled"
+      ],
+      "fields": [
+        {
+          "name": "session_id",
+          "location": "topic_list",
+          "type": {
+            "bytes_n": {
+              "n": 32
+            }
+          }
+        },
+        {
+          "name": "buyer",
+          "location": "data",
+          "type": "address"
+        },
+        {
+          "name": "asset",
+          "location": "data",
+          "type": "address"
+        },
+        {
+          "name": "event_version",
+          "location": "data",
+          "type": "u32"
+        },
+        {
+          "name": "refunded_amount",
+          "location": "data",
+          "type": "i128"
+        }
+      ]
+    },
+    {
+      "name": "SessionCreated",
+      "prefixTopics": [
+        "session_created"
+      ],
+      "fields": [
+        {
+          "name": "session_id",
+          "location": "topic_list",
+          "type": {
+            "bytes_n": {
+              "n": 32
+            }
+          }
+        },
+        {
+          "name": "buyer",
+          "location": "data",
+          "type": "address"
+        },
+        {
+          "name": "seller",
+          "location": "data",
+          "type": "address"
+        },
+        {
+          "name": "asset",
+          "location": "data",
+          "type": "address"
+        },
+        {
+          "name": "max_amount",
+          "location": "data",
+          "type": "i128"
+        },
+        {
+          "name": "expires_at_ledger",
+          "location": "data",
+          "type": "u32"
+        },
+        {
+          "name": "resource_hash",
+          "location": "data",
+          "type": {
+            "bytes_n": {
+              "n": 32
+            }
+          }
+        },
+        {
+          "name": "event_version",
+          "location": "data",
+          "type": "u32"
+        },
+        {
+          "name": "escrowed_amount",
+          "location": "data",
+          "type": "i128"
+        }
+      ]
+    },
+    {
+      "name": "SessionRecovered",
+      "prefixTopics": [
+        "session_recovered"
+      ],
+      "fields": [
+        {
+          "name": "session_id",
+          "location": "topic_list",
+          "type": {
+            "bytes_n": {
+              "n": 32
+            }
+          }
+        },
+        {
+          "name": "buyer",
+          "location": "data",
+          "type": "address"
+        },
+        {
+          "name": "asset",
+          "location": "data",
+          "type": "address"
+        },
+        {
+          "name": "event_version",
+          "location": "data",
+          "type": "u32"
+        },
+        {
+          "name": "refunded_amount",
+          "location": "data",
+          "type": "i128"
+        },
+        {
+          "name": "expired_at_ledger",
+          "location": "data",
+          "type": "u32"
+        },
+        {
+          "name": "recovered_at_ledger",
+          "location": "data",
+          "type": "u32"
+        }
+      ]
+    },
+    {
+      "name": "SessionSettled",
+      "prefixTopics": [
+        "session_settled"
+      ],
+      "fields": [
+        {
+          "name": "session_id",
+          "location": "topic_list",
+          "type": {
+            "bytes_n": {
+              "n": 32
+            }
+          }
+        },
+        {
+          "name": "seller",
+          "location": "data",
+          "type": "address"
+        },
+        {
+          "name": "asset",
+          "location": "data",
+          "type": "address"
+        },
+        {
+          "name": "actual_amount",
+          "location": "data",
+          "type": "i128"
+        },
+        {
+          "name": "usage_hash",
+          "location": "data",
+          "type": {
+            "bytes_n": {
+              "n": 32
+            }
+          }
+        },
+        {
+          "name": "event_version",
+          "location": "data",
+          "type": "u32"
+        },
+        {
+          "name": "refunded_amount",
+          "location": "data",
+          "type": "i128"
+        }
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "name": "AlreadyInitialized",
+      "value": 1
+    },
+    {
+      "name": "Unauthorized",
+      "value": 2
+    },
+    {
+      "name": "InvalidAmount",
+      "value": 3
+    },
+    {
+      "name": "ExpiredSession",
+      "value": 4
+    },
+    {
+      "name": "SessionNotFound",
+      "value": 5
+    },
+    {
+      "name": "SessionAlreadySettled",
+      "value": 6
+    },
+    {
+      "name": "SessionCancelled",
+      "value": 7
+    },
+    {
+      "name": "AmountExceedsCap",
+      "value": 8
+    },
+    {
+      "name": "InvalidAsset",
+      "value": 9
+    },
+    {
+      "name": "InvalidSeller",
+      "value": 10
+    },
+    {
+      "name": "TtlExtensionFailed",
+      "value": 11
+    },
+    {
+      "name": "InvalidResourceHash",
+      "value": 12
+    },
+    {
+      "name": "InvalidUsageHash",
+      "value": 13
+    },
+    {
+      "name": "UnsupportedAsset",
+      "value": 14
+    },
+    {
+      "name": "InvalidSupportedAssets",
+      "value": 15
+    },
+    {
+      "name": "SessionDurationTooLong",
+      "value": 16
+    },
+    {
+      "name": "LiabilityOverflow",
+      "value": 17
+    },
+    {
+      "name": "LiabilityUnderflow",
+      "value": 18
+    },
+    {
+      "name": "EscrowUnderfunded",
+      "value": 19
+    },
+    {
+      "name": "NotInitialized",
+      "value": 20
+    },
+    {
+      "name": "SessionExpired",
+      "value": 21
+    },
+    {
+      "name": "SessionNotExpired",
+      "value": 22
+    },
+    {
+      "name": "InvalidAssetCap",
+      "value": 23
+    },
+    {
+      "name": "AssetCapNotConfigured",
+      "value": 24
+    },
+    {
+      "name": "InvalidAdmin",
+      "value": 25
+    },
+    {
+      "name": "InvalidAdminRotationExpiry",
+      "value": 26
+    },
+    {
+      "name": "AdminRotationPending",
+      "value": 27
+    },
+    {
+      "name": "AdminRotationNotFound",
+      "value": 28
+    },
+    {
+      "name": "AdminRotationExpired",
+      "value": 29
+    }
+  ]
+}

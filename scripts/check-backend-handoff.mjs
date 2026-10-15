@@ -15,15 +15,23 @@ const hashes = JSON.parse(
   ),
 );
 
-if (hashes.contractVersion !== "0.2.0" || hashes.interfaceVersion !== 2) {
-  throw new Error("Backend handoff fixture must target contract 0.2.0 interface 2");
+if (hashes.contractVersion !== "0.3.0" || hashes.interfaceVersion !== 3) {
+  throw new Error("Backend handoff fixture must target contract 0.3.0 interface 3");
 }
 
 const requiredFunctions = [
   "interface_version",
   "initialize",
+  "get_asset_max_session_amount",
+  "set_asset_max_session_amount",
+  "get_admin",
+  "get_admin_rotation",
+  "propose_admin",
+  "accept_admin",
+  "cancel_admin_rotation",
   "create_session",
   "get_session",
+  "get_escrow_liability",
   "settle",
   "cancel",
   "recover_expired",
@@ -52,6 +60,13 @@ const requiredErrors = [
   "NotInitialized",
   "SessionExpired",
   "SessionNotExpired",
+  "InvalidAssetCap",
+  "AssetCapNotConfigured",
+  "InvalidAdmin",
+  "InvalidAdminRotationExpiry",
+  "AdminRotationPending",
+  "AdminRotationNotFound",
+  "AdminRotationExpired",
 ];
 
 for (const item of [...requiredFunctions, ...requiredErrors]) {

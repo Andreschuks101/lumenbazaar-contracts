@@ -8,14 +8,14 @@ mod types;
 pub mod validation;
 
 pub use errors::ContractError;
-pub use types::{Session, SessionStatus};
+pub use types::{AdminRotation, AssetPolicy, Session, SessionStatus};
 
 use soroban_sdk::{contract, contractimpl, token, Address, BytesN, Env, Vec};
 
 #[contract]
 pub struct UptoSessionContract;
 
-pub const INTERFACE_VERSION: u32 = 2;
+pub const INTERFACE_VERSION: u32 = 3;
 
 #[contractimpl]
 impl UptoSessionContract {
@@ -26,27 +26,133 @@ impl UptoSessionContract {
     pub fn initialize(
         env: Env,
         admin: Address,
-        supported_assets: Vec<Address>,
+        asset_policies: Vec<AssetPolicy>,
     ) -> Result<(), ContractError> {
         if storage::has_admin(&env) {
             return Err(ContractError::AlreadyInitialized);
         }
 
         admin.require_auth();
-        if supported_assets.is_empty() {
+        if asset_policies.is_empty() {
             return Err(ContractError::InvalidSupportedAssets);
         }
-        for asset in supported_assets.iter() {
-            if storage::is_supported_asset(&env, &asset) {
+        for policy in asset_policies.iter() {
+            validation::validate_asset_cap(policy.max_session_amount)?;
+            if storage::is_supported_asset(&env, &policy.asset) {
                 return Err(ContractError::InvalidSupportedAssets);
             }
-            storage::write_supported_asset(&env, &asset);
+            storage::write_supported_asset(&env, &policy.asset);
+            storage::write_asset_max_session_amount(&env, &policy.asset, policy.max_session_amount);
         }
         storage::write_admin(&env, &admin);
         storage::write_storage_layout_version(&env);
         storage::extend_instance_ttl(&env);
 
         Ok(())
+    }
+
+    pub fn set_asset_max_session_amount(
+        env: Env,
+        asset: Address,
+        max_session_amount: i128,
+    ) -> Result<(), ContractError> {
+        let admin = storage::read_admin(&env).ok_or(ContractError::NotInitialized)?;
+        if !storage::is_supported_asset(&env, &asset) {
+            return Err(ContractError::UnsupportedAsset);
+        }
+        validation::validate_asset_cap(max_session_amount)?;
+        admin.require_auth();
+
+        let previous_max_session_amount = storage::read_asset_max_session_amount(&env, &asset)
+            .ok_or(ContractError::AssetCapNotConfigured)?;
+        storage::write_asset_max_session_amount(&env, &asset, max_session_amount);
+        storage::extend_instance_ttl(&env);
+        events::publish_asset_session_cap_updated(
+            &env,
+            &asset,
+            &admin,
+            previous_max_session_amount,
+            max_session_amount,
+        );
+        Ok(())
+    }
+
+    pub fn get_asset_max_session_amount(env: Env, asset: Address) -> Result<i128, ContractError> {
+        if !storage::is_supported_asset(&env, &asset) {
+            return Err(ContractError::UnsupportedAsset);
+        }
+        storage::read_asset_max_session_amount(&env, &asset)
+            .ok_or(ContractError::AssetCapNotConfigured)
+    }
+
+    pub fn propose_admin(
+        env: Env,
+        pending_admin: Address,
+        expires_at_ledger: u32,
+    ) -> Result<(), ContractError> {
+        let current_admin = storage::read_admin(&env).ok_or(ContractError::NotInitialized)?;
+        current_admin.require_auth();
+        if storage::read_admin_rotation(&env).is_some() {
+            return Err(ContractError::AdminRotationPending);
+        }
+        validation::validate_admin_rotation(
+            &env,
+            &current_admin,
+            &pending_admin,
+            expires_at_ledger,
+        )?;
+
+        storage::write_admin_rotation(
+            &env,
+            &AdminRotation {
+                pending_admin: pending_admin.clone(),
+                expires_at_ledger,
+            },
+        );
+        storage::extend_instance_ttl(&env);
+        events::publish_admin_rotation_proposed(
+            &env,
+            &current_admin,
+            &pending_admin,
+            expires_at_ledger,
+        );
+        Ok(())
+    }
+
+    pub fn accept_admin(env: Env) -> Result<(), ContractError> {
+        let current_admin = storage::read_admin(&env).ok_or(ContractError::NotInitialized)?;
+        let rotation =
+            storage::read_admin_rotation(&env).ok_or(ContractError::AdminRotationNotFound)?;
+        if env.ledger().sequence() >= rotation.expires_at_ledger {
+            return Err(ContractError::AdminRotationExpired);
+        }
+        rotation.pending_admin.require_auth();
+
+        storage::write_admin(&env, &rotation.pending_admin);
+        storage::remove_admin_rotation(&env);
+        storage::extend_instance_ttl(&env);
+        events::publish_admin_rotation_accepted(&env, &current_admin, &rotation.pending_admin);
+        Ok(())
+    }
+
+    pub fn cancel_admin_rotation(env: Env) -> Result<(), ContractError> {
+        let current_admin = storage::read_admin(&env).ok_or(ContractError::NotInitialized)?;
+        current_admin.require_auth();
+        let rotation =
+            storage::read_admin_rotation(&env).ok_or(ContractError::AdminRotationNotFound)?;
+
+        storage::remove_admin_rotation(&env);
+        storage::extend_instance_ttl(&env);
+        events::publish_admin_rotation_cancelled(&env, &current_admin, &rotation.pending_admin);
+        Ok(())
+    }
+
+    pub fn get_admin(env: Env) -> Result<Address, ContractError> {
+        storage::read_admin(&env).ok_or(ContractError::NotInitialized)
+    }
+
+    pub fn get_admin_rotation(env: Env) -> Option<AdminRotation> {
+        storage::read_admin_rotation(&env)
     }
 
     pub fn create_session(
@@ -72,6 +178,11 @@ impl UptoSessionContract {
         }
         if !storage::is_supported_asset(&env, &asset) {
             return Err(ContractError::UnsupportedAsset);
+        }
+        let asset_cap = storage::read_asset_max_session_amount(&env, &asset)
+            .ok_or(ContractError::AssetCapNotConfigured)?;
+        if max_amount > asset_cap {
+            return Err(ContractError::AmountExceedsCap);
         }
 
         buyer.require_auth();
@@ -241,6 +352,16 @@ impl UptoSessionContract {
 
     pub fn get_session(env: Env, session_id: BytesN<32>) -> Result<Session, ContractError> {
         storage::read_session(&env, &session_id).ok_or(ContractError::SessionNotFound)
+    }
+
+    pub fn get_escrow_liability(env: Env, asset: Address) -> Result<i128, ContractError> {
+        if !storage::has_admin(&env) {
+            return Err(ContractError::NotInitialized);
+        }
+        if !storage::is_supported_asset(&env, &asset) {
+            return Err(ContractError::UnsupportedAsset);
+        }
+        Ok(storage::read_liability(&env, &asset))
     }
 
     pub fn extend_ttl(env: Env, session_id: BytesN<32>) -> Result<(), ContractError> {
