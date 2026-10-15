@@ -18,7 +18,12 @@ use soroban_sdk::{
     testutils::{Address as _, Events as _, Ledger as _, MockAuth, MockAuthInvoke},
     token, Address, BytesN, Env, Event, IntoVal,
 };
-use test_token::{TestTokenContract, TestTokenContractClient};
+use test_token::{
+    asset_probe::{
+        IncompatibleContract, ProbeBehavior, ProbeTokenContract, ProbeTokenContractClient,
+    },
+    TestTokenContract, TestTokenContractClient,
+};
 
 fn create_test_asset(env: &Env, buyer: &Address, amount: i128) -> Address {
     let token_admin = Address::generate(env);
@@ -101,7 +106,7 @@ fn public_interface_is_callable() {
     let asset = create_test_asset(&env, &buyer, 300);
     let resource_hash = BytesN::from_array(&env, &[7; 32]);
 
-    assert_eq!(client.interface_version(), 2);
+    assert_eq!(client.interface_version(), 3);
 
     initialize_for_asset(&env, &client, &buyer, &asset);
 
@@ -245,7 +250,9 @@ fn initialize_stores_admin_once() {
     let client = UptoSessionContractClient::new(&env, &contract_id);
     let admin = Address::generate(&env);
 
-    let asset = Address::generate(&env);
+    let asset = env
+        .register_stellar_asset_contract_v2(Address::generate(&env))
+        .address();
     let supported_assets = soroban_sdk::vec![&env, asset.clone()];
     client.initialize(&admin, &supported_assets);
 
@@ -264,6 +271,79 @@ fn initialize_stores_admin_once() {
 }
 
 #[test]
+fn activation_probes_valid_asset_without_moving_funds_and_emits_event() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let contract_id = env.register(UptoSessionContract, ());
+    let client = UptoSessionContractClient::new(&env, &contract_id);
+    let admin = Address::generate(&env);
+    let asset = create_local_test_token(&env, &admin, 100);
+    let token = TestTokenContractClient::new(&env, &asset);
+
+    client.initialize(&admin, &soroban_sdk::vec![&env, asset.clone()]);
+    let activation_events = env.events().all().filter_by_contract(&contract_id);
+
+    assert_eq!(token.balance(&admin), 100);
+    assert_eq!(token.balance(&contract_id), 0);
+    assert_eq!(
+        activation_events,
+        std::vec![events::AssetActivated {
+            asset: asset.clone(),
+            decimals: 7,
+            event_version: 3,
+        }
+        .to_xdr(&env, &contract_id)]
+    );
+    env.as_contract(&contract_id, || {
+        assert!(storage::is_supported_asset(&env, &asset));
+    });
+}
+
+#[test]
+fn activation_rejects_missing_incompatible_reverting_and_malformed_assets() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let admin = Address::generate(&env);
+
+    let missing = Address::generate(&env);
+    let incompatible = env.register(IncompatibleContract, ());
+    let reverting = env.register(ProbeTokenContract, ());
+    ProbeTokenContractClient::new(&env, &reverting).initialize(&ProbeBehavior::Reverting);
+    let malformed = env.register(ProbeTokenContract, ());
+    ProbeTokenContractClient::new(&env, &malformed).initialize(&ProbeBehavior::Malformed);
+
+    for asset in [missing, incompatible, reverting] {
+        let contract_id = env.register(UptoSessionContract, ());
+        let client = UptoSessionContractClient::new(&env, &contract_id);
+        assert!(client
+            .try_initialize(&admin, &soroban_sdk::vec![&env, asset.clone()])
+            .is_err());
+        let event_count = env
+            .events()
+            .all()
+            .filter_by_contract(&contract_id)
+            .events()
+            .len();
+        assert_eq!(event_count, 0);
+        env.as_contract(&contract_id, || {
+            assert!(!storage::has_admin(&env));
+            assert!(!storage::is_supported_asset(&env, &asset));
+        });
+    }
+
+    let contract_id = env.register(UptoSessionContract, ());
+    let client = UptoSessionContractClient::new(&env, &contract_id);
+    assert_eq!(
+        client.try_initialize(&admin, &soroban_sdk::vec![&env, malformed.clone()]),
+        Err(Ok(ContractError::InvalidAssetInterface))
+    );
+    env.as_contract(&contract_id, || {
+        assert!(!storage::has_admin(&env));
+        assert!(!storage::is_supported_asset(&env, &malformed));
+    });
+}
+
+#[test]
 fn initialize_rejects_empty_or_duplicate_supported_assets() {
     let env = Env::default();
     env.mock_all_auths();
@@ -278,7 +358,9 @@ fn initialize_rejects_empty_or_duplicate_supported_assets() {
 
     let duplicate_id = env.register(UptoSessionContract, ());
     let duplicate_client = UptoSessionContractClient::new(&env, &duplicate_id);
-    let asset = Address::generate(&env);
+    let asset = env
+        .register_stellar_asset_contract_v2(Address::generate(&env))
+        .address();
     assert_eq!(
         duplicate_client.try_initialize(&admin, &soroban_sdk::vec![&env, asset.clone(), asset]),
         Err(Ok(ContractError::InvalidSupportedAssets))
@@ -340,7 +422,9 @@ fn create_rejects_uninitialized_unsupported_and_excessive_duration() {
 fn liability_arithmetic_is_checked() {
     let env = Env::default();
     let contract_id = env.register(UptoSessionContract, ());
-    let asset = Address::generate(&env);
+    let asset = env
+        .register_stellar_asset_contract_v2(Address::generate(&env))
+        .address();
 
     env.as_contract(&contract_id, || {
         assert_eq!(
@@ -500,7 +584,9 @@ fn create_session_requires_buyer_auth() {
     let admin = Address::generate(&env);
     let buyer = Address::generate(&env);
     let seller = Address::generate(&env);
-    let asset = Address::generate(&env);
+    let asset = env
+        .register_stellar_asset_contract_v2(Address::generate(&env))
+        .address();
     let resource_hash = BytesN::from_array(&env, &[5; 32]);
     let supported_assets = soroban_sdk::vec![&env, asset.clone()];
     client

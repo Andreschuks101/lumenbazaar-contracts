@@ -1,5 +1,8 @@
 #![no_std]
 
+#[cfg(feature = "testutils")]
+pub mod asset_probe;
+
 use soroban_sdk::{contract, contracterror, contractimpl, contracttype, Address, Env, String};
 
 #[contracttype]

@@ -25,28 +25,41 @@ No production contract ID is committed in this repository yet.
 
 - TypeScript package: `bindings/upto-session`
 - Canonical spec artifact: `artifacts/spec/upto-session.json`
-- Decoding fixture: `artifacts/interface/upto-session-v2.json`
+- Current decoding fixture: `artifacts/interface/upto-session-v3.json`
+- Retained v2 decoding fixture: `artifacts/interface/upto-session-v2.json`
 - Binding regeneration: `node scripts/generate-bindings.mjs`
 - Spec regeneration: `node scripts/generate-specs.mjs`
 
 Backend services should prefer the generated TypeScript package for transaction construction and result decoding.
 
-The corrected escrow contract and generated package are version `0.2.0`; the
-public `interface_version()` result and every public event use interface/event
-version `2`.
+The escrow contract is version `0.3.0` and the generated package is version
+`3.0.0`; `interface_version()` returns `3`. Existing session events retain
+event version `2`; the asset-activation event uses version `3`.
 
 ## Upto Session Functions
 
 | Function | Backend use |
 | --- | --- |
-| `interface_version()` | Require result `2` before decoding v2 session state or events. |
-| `initialize(admin, supported_assets)` | One-time deployment setup with an immutable non-empty token allowlist. Do not call from request handlers. |
+| `interface_version()` | Require result `3` before relying on activation probes and events. |
+| `initialize(admin, supported_assets)` | Admin-authorized one-time setup. Each asset must pass the bounded read-only interface probe before the immutable allowlist is committed. |
 | `create_session(buyer, seller, asset, max_amount, expires_at_ledger, resource_hash)` | Create a buyer-authorized spending cap and escrow the full cap for a resource. |
 | `get_session(session_id)` | Read current session state for API responses, reconciliation, and settlement guards. |
 | `settle(session_id, actual_amount, usage_hash)` | Seller-authorized settlement for actual usage. |
 | `cancel(session_id)` | Buyer-authorized cancellation before settlement. |
 | `recover_expired(session_id)` | Permissionless full refund to the stored buyer at or after expiry. |
 | `extend_ttl(session_id)` | Extend storage TTL for still-open sessions. |
+
+## V2 To V3 Compatibility
+
+Version 3 validates every configured asset before activation and emits one
+`AssetActivated` event per accepted asset. Existing session records and events
+retain their v2 shapes. Error code 23 and the new event are additive.
+
+The probe reads balances for the administrator and escrow address, decimals,
+name, and symbol. It rejects negative balances, decimals above 38, empty or
+oversized metadata, missing methods, and reverting contracts. It never calls
+`transfer` or `mint`. A successful probe is point-in-time compatibility
+evidence, not a guarantee of future token behavior.
 
 ## V1 To V2 Compatibility
 
@@ -84,6 +97,7 @@ their names and values, while codes 14 through 22 are additive.
 | 20 | `NotInitialized` | Initialize a new deployment before creating sessions. |
 | 21 | `SessionExpired` | Treat as finalized by expiry recovery. |
 | 22 | `SessionNotExpired` | Do not recover before the exact expiry ledger. |
+| 23 | `InvalidAssetInterface` | Reject an asset whose read-only SEP-41 behavior or metadata is malformed. |
 
 ## Hash Inputs
 

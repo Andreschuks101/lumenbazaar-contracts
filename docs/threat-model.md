@@ -15,7 +15,11 @@ testnet deployment and lifecycle evidence are published in
 - Buyers authorize full-cap escrow at session creation and cancellation for
   their own funds.
 - Sellers authorize settlement and cannot settle more than the buyer's cap.
-- The configured token contract is trusted to implement the expected transfer interface correctly.
+- Asset activation performs a bounded read-only probe of SEP-41 balance and
+  metadata methods without moving funds, then emits an activation event. This
+  rejects missing, reverting, and observably malformed contracts at that time.
+  The configured token contract remains trusted to preserve correct behavior
+  after activation; one successful probe cannot make an arbitrary token safe.
 - The `resource_hash` and `usage_hash` values are commitments only. The contract does not validate
   off-chain resource contents or metering calculations.
 - RPC nodes, Horizon, indexers, backend services, and user interfaces are outside the on-chain trust

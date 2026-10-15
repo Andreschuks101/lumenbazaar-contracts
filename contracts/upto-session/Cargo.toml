@@ -1,6 +1,6 @@
 [package]
 name = "upto-session"
-version = "0.2.0"
+version = "0.3.0"
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
@@ -15,5 +15,5 @@ soroban-sdk.workspace = true
 
 [dev-dependencies]
 soroban-sdk = { workspace = true, features = ["testutils"] }
-test-token = { path = "../test-token" }
+test-token = { path = "../test-token", features = ["testutils"] }
 proptest = "1.11.0"
