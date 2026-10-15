@@ -28,6 +28,7 @@ const requiredFunctions = [
   "settle",
   "cancel",
   "recover_expired",
+  "recover_expired_batch",
   "extend_ttl",
 ];
 const requiredErrors = [
@@ -53,6 +54,7 @@ const requiredErrors = [
   "NotInitialized",
   "SessionExpired",
   "SessionNotExpired",
+  "InvalidBatchSize",
 ];
 
 for (const item of [...requiredFunctions, ...requiredErrors]) {

@@ -35,6 +35,19 @@ pub enum OperationalState {
 
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub enum BatchRecoveryStatus {
+    Recovered,
+    NotFound,
+    NotExpired,
+    AlreadySettled,
+    AlreadyCancelled,
+    AlreadyRecovered,
+    Duplicate,
+    EscrowUnavailable,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ContractConfiguration {
     pub response_version: u32,
     pub interface_version: u32,
@@ -45,4 +58,12 @@ pub struct ContractConfiguration {
     pub operational_state: OperationalState,
     pub instance_ttl_threshold: u32,
     pub instance_ttl_extension: u32,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct BatchRecoveryResult {
+    pub session_id: BytesN<32>,
+    pub status: BatchRecoveryStatus,
+    pub refunded_amount: i128,
 }

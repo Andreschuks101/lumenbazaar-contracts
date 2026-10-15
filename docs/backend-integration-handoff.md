@@ -40,7 +40,7 @@ event version `2` because their payloads are unchanged.
 
 | Function | Backend use |
 | --- | --- |
-| `interface_version()` | Require result `3` before decoding the v3 configuration response. |
+| `interface_version()` | Require result `3` before using the v3 configuration and batch-recovery interfaces. |
 | `initialize(admin, supported_assets)` | One-time deployment setup with an immutable allowlist of one to 16 token contracts. Do not call from request handlers. |
 | `get_configuration()` | Read response/interface/storage versions, administrator, bounded supported assets, operational state, and instance TTL policy without authorization. |
 | `create_session(buyer, seller, asset, max_amount, expires_at_ledger, resource_hash)` | Create a buyer-authorized spending cap and escrow the full cap for a resource. |
@@ -48,19 +48,21 @@ event version `2` because their payloads are unchanged.
 | `settle(session_id, actual_amount, usage_hash)` | Seller-authorized settlement for actual usage. |
 | `cancel(session_id)` | Buyer-authorized cancellation before settlement. |
 | `recover_expired(session_id)` | Permissionless full refund to the stored buyer at or after expiry. |
+| `recover_expired_batch(session_ids)` | Recover up to eight caller-supplied IDs with ordered per-item results. Missing, premature, terminal, and repeated IDs do not block eligible recoveries. |
 | `extend_ttl(session_id)` | Extend storage TTL for still-open sessions. |
 
 ## V2 To V3 Compatibility
 
-Version 3 adds `get_configuration` and stores a bounded initialization-order
-asset list plus the operational state. Existing v2 session methods, records,
-and event payloads retain their shapes. The response has its own
-`response_version` field, currently `1`, so backend decoders can fail closed on
-future schema revisions.
+Version 3 adds `get_configuration`, bounded batch recovery, their result
+schemas, and a bounded initialization-order asset list plus operational state.
+Existing v2 session methods, records, and event payloads retain their shapes.
+The configuration response has its own `response_version` field, currently
+`1`, so backend decoders can fail closed on future schema revisions.
 
 `operational_state` can decode `Active`, `Paused`, or `Deprecated`. This release
 initializes new contracts as `Active` and exposes no public state-transition
 method; pause and deprecation authority remain outside this query-only change.
+Backends must select the v3 fixture before invoking either new method.
 
 ## V1 To V2 Compatibility
 
@@ -70,7 +72,8 @@ Version 2 is a new deployment, not an in-place upgrade. It changes
 `interface_version`, and replaces the old event payloads with versioned escrow
 payloads. A backend must reject a contract whose `interface_version()` is not
 `2`; decoding it with v2 types is not supported. Error codes 1 through 13 retain
-their names and values, while codes 14 through 22 are additive.
+their names and values, while codes 14 through 22 are additive. Version 3 adds
+code 23 without changing the earlier mappings.
 
 ## Stable Errors
 
@@ -98,6 +101,7 @@ their names and values, while codes 14 through 22 are additive.
 | 20 | `NotInitialized` | Initialize a new deployment before creating sessions. |
 | 21 | `SessionExpired` | Treat as finalized by expiry recovery. |
 | 22 | `SessionNotExpired` | Do not recover before the exact expiry ledger. |
+| 23 | `InvalidBatchSize` | Supply between one and eight session IDs. |
 
 ## Hash Inputs
 
@@ -141,3 +145,4 @@ Example hashes are committed in `artifacts/backend-handoff/usage-hashes.example.
 - Record settlement attempt ID, `usage_hash`, ledger, transaction hash, and decoded result.
 - Treat duplicate settlement attempts as idempotent by fetching `get_session` after `SessionAlreadySettled`.
 - At or after expiry, call `recover_expired`; it requires no caller signature and can refund only the stored buyer.
+- Batch recovery has partial semantics for invalid session IDs and returns one ordered result per input. Repeated IDs are marked `Duplicate` and cannot double-refund. A trapped token invocation aborts the transaction atomically.

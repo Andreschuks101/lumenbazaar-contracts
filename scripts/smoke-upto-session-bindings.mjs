@@ -18,6 +18,7 @@ const requiredMethods = [
   "settle",
   "cancel",
   "recover_expired",
+  "recover_expired_batch",
   "extend_ttl",
 ];
 
@@ -29,6 +30,9 @@ if (bindings.ContractError?.[5]?.message !== "SessionNotFound") {
   throw new Error("Expected stable SessionNotFound error mapping");
 }
 if (bindings.ContractError?.[22]?.message !== "SessionNotExpired") {
+  throw new Error("Expected stable SessionNotExpired error mapping");
+}
+if (bindings.ContractError?.[23]?.message !== "InvalidBatchSize") {
   throw new Error("Expected complete v3 ContractError mapping");
 }
 if (packageJson.version !== "3.0.0") {

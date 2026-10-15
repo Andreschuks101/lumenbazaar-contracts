@@ -8,7 +8,10 @@ mod types;
 pub mod validation;
 
 pub use errors::ContractError;
-pub use types::{ContractConfiguration, OperationalState, Session, SessionStatus};
+pub use types::{
+    BatchRecoveryResult, BatchRecoveryStatus, ContractConfiguration, OperationalState, Session,
+    SessionStatus,
+};
 
 use soroban_sdk::{contract, contractimpl, token, Address, BytesN, Env, Vec};
 
@@ -18,6 +21,7 @@ pub struct UptoSessionContract;
 pub const INTERFACE_VERSION: u32 = 3;
 pub const CONFIGURATION_RESPONSE_VERSION: u32 = 1;
 pub const MAX_SUPPORTED_ASSETS: u32 = 16;
+pub const MAX_RECOVERY_BATCH_SIZE: u32 = 8;
 
 #[contractimpl]
 impl UptoSessionContract {
@@ -241,22 +245,61 @@ impl UptoSessionContract {
             return Err(ContractError::SessionNotExpired);
         }
 
-        let refunded_amount = session.escrowed_amount;
-        let asset = token::Client::new(&env, &session.asset);
-        let contract = env.current_contract_address();
-        if refunded_amount != session.max_amount
-            || asset.balance(&contract) < storage::read_liability(&env, &session.asset)
-        {
-            return Err(ContractError::EscrowUnderfunded);
-        }
-        storage::decrease_liability(&env, &session.asset, refunded_amount)?;
-        asset.transfer(&contract, &session.buyer, &refunded_amount);
-        session.escrowed_amount = 0;
-        session.status = SessionStatus::Expired;
-        storage::write_session(&env, &session);
-        events::publish_session_recovered(&env, &session, refunded_amount);
-
+        recover_open_session(&env, &mut session)?;
         Ok(())
+    }
+
+    pub fn recover_expired_batch(
+        env: Env,
+        session_ids: Vec<BytesN<32>>,
+    ) -> Result<Vec<BatchRecoveryResult>, ContractError> {
+        if session_ids.is_empty() || session_ids.len() > MAX_RECOVERY_BATCH_SIZE {
+            return Err(ContractError::InvalidBatchSize);
+        }
+
+        let mut seen = Vec::new(&env);
+        let mut results = Vec::new(&env);
+        for session_id in session_ids.iter() {
+            if seen.iter().any(|seen_id| seen_id == session_id) {
+                results.push_back(batch_result(session_id, BatchRecoveryStatus::Duplicate, 0));
+                continue;
+            }
+            seen.push_back(session_id.clone());
+
+            let Some(mut session) = storage::read_session(&env, &session_id) else {
+                results.push_back(batch_result(session_id, BatchRecoveryStatus::NotFound, 0));
+                continue;
+            };
+
+            let status = match session.status {
+                SessionStatus::Settled => BatchRecoveryStatus::AlreadySettled,
+                SessionStatus::Cancelled => BatchRecoveryStatus::AlreadyCancelled,
+                SessionStatus::Expired => BatchRecoveryStatus::AlreadyRecovered,
+                SessionStatus::Open if env.ledger().sequence() < session.expires_at_ledger => {
+                    BatchRecoveryStatus::NotExpired
+                }
+                SessionStatus::Open => {
+                    let refunded_amount = session.escrowed_amount;
+                    match recover_open_session(&env, &mut session) {
+                        Ok(()) => {
+                            results.push_back(batch_result(
+                                session_id,
+                                BatchRecoveryStatus::Recovered,
+                                refunded_amount,
+                            ));
+                            continue;
+                        }
+                        Err(
+                            ContractError::EscrowUnderfunded | ContractError::LiabilityUnderflow,
+                        ) => BatchRecoveryStatus::EscrowUnavailable,
+                        Err(error) => return Err(error),
+                    }
+                }
+            };
+            results.push_back(batch_result(session_id, status, 0));
+        }
+
+        Ok(results)
     }
 
     pub fn get_session(env: Env, session_id: BytesN<32>) -> Result<Session, ContractError> {
@@ -277,6 +320,36 @@ impl UptoSessionContract {
             }
         }
     }
+}
+
+fn batch_result(
+    session_id: BytesN<32>,
+    status: BatchRecoveryStatus,
+    refunded_amount: i128,
+) -> BatchRecoveryResult {
+    BatchRecoveryResult {
+        session_id,
+        status,
+        refunded_amount,
+    }
+}
+
+fn recover_open_session(env: &Env, session: &mut Session) -> Result<(), ContractError> {
+    let refunded_amount = session.escrowed_amount;
+    let asset = token::Client::new(env, &session.asset);
+    let contract = env.current_contract_address();
+    if refunded_amount != session.max_amount
+        || asset.balance(&contract) < storage::read_liability(env, &session.asset)
+    {
+        return Err(ContractError::EscrowUnderfunded);
+    }
+    storage::decrease_liability(env, &session.asset, refunded_amount)?;
+    asset.transfer(&contract, &session.buyer, &refunded_amount);
+    session.escrowed_amount = 0;
+    session.status = SessionStatus::Expired;
+    storage::write_session(env, session);
+    events::publish_session_recovered(env, session, refunded_amount);
+    Ok(())
 }
 
 #[cfg(test)]

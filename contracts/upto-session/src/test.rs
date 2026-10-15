@@ -1109,6 +1109,173 @@ fn expiry_recovery_is_permissionless_fixed_recipient_and_single_use() {
 }
 
 #[test]
+fn batch_recovery_is_bounded_and_reports_partial_results_in_order() {
+    let env = Env::default();
+    env.mock_all_auths_allowing_non_root_auth();
+    let contract_id = env.register(UptoSessionContract, ());
+    let client = UptoSessionContractClient::new(&env, &contract_id);
+    let buyer = Address::generate(&env);
+    let seller = Address::generate(&env);
+    let asset = create_test_asset(&env, &buyer, 700);
+    let token_client = token::Client::new(&env, &asset);
+    initialize_for_asset(&env, &client, &buyer, &asset);
+
+    let recoverable = client.create_session(
+        &buyer,
+        &seller,
+        &asset,
+        &100,
+        &10,
+        &BytesN::from_array(&env, &[70; 32]),
+    );
+    let cancelled = client.create_session(
+        &buyer,
+        &seller,
+        &asset,
+        &100,
+        &20,
+        &BytesN::from_array(&env, &[71; 32]),
+    );
+    let settled = client.create_session(
+        &buyer,
+        &seller,
+        &asset,
+        &100,
+        &20,
+        &BytesN::from_array(&env, &[72; 32]),
+    );
+    let not_expired = client.create_session(
+        &buyer,
+        &seller,
+        &asset,
+        &100,
+        &20,
+        &BytesN::from_array(&env, &[73; 32]),
+    );
+    client.cancel(&cancelled);
+    client.settle(&settled, &100, &BytesN::from_array(&env, &[74; 32]));
+    env.ledger().set_sequence_number(10);
+    let missing = BytesN::from_array(&env, &[75; 32]);
+
+    let results = client.recover_expired_batch(&soroban_sdk::vec![
+        &env,
+        recoverable.clone(),
+        missing.clone(),
+        recoverable.clone(),
+        cancelled.clone(),
+        settled.clone(),
+        not_expired.clone(),
+    ]);
+    assert_eq!(
+        results,
+        soroban_sdk::vec![
+            &env,
+            BatchRecoveryResult {
+                session_id: recoverable.clone(),
+                status: BatchRecoveryStatus::Recovered,
+                refunded_amount: 100,
+            },
+            BatchRecoveryResult {
+                session_id: missing,
+                status: BatchRecoveryStatus::NotFound,
+                refunded_amount: 0,
+            },
+            BatchRecoveryResult {
+                session_id: recoverable.clone(),
+                status: BatchRecoveryStatus::Duplicate,
+                refunded_amount: 0,
+            },
+            BatchRecoveryResult {
+                session_id: cancelled,
+                status: BatchRecoveryStatus::AlreadyCancelled,
+                refunded_amount: 0,
+            },
+            BatchRecoveryResult {
+                session_id: settled,
+                status: BatchRecoveryStatus::AlreadySettled,
+                refunded_amount: 0,
+            },
+            BatchRecoveryResult {
+                session_id: not_expired,
+                status: BatchRecoveryStatus::NotExpired,
+                refunded_amount: 0,
+            },
+        ]
+    );
+    assert_eq!(token_client.balance(&buyer), 500);
+    assert_eq!(token_client.balance(&seller), 100);
+    assert_eq!(token_client.balance(&contract_id), 100);
+    env.as_contract(&contract_id, || {
+        assert_eq!(storage::read_liability(&env, &asset), 100);
+    });
+
+    let repeated = client.recover_expired_batch(&soroban_sdk::vec![&env, recoverable.clone()]);
+    assert_eq!(
+        repeated.get(0).unwrap().status,
+        BatchRecoveryStatus::AlreadyRecovered
+    );
+    assert_eq!(client.get_session(&recoverable).escrowed_amount, 0);
+
+    assert_eq!(
+        client.try_recover_expired_batch(&soroban_sdk::vec![&env]),
+        Err(Ok(ContractError::InvalidBatchSize))
+    );
+    let mut oversized = soroban_sdk::Vec::new(&env);
+    for byte in 0..=MAX_RECOVERY_BATCH_SIZE {
+        oversized.push_back(BytesN::from_array(&env, &[byte as u8; 32]));
+    }
+    assert_eq!(
+        client.try_recover_expired_batch(&oversized),
+        Err(Ok(ContractError::InvalidBatchSize))
+    );
+}
+
+#[test]
+fn batch_recovery_refunds_each_stored_buyer_only() {
+    let env = Env::default();
+    env.mock_all_auths_allowing_non_root_auth();
+    let contract_id = env.register(UptoSessionContract, ());
+    let client = UptoSessionContractClient::new(&env, &contract_id);
+    let first_buyer = Address::generate(&env);
+    let second_buyer = Address::generate(&env);
+    let seller = Address::generate(&env);
+    let caller = Address::generate(&env);
+    let asset = create_test_asset(&env, &first_buyer, 100);
+    token::StellarAssetClient::new(&env, &asset).mint(&second_buyer, &100);
+    let token_client = token::Client::new(&env, &asset);
+    initialize_for_asset(&env, &client, &first_buyer, &asset);
+    let first = client.create_session(
+        &first_buyer,
+        &seller,
+        &asset,
+        &100,
+        &10,
+        &BytesN::from_array(&env, &[76; 32]),
+    );
+    let second = client.create_session(
+        &second_buyer,
+        &seller,
+        &asset,
+        &100,
+        &10,
+        &BytesN::from_array(&env, &[77; 32]),
+    );
+    env.ledger().set_sequence_number(10);
+
+    let results = client.recover_expired_batch(&soroban_sdk::vec![&env, first, second]);
+    assert!(results
+        .iter()
+        .all(|result| result.status == BatchRecoveryStatus::Recovered));
+    assert_eq!(token_client.balance(&first_buyer), 100);
+    assert_eq!(token_client.balance(&second_buyer), 100);
+    assert_eq!(token_client.balance(&caller), 0);
+    assert_eq!(token_client.balance(&contract_id), 0);
+    env.as_contract(&contract_id, || {
+        assert_eq!(storage::read_liability(&env, &asset), 0);
+    });
+}
+
+#[test]
 fn expiry_recovery_rejects_missing_settled_and_cancelled_sessions() {
     let env = Env::default();
     env.mock_all_auths_allowing_non_root_auth();

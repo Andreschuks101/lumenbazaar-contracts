@@ -1,7 +1,7 @@
 {
   "contractVersion": "0.3.0",
   "interfaceVersion": 3,
-  "sourceSpecSha256": "1606253f7a1fda245446ce9da8701153ea37d8aa356a500316f900b1334e6b72",
+  "sourceSpecSha256": "3cd0163ea31a5cb836b820d1dfd32c89c9e4cd1f721e208d68f109584867d281",
   "methods": [
     "cancel",
     "create_session",
@@ -11,6 +11,7 @@
     "initialize",
     "interface_version",
     "recover_expired",
+    "recover_expired_batch",
     "settle"
   ],
   "events": [
@@ -299,6 +300,10 @@
     {
       "name": "SessionNotExpired",
       "value": 22
+    },
+    {
+      "name": "InvalidBatchSize",
+      "value": 23
     }
   ]
 }

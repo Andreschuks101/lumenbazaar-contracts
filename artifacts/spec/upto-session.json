@@ -494,6 +494,47 @@
       "inputs": [
         {
           "doc": "",
+          "name": "session_ids",
+          "type": {
+            "vec": {
+              "element_type": {
+                "bytes_n": {
+                  "n": 32
+                }
+              }
+            }
+          }
+        }
+      ],
+      "name": "recover_expired_batch",
+      "outputs": [
+        {
+          "result": {
+            "error_type": {
+              "udt": {
+                "name": "ContractError"
+              }
+            },
+            "ok_type": {
+              "vec": {
+                "element_type": {
+                  "udt": {
+                    "name": "BatchRecoveryResult"
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "function_v0": {
+      "doc": "",
+      "inputs": [
+        {
+          "doc": "",
           "name": "session_id",
           "type": {
             "bytes_n": {
@@ -643,11 +684,48 @@
           "doc": "",
           "name": "SessionNotExpired",
           "value": 22
+        },
+        {
+          "doc": "",
+          "name": "InvalidBatchSize",
+          "value": 23
         }
       ],
       "doc": "",
       "lib": "",
       "name": "ContractError"
+    }
+  },
+  {
+    "udt_struct_v0": {
+      "doc": "",
+      "fields": [
+        {
+          "doc": "",
+          "name": "refunded_amount",
+          "type": "i128"
+        },
+        {
+          "doc": "",
+          "name": "session_id",
+          "type": {
+            "bytes_n": {
+              "n": 32
+            }
+          }
+        },
+        {
+          "doc": "",
+          "name": "status",
+          "type": {
+            "udt": {
+              "name": "BatchRecoveryStatus"
+            }
+          }
+        }
+      ],
+      "lib": "",
+      "name": "BatchRecoveryResult"
     }
   },
   {
@@ -794,6 +872,63 @@
       ],
       "lib": "",
       "name": "Session"
+    }
+  },
+  {
+    "udt_union_v0": {
+      "cases": [
+        {
+          "void_v0": {
+            "doc": "",
+            "name": "Recovered"
+          }
+        },
+        {
+          "void_v0": {
+            "doc": "",
+            "name": "NotFound"
+          }
+        },
+        {
+          "void_v0": {
+            "doc": "",
+            "name": "NotExpired"
+          }
+        },
+        {
+          "void_v0": {
+            "doc": "",
+            "name": "AlreadySettled"
+          }
+        },
+        {
+          "void_v0": {
+            "doc": "",
+            "name": "AlreadyCancelled"
+          }
+        },
+        {
+          "void_v0": {
+            "doc": "",
+            "name": "AlreadyRecovered"
+          }
+        },
+        {
+          "void_v0": {
+            "doc": "",
+            "name": "Duplicate"
+          }
+        },
+        {
+          "void_v0": {
+            "doc": "",
+            "name": "EscrowUnavailable"
+          }
+        }
+      ],
+      "doc": "",
+      "lib": "",
+      "name": "BatchRecoveryStatus"
     }
   },
   {
