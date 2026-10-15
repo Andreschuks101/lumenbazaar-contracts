@@ -138,6 +138,216 @@ fn print_resource_usage(operation: &str, env: &Env) {
     );
 }
 
+fn contract_event_count(env: &Env, contract_id: &Address) -> usize {
+    env.events()
+        .all()
+        .filter_by_contract(contract_id)
+        .events()
+        .len()
+}
+
+fn print_native_rpc_fixture(
+    name: &str,
+    outcome: &str,
+    result: &str,
+    authorization_entries: usize,
+    contract_events: usize,
+    env: &Env,
+) {
+    let resources = env.cost_estimate().resources();
+    let fee = env.cost_estimate().fee();
+    std::println!(
+        concat!(
+            "NATIVE_RPC_DIFFERENTIAL_JSON ",
+            "{{",
+            "\"name\":\"{}\",",
+            "\"outcome\":\"{}\",",
+            "\"result\":\"{}\",",
+            "\"authorizationEntries\":{},",
+            "\"contractEventCount\":{},",
+            "\"resources\":{{",
+            "\"instructions\":{},",
+            "\"memoryBytes\":{},",
+            "\"diskReadBytes\":{},",
+            "\"writeBytes\":{},",
+            "\"estimatedFeeStroops\":{}",
+            "}}",
+            "}}"
+        ),
+        name,
+        outcome,
+        result,
+        authorization_entries,
+        contract_events,
+        resources.instructions,
+        resources.mem_bytes,
+        resources.disk_read_bytes,
+        resources.write_bytes,
+        fee.total,
+    );
+}
+
+#[test]
+fn native_rpc_differential_create_session() {
+    let env = Env::default();
+    env.mock_all_auths_allowing_non_root_auth();
+    let contract_id = env.register(UptoSessionContract, ());
+    let client = UptoSessionContractClient::new(&env, &contract_id);
+    let buyer = Address::generate(&env);
+    let seller = Address::generate(&env);
+    let asset = create_test_asset(&env, &buyer, 500);
+    initialize_for_asset(&env, &client, &buyer, &asset);
+    let session_id = client.create_session(
+        &buyer,
+        &seller,
+        &asset,
+        &100,
+        &50,
+        &BytesN::from_array(&env, &[76; 32]),
+    );
+    print_native_rpc_fixture(
+        "create_session",
+        "success",
+        "Created",
+        env.auths().len(),
+        contract_event_count(&env, &contract_id),
+        &env,
+    );
+    assert_eq!(client.get_session(&session_id).status, SessionStatus::Open);
+}
+
+#[test]
+fn native_rpc_differential_read_settled() {
+    let env = Env::default();
+    env.mock_all_auths_allowing_non_root_auth();
+    let contract_id = env.register(UptoSessionContract, ());
+    let client = UptoSessionContractClient::new(&env, &contract_id);
+    let buyer = Address::generate(&env);
+    let seller = Address::generate(&env);
+    let asset = create_test_asset(&env, &buyer, 500);
+    initialize_for_asset(&env, &client, &buyer, &asset);
+    let session_id = client.create_session(
+        &buyer,
+        &seller,
+        &asset,
+        &100,
+        &50,
+        &BytesN::from_array(&env, &[77; 32]),
+    );
+    client.settle(&session_id, &60, &BytesN::from_array(&env, &[78; 32]));
+    let session = client.get_session(&session_id);
+    assert_eq!(session.status, SessionStatus::Settled);
+    print_native_rpc_fixture(
+        "read_settled",
+        "success",
+        "Settled",
+        env.auths().len(),
+        contract_event_count(&env, &contract_id),
+        &env,
+    );
+}
+
+#[test]
+fn native_rpc_differential_repeated_settle() {
+    let env = Env::default();
+    env.mock_all_auths_allowing_non_root_auth();
+    let contract_id = env.register(UptoSessionContract, ());
+    let client = UptoSessionContractClient::new(&env, &contract_id);
+    let buyer = Address::generate(&env);
+    let seller = Address::generate(&env);
+    let asset = create_test_asset(&env, &buyer, 500);
+    initialize_for_asset(&env, &client, &buyer, &asset);
+    let session_id = client.create_session(
+        &buyer,
+        &seller,
+        &asset,
+        &100,
+        &50,
+        &BytesN::from_array(&env, &[79; 32]),
+    );
+    let usage_hash = BytesN::from_array(&env, &[80; 32]);
+    client.settle(&session_id, &60, &usage_hash);
+    assert_eq!(
+        client.try_settle(&session_id, &60, &usage_hash),
+        Err(Ok(ContractError::SessionAlreadySettled))
+    );
+    print_native_rpc_fixture(
+        "repeated_settle",
+        "error",
+        "ContractError#6",
+        env.auths().len(),
+        contract_event_count(&env, &contract_id),
+        &env,
+    );
+}
+
+#[test]
+fn native_rpc_differential_repeated_cancel() {
+    let env = Env::default();
+    env.mock_all_auths_allowing_non_root_auth();
+    let contract_id = env.register(UptoSessionContract, ());
+    let client = UptoSessionContractClient::new(&env, &contract_id);
+    let buyer = Address::generate(&env);
+    let seller = Address::generate(&env);
+    let asset = create_test_asset(&env, &buyer, 500);
+    initialize_for_asset(&env, &client, &buyer, &asset);
+    let session_id = client.create_session(
+        &buyer,
+        &seller,
+        &asset,
+        &100,
+        &50,
+        &BytesN::from_array(&env, &[81; 32]),
+    );
+    client.cancel(&session_id);
+    assert_eq!(
+        client.try_cancel(&session_id),
+        Err(Ok(ContractError::SessionCancelled))
+    );
+    print_native_rpc_fixture(
+        "repeated_cancel",
+        "error",
+        "ContractError#7",
+        env.auths().len(),
+        contract_event_count(&env, &contract_id),
+        &env,
+    );
+}
+
+#[test]
+fn native_rpc_differential_repeated_recovery() {
+    let env = Env::default();
+    env.mock_all_auths_allowing_non_root_auth();
+    let contract_id = env.register(UptoSessionContract, ());
+    let client = UptoSessionContractClient::new(&env, &contract_id);
+    let buyer = Address::generate(&env);
+    let seller = Address::generate(&env);
+    let asset = create_test_asset(&env, &buyer, 500);
+    initialize_for_asset(&env, &client, &buyer, &asset);
+    let session_id = client.create_session(
+        &buyer,
+        &seller,
+        &asset,
+        &100,
+        &50,
+        &BytesN::from_array(&env, &[82; 32]),
+    );
+    env.ledger().set_sequence_number(50);
+    client.recover_expired(&session_id);
+    assert_eq!(
+        client.try_recover_expired(&session_id),
+        Err(Ok(ContractError::SessionExpired))
+    );
+    print_native_rpc_fixture(
+        "repeated_recovery",
+        "error",
+        "ContractError#21",
+        env.auths().len(),
+        contract_event_count(&env, &contract_id),
+        &env,
+    );
+}
+
 #[test]
 fn public_interface_is_callable() {
     let env = Env::default();
