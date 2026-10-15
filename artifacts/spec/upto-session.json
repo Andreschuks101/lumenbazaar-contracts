@@ -4,6 +4,105 @@
       "data_format": "map",
       "doc": "",
       "lib": "",
+      "name": "AdminRotationAccepted",
+      "params": [
+        {
+          "doc": "",
+          "location": "topic_list",
+          "name": "new_admin",
+          "type": "address"
+        },
+        {
+          "doc": "",
+          "location": "data",
+          "name": "previous_admin",
+          "type": "address"
+        },
+        {
+          "doc": "",
+          "location": "data",
+          "name": "event_version",
+          "type": "u32"
+        }
+      ],
+      "prefix_topics": [
+        "admin_rotation_accepted"
+      ]
+    }
+  },
+  {
+    "event_v0": {
+      "data_format": "map",
+      "doc": "",
+      "lib": "",
+      "name": "AdminRotationCancelled",
+      "params": [
+        {
+          "doc": "",
+          "location": "topic_list",
+          "name": "pending_admin",
+          "type": "address"
+        },
+        {
+          "doc": "",
+          "location": "data",
+          "name": "current_admin",
+          "type": "address"
+        },
+        {
+          "doc": "",
+          "location": "data",
+          "name": "event_version",
+          "type": "u32"
+        }
+      ],
+      "prefix_topics": [
+        "admin_rotation_cancelled"
+      ]
+    }
+  },
+  {
+    "event_v0": {
+      "data_format": "map",
+      "doc": "",
+      "lib": "",
+      "name": "AdminRotationProposed",
+      "params": [
+        {
+          "doc": "",
+          "location": "topic_list",
+          "name": "pending_admin",
+          "type": "address"
+        },
+        {
+          "doc": "",
+          "location": "data",
+          "name": "current_admin",
+          "type": "address"
+        },
+        {
+          "doc": "",
+          "location": "data",
+          "name": "expires_at_ledger",
+          "type": "u32"
+        },
+        {
+          "doc": "",
+          "location": "data",
+          "name": "event_version",
+          "type": "u32"
+        }
+      ],
+      "prefix_topics": [
+        "admin_rotation_proposed"
+      ]
+    }
+  },
+  {
+    "event_v0": {
+      "data_format": "map",
+      "doc": "",
+      "lib": "",
       "name": "SessionCancelled",
       "params": [
         {
@@ -246,6 +345,25 @@
   {
     "function_v0": {
       "doc": "",
+      "inputs": [],
+      "name": "accept_admin",
+      "outputs": [
+        {
+          "result": {
+            "error_type": {
+              "udt": {
+                "name": "ContractError"
+              }
+            },
+            "ok_type": "void"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "function_v0": {
+      "doc": "",
       "inputs": [
         {
           "doc": "",
@@ -258,6 +376,25 @@
         }
       ],
       "name": "cancel",
+      "outputs": [
+        {
+          "result": {
+            "error_type": {
+              "udt": {
+                "name": "ContractError"
+              }
+            },
+            "ok_type": "void"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "function_v0": {
+      "doc": "",
+      "inputs": [],
+      "name": "cancel_admin_rotation",
       "outputs": [
         {
           "result": {
@@ -362,6 +499,43 @@
   {
     "function_v0": {
       "doc": "",
+      "inputs": [],
+      "name": "get_admin",
+      "outputs": [
+        {
+          "result": {
+            "error_type": {
+              "udt": {
+                "name": "ContractError"
+              }
+            },
+            "ok_type": "address"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "function_v0": {
+      "doc": "",
+      "inputs": [],
+      "name": "get_admin_rotation",
+      "outputs": [
+        {
+          "option": {
+            "value_type": {
+              "udt": {
+                "name": "AdminRotation"
+              }
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "function_v0": {
+      "doc": "",
       "inputs": [
         {
           "doc": "",
@@ -433,6 +607,36 @@
       "name": "interface_version",
       "outputs": [
         "u32"
+      ]
+    }
+  },
+  {
+    "function_v0": {
+      "doc": "",
+      "inputs": [
+        {
+          "doc": "",
+          "name": "pending_admin",
+          "type": "address"
+        },
+        {
+          "doc": "",
+          "name": "expires_at_ledger",
+          "type": "u32"
+        }
+      ],
+      "name": "propose_admin",
+      "outputs": [
+        {
+          "result": {
+            "error_type": {
+              "udt": {
+                "name": "ContractError"
+              }
+            },
+            "ok_type": "void"
+          }
+        }
       ]
     }
   },
@@ -620,11 +824,55 @@
           "doc": "",
           "name": "SessionNotExpired",
           "value": 22
+        },
+        {
+          "doc": "",
+          "name": "InvalidAdmin",
+          "value": 23
+        },
+        {
+          "doc": "",
+          "name": "InvalidAdminRotationExpiry",
+          "value": 24
+        },
+        {
+          "doc": "",
+          "name": "AdminRotationPending",
+          "value": 25
+        },
+        {
+          "doc": "",
+          "name": "AdminRotationNotFound",
+          "value": 26
+        },
+        {
+          "doc": "",
+          "name": "AdminRotationExpired",
+          "value": 27
         }
       ],
       "doc": "",
       "lib": "",
       "name": "ContractError"
+    }
+  },
+  {
+    "udt_struct_v0": {
+      "doc": "",
+      "fields": [
+        {
+          "doc": "",
+          "name": "expires_at_ledger",
+          "type": "u32"
+        },
+        {
+          "doc": "",
+          "name": "pending_admin",
+          "type": "address"
+        }
+      ],
+      "lib": "",
+      "name": "AdminRotation"
     }
   },
   {

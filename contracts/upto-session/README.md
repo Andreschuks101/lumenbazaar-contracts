@@ -3,10 +3,24 @@
 `upto-session` enforces capped metered payment sessions for LumenBazaar x402
 `upto` flows.
 
-This is contract version `0.2.0` and interface version `2`.
+This is contract version `0.3.0` and interface version `3`.
 `interface_version()` is the decoder compatibility check for clients. Version
-2 requires a new deployment and is not wire-compatible with the unfunded v1
-session and event shapes.
+3 adds two-step administrator rotation and requires a new deployment for
+clients that depend on the new governance methods and event types.
+
+## Administrator Rotation
+
+The current administrator calls `propose_admin(pending_admin,
+expires_at_ledger)` to create one pending rotation. The proposal cannot target
+the current administrator, cannot overwrite another pending rotation, and must
+expire within 17,280 ledgers.
+
+Only the stored pending administrator can call `accept_admin()` before the
+expiry ledger. Acceptance changes the active administrator and removes the
+proposal atomically. The old administrator loses privileges in that same
+invocation. The current administrator can call `cancel_admin_rotation()` before
+or after expiry; cancellation never transfers privileges. `get_admin()` and
+`get_admin_rotation()` expose the current state without granting authority.
 
 ## Session ID Derivation
 
@@ -26,6 +40,24 @@ overwriting an existing session while keeping the derivation reproducible from
 stored inputs and sequence evidence.
 
 ## Events
+
+### `AdminRotationProposed`
+
+Topics: `pending_admin`.
+
+Data: `current_admin`, `expires_at_ledger`, and `event_version` (`3`).
+
+### `AdminRotationAccepted`
+
+Topics: `new_admin`.
+
+Data: `previous_admin` and `event_version` (`3`).
+
+### `AdminRotationCancelled`
+
+Topics: `pending_admin`.
+
+Data: `current_admin` and `event_version` (`3`).
 
 ### `SessionCreated`
 
