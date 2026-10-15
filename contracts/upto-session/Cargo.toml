@@ -15,5 +15,5 @@ soroban-sdk.workspace = true
 
 [dev-dependencies]
 soroban-sdk = { workspace = true, features = ["testutils"] }
-test-token = { path = "../test-token" }
+test-token = { path = "../test-token", features = ["testutils"] }
 proptest = "1.11.0"
