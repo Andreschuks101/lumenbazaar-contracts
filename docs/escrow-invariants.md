@@ -33,8 +33,10 @@ session still carries its complete cap and that the contract token balance
 covers the aggregate liability for that asset. A failed check returns
 `EscrowUnderfunded` before liability or session state changes.
 
-The asset allowlist is immutable after initialization. Each session ID commits
-to buyer, seller, asset, cap, expiry, resource hash, and the contract sequence.
+Asset membership is immutable after initialization. Each supported asset has a
+positive explicit session cap; authenticated cap changes affect only later
+creation and do not rewrite stored sessions. Each session ID commits to buyer,
+seller, asset, cap, expiry, resource hash, and the contract sequence.
 No caller supplies a payout source or destination at settlement, so the
 contract cannot act as a deputy for another account and one session cannot use
 another session's authorization or parameters. Full-cap escrow avoids shared

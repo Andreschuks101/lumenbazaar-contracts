@@ -4,6 +4,49 @@
       "data_format": "map",
       "doc": "",
       "lib": "",
+      "name": "AssetSessionCapUpdated",
+      "params": [
+        {
+          "doc": "",
+          "location": "topic_list",
+          "name": "asset",
+          "type": "address"
+        },
+        {
+          "doc": "",
+          "location": "data",
+          "name": "admin",
+          "type": "address"
+        },
+        {
+          "doc": "",
+          "location": "data",
+          "name": "previous_max_session_amount",
+          "type": "i128"
+        },
+        {
+          "doc": "",
+          "location": "data",
+          "name": "new_max_session_amount",
+          "type": "i128"
+        },
+        {
+          "doc": "",
+          "location": "data",
+          "name": "event_version",
+          "type": "u32"
+        }
+      ],
+      "prefix_topics": [
+        "asset_session_cap_updated"
+      ]
+    }
+  },
+  {
+    "event_v0": {
+      "data_format": "map",
+      "doc": "",
+      "lib": "",
       "name": "SessionCancelled",
       "params": [
         {
@@ -365,6 +408,31 @@
       "inputs": [
         {
           "doc": "",
+          "name": "asset",
+          "type": "address"
+        }
+      ],
+      "name": "get_asset_max_session_amount",
+      "outputs": [
+        {
+          "result": {
+            "error_type": {
+              "udt": {
+                "name": "ContractError"
+              }
+            },
+            "ok_type": "i128"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "function_v0": {
+      "doc": "",
+      "inputs": [
+        {
+          "doc": "",
           "name": "session_id",
           "type": {
             "bytes_n": {
@@ -403,10 +471,14 @@
         },
         {
           "doc": "",
-          "name": "supported_assets",
+          "name": "asset_policies",
           "type": {
             "vec": {
-              "element_type": "address"
+              "element_type": {
+                "udt": {
+                  "name": "AssetPolicy"
+                }
+              }
             }
           }
         }
@@ -451,6 +523,36 @@
         }
       ],
       "name": "recover_expired",
+      "outputs": [
+        {
+          "result": {
+            "error_type": {
+              "udt": {
+                "name": "ContractError"
+              }
+            },
+            "ok_type": "void"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "function_v0": {
+      "doc": "",
+      "inputs": [
+        {
+          "doc": "",
+          "name": "asset",
+          "type": "address"
+        },
+        {
+          "doc": "",
+          "name": "max_session_amount",
+          "type": "i128"
+        }
+      ],
+      "name": "set_asset_max_session_amount",
       "outputs": [
         {
           "result": {
@@ -620,11 +722,40 @@
           "doc": "",
           "name": "SessionNotExpired",
           "value": 22
+        },
+        {
+          "doc": "",
+          "name": "InvalidAssetCap",
+          "value": 23
+        },
+        {
+          "doc": "",
+          "name": "AssetCapNotConfigured",
+          "value": 24
         }
       ],
       "doc": "",
       "lib": "",
       "name": "ContractError"
+    }
+  },
+  {
+    "udt_struct_v0": {
+      "doc": "",
+      "fields": [
+        {
+          "doc": "",
+          "name": "asset",
+          "type": "address"
+        },
+        {
+          "doc": "",
+          "name": "max_session_amount",
+          "type": "i128"
+        }
+      ],
+      "lib": "",
+      "name": "AssetPolicy"
     }
   },
   {

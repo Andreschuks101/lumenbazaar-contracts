@@ -260,7 +260,13 @@ fn production_escrow_funds_and_settles_with_exact_authorization_trees() {
     let asset = create_test_asset(&env, &identities.buyer, 500);
     let resource_hash = BytesN::from_array(&env, &[41; 32]);
     let usage_hash = BytesN::from_array(&env, &[42; 32]);
-    let supported_assets = soroban_sdk::vec![&env, asset.clone()];
+    let asset_policies = soroban_sdk::vec![
+        &env,
+        AssetPolicy {
+            asset: asset.clone(),
+            max_session_amount: 500,
+        }
+    ];
 
     client
         .mock_auths(&[MockAuth {
@@ -268,11 +274,11 @@ fn production_escrow_funds_and_settles_with_exact_authorization_trees() {
             invoke: &MockAuthInvoke {
                 contract: &contract_id,
                 fn_name: "initialize",
-                args: (identities.admin.clone(), supported_assets.clone()).into_val(&env),
+                args: (identities.admin.clone(), asset_policies.clone()).into_val(&env),
                 sub_invokes: &[],
             },
         }])
-        .initialize(&identities.admin, &supported_assets);
+        .initialize(&identities.admin, &asset_policies);
 
     let session_id = client
         .mock_auths(&[MockAuth {

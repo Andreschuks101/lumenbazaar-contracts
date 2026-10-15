@@ -2,6 +2,13 @@ use soroban_sdk::{contracttype, Address, BytesN};
 
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AssetPolicy {
+    pub asset: Address,
+    pub max_session_amount: i128,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum SessionStatus {
     Open,
     Settled,

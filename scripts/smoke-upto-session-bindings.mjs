@@ -12,6 +12,8 @@ const packageJson = JSON.parse(
 const requiredMethods = [
   "interface_version",
   "initialize",
+  "get_asset_max_session_amount",
+  "set_asset_max_session_amount",
   "create_session",
   "get_session",
   "settle",
@@ -28,10 +30,13 @@ if (bindings.ContractError?.[5]?.message !== "SessionNotFound") {
   throw new Error("Expected stable SessionNotFound error mapping");
 }
 if (bindings.ContractError?.[22]?.message !== "SessionNotExpired") {
-  throw new Error("Expected complete v2 ContractError mapping");
+  throw new Error("Expected stable SessionNotExpired error mapping");
 }
-if (packageJson.version !== "2.0.0") {
-  throw new Error("Expected generated binding package version 2.0.0");
+if (bindings.ContractError?.[24]?.message !== "AssetCapNotConfigured") {
+  throw new Error("Expected complete v3 ContractError mapping");
+}
+if (packageJson.version !== "3.0.0") {
+  throw new Error("Expected generated binding package version 3.0.0");
 }
 
 for (const method of requiredMethods) {

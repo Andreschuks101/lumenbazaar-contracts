@@ -25,22 +25,24 @@ No production contract ID is committed in this repository yet.
 
 - TypeScript package: `bindings/upto-session`
 - Canonical spec artifact: `artifacts/spec/upto-session.json`
-- Decoding fixture: `artifacts/interface/upto-session-v2.json`
+- Decoding fixture: `artifacts/interface/upto-session-v3.json`
 - Binding regeneration: `node scripts/generate-bindings.mjs`
 - Spec regeneration: `node scripts/generate-specs.mjs`
 
 Backend services should prefer the generated TypeScript package for transaction construction and result decoding.
 
-The corrected escrow contract and generated package are version `0.2.0`; the
-public `interface_version()` result and every public event use interface/event
-version `2`.
+The current escrow contract and generated package are version `0.3.0`; the
+public `interface_version()` result is `3`. Existing lifecycle events retain
+event version `2`; the asset-cap update event uses version `3`.
 
 ## Upto Session Functions
 
 | Function | Backend use |
 | --- | --- |
-| `interface_version()` | Require result `2` before decoding v2 session state or events. |
-| `initialize(admin, supported_assets)` | One-time deployment setup with an immutable non-empty token allowlist. Do not call from request handlers. |
+| `interface_version()` | Require result `3` before encoding v3 initialization or cap-policy calls. |
+| `initialize(admin, asset_policies)` | One-time deployment setup with a non-empty list of unique assets and positive explicit session caps. Do not call from request handlers. |
+| `get_asset_max_session_amount(asset)` | Read the active creation cap for a supported asset. |
+| `set_asset_max_session_amount(asset, max_session_amount)` | Authenticated administrator update for future sessions only. |
 | `create_session(buyer, seller, asset, max_amount, expires_at_ledger, resource_hash)` | Create a buyer-authorized spending cap and escrow the full cap for a resource. |
 | `get_session(session_id)` | Read current session state for API responses, reconciliation, and settlement guards. |
 | `settle(session_id, actual_amount, usage_hash)` | Seller-authorized settlement for actual usage. |
@@ -48,15 +50,15 @@ version `2`.
 | `recover_expired(session_id)` | Permissionless full refund to the stored buyer at or after expiry. |
 | `extend_ttl(session_id)` | Extend storage TTL for still-open sessions. |
 
-## V1 To V2 Compatibility
+## V2 To V3 Compatibility
 
-Version 2 is a new deployment, not an in-place upgrade. It changes
-`initialize` by adding `supported_assets`, adds `escrowed_amount` and the
-`Expired` status to session decoding, adds `recover_expired` and
-`interface_version`, and replaces the old event payloads with versioned escrow
-payloads. A backend must reject a contract whose `interface_version()` is not
-`2`; decoding it with v2 types is not supported. Error codes 1 through 13 retain
-their names and values, while codes 14 through 22 are additive.
+Version 3 is a new deployment, not an in-place upgrade. It replaces the v2
+`initialize(admin, supported_assets)` payload with explicit `AssetPolicy`
+values and adds cap query/update methods plus `AssetSessionCapUpdated`. A
+backend must reject a contract whose `interface_version()` is not `3` before
+using v3 calls. Existing error codes 1 through 22 retain their names and values;
+codes 23 and 24 are additive. Published v2 deployment records remain historical
+evidence and do not represent a deployed v3 contract.
 
 ## Stable Errors
 
@@ -84,6 +86,8 @@ their names and values, while codes 14 through 22 are additive.
 | 20 | `NotInitialized` | Initialize a new deployment before creating sessions. |
 | 21 | `SessionExpired` | Treat as finalized by expiry recovery. |
 | 22 | `SessionNotExpired` | Do not recover before the exact expiry ledger. |
+| 23 | `InvalidAssetCap` | Reject zero or negative configured session caps. |
+| 24 | `AssetCapNotConfigured` | Stop creation and investigate incomplete asset policy state. |
 
 ## Hash Inputs
 
