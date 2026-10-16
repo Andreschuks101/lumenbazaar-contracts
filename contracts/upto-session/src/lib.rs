@@ -8,7 +8,10 @@ mod types;
 pub mod validation;
 
 pub use errors::ContractError;
-pub use types::{AdminRotation, AssetPolicy, Session, SessionStatus};
+pub use types::{
+    AdminRotation, AssetPolicy, BatchRecoveryResult, BatchRecoveryStatus, ContractConfiguration,
+    OperationalState, Session, SessionStatus,
+};
 
 use soroban_sdk::{contract, contractimpl, token, Address, BytesN, Env, Vec};
 
@@ -16,6 +19,9 @@ use soroban_sdk::{contract, contractimpl, token, Address, BytesN, Env, Vec};
 pub struct UptoSessionContract;
 
 pub const INTERFACE_VERSION: u32 = 3;
+pub const CONFIGURATION_RESPONSE_VERSION: u32 = 1;
+pub const MAX_SUPPORTED_ASSETS: u32 = 16;
+pub const MAX_RECOVERY_BATCH_SIZE: u32 = 8;
 
 #[contractimpl]
 impl UptoSessionContract {
@@ -33,17 +39,25 @@ impl UptoSessionContract {
         }
 
         admin.require_auth();
-        if asset_policies.is_empty() {
+        if asset_policies.is_empty() || asset_policies.len() > MAX_SUPPORTED_ASSETS {
             return Err(ContractError::InvalidSupportedAssets);
         }
+        let mut supported_assets = Vec::new(&env);
         for policy in asset_policies.iter() {
             validation::validate_asset_cap(policy.max_session_amount)?;
-            if storage::is_supported_asset(&env, &policy.asset) {
+            if supported_assets.iter().any(|asset| asset == policy.asset) {
                 return Err(ContractError::InvalidSupportedAssets);
             }
+            supported_assets.push_back(policy.asset);
+        }
+        for policy in asset_policies.iter() {
+            let probe = validation::validate_supported_asset(&env, &policy.asset, &admin)?;
             storage::write_supported_asset(&env, &policy.asset);
             storage::write_asset_max_session_amount(&env, &policy.asset, policy.max_session_amount);
+            events::publish_asset_activated(&env, &policy.asset, probe.decimals);
         }
+        storage::write_supported_assets(&env, &supported_assets);
+        storage::write_operational_state(&env, &OperationalState::Active);
         storage::write_admin(&env, &admin);
         storage::write_storage_layout_version(&env);
         storage::extend_instance_ttl(&env);
@@ -153,6 +167,22 @@ impl UptoSessionContract {
 
     pub fn get_admin_rotation(env: Env) -> Option<AdminRotation> {
         storage::read_admin_rotation(&env)
+    }
+
+    pub fn get_configuration(env: Env) -> Result<ContractConfiguration, ContractError> {
+        let admin = storage::read_admin(&env).ok_or(ContractError::NotInitialized)?;
+        Ok(ContractConfiguration {
+            response_version: CONFIGURATION_RESPONSE_VERSION,
+            interface_version: INTERFACE_VERSION,
+            storage_layout_version: storage::read_storage_layout_version(&env)
+                .unwrap_or(storage::STORAGE_LAYOUT_VERSION),
+            admin,
+            supported_assets: storage::read_supported_assets(&env),
+            max_supported_assets: MAX_SUPPORTED_ASSETS,
+            operational_state: storage::read_operational_state(&env),
+            instance_ttl_threshold: storage::DEFAULT_TTL_THRESHOLD,
+            instance_ttl_extension: storage::TTL_EXTENSION_AMOUNT,
+        })
     }
 
     pub fn create_session(
@@ -370,34 +400,61 @@ impl UptoSessionContract {
             return Err(ContractError::SessionNotExpired);
         }
 
-        let refunded_amount = session.escrowed_amount;
-        let asset = token::Client::new(&env, &session.asset);
-        let contract = env.current_contract_address();
-        if refunded_amount != session.max_amount
-            || asset.balance(&contract) < storage::read_liability(&env, &session.asset)
-        {
-            return Err(ContractError::EscrowUnderfunded);
-        }
-        let contract_balance_before = asset.balance(&contract);
-        let buyer_balance_before = asset.balance(&session.buyer);
-        storage::decrease_liability(&env, &session.asset, refunded_amount)?;
-        asset.transfer(&contract, &session.buyer, &refunded_amount);
-        verify_debit(
-            contract_balance_before,
-            asset.balance(&contract),
-            refunded_amount,
-        )?;
-        verify_credit(
-            buyer_balance_before,
-            asset.balance(&session.buyer),
-            refunded_amount,
-        )?;
-        session.escrowed_amount = 0;
-        session.status = SessionStatus::Expired;
-        storage::write_session(&env, &session);
-        events::publish_session_recovered(&env, &session, refunded_amount);
-
+        recover_open_session(&env, &mut session)?;
         Ok(())
+    }
+
+    pub fn recover_expired_batch(
+        env: Env,
+        session_ids: Vec<BytesN<32>>,
+    ) -> Result<Vec<BatchRecoveryResult>, ContractError> {
+        if session_ids.is_empty() || session_ids.len() > MAX_RECOVERY_BATCH_SIZE {
+            return Err(ContractError::InvalidBatchSize);
+        }
+
+        let mut seen = Vec::new(&env);
+        let mut results = Vec::new(&env);
+        for session_id in session_ids.iter() {
+            if seen.iter().any(|seen_id| seen_id == session_id) {
+                results.push_back(batch_result(session_id, BatchRecoveryStatus::Duplicate, 0));
+                continue;
+            }
+            seen.push_back(session_id.clone());
+
+            let Some(mut session) = storage::read_session(&env, &session_id) else {
+                results.push_back(batch_result(session_id, BatchRecoveryStatus::NotFound, 0));
+                continue;
+            };
+
+            let status = match session.status {
+                SessionStatus::Settled => BatchRecoveryStatus::AlreadySettled,
+                SessionStatus::Cancelled => BatchRecoveryStatus::AlreadyCancelled,
+                SessionStatus::Expired => BatchRecoveryStatus::AlreadyRecovered,
+                SessionStatus::Open if env.ledger().sequence() < session.expires_at_ledger => {
+                    BatchRecoveryStatus::NotExpired
+                }
+                SessionStatus::Open => {
+                    let refunded_amount = session.escrowed_amount;
+                    match recover_open_session(&env, &mut session) {
+                        Ok(()) => {
+                            results.push_back(batch_result(
+                                session_id,
+                                BatchRecoveryStatus::Recovered,
+                                refunded_amount,
+                            ));
+                            continue;
+                        }
+                        Err(
+                            ContractError::EscrowUnderfunded | ContractError::LiabilityUnderflow,
+                        ) => BatchRecoveryStatus::EscrowUnavailable,
+                        Err(error) => return Err(error),
+                    }
+                }
+            };
+            results.push_back(batch_result(session_id, status, 0));
+        }
+
+        Ok(results)
     }
 
     pub fn get_session(env: Env, session_id: BytesN<32>) -> Result<Session, ContractError> {
@@ -428,6 +485,48 @@ impl UptoSessionContract {
             }
         }
     }
+}
+
+fn batch_result(
+    session_id: BytesN<32>,
+    status: BatchRecoveryStatus,
+    refunded_amount: i128,
+) -> BatchRecoveryResult {
+    BatchRecoveryResult {
+        session_id,
+        status,
+        refunded_amount,
+    }
+}
+
+fn recover_open_session(env: &Env, session: &mut Session) -> Result<(), ContractError> {
+    let refunded_amount = session.escrowed_amount;
+    let asset = token::Client::new(env, &session.asset);
+    let contract = env.current_contract_address();
+    if refunded_amount != session.max_amount
+        || asset.balance(&contract) < storage::read_liability(env, &session.asset)
+    {
+        return Err(ContractError::EscrowUnderfunded);
+    }
+    let contract_balance_before = asset.balance(&contract);
+    let buyer_balance_before = asset.balance(&session.buyer);
+    storage::decrease_liability(env, &session.asset, refunded_amount)?;
+    asset.transfer(&contract, &session.buyer, &refunded_amount);
+    verify_debit(
+        contract_balance_before,
+        asset.balance(&contract),
+        refunded_amount,
+    )?;
+    verify_credit(
+        buyer_balance_before,
+        asset.balance(&session.buyer),
+        refunded_amount,
+    )?;
+    session.escrowed_amount = 0;
+    session.status = SessionStatus::Expired;
+    storage::write_session(env, session);
+    events::publish_session_recovered(env, session, refunded_amount);
+    Ok(())
 }
 
 fn verify_debit(before: i128, after: i128, amount: i128) -> Result<(), ContractError> {

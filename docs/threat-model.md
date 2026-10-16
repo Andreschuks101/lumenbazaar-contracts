@@ -15,6 +15,9 @@ testnet deployment and lifecycle evidence are published in
 - Buyers authorize full-cap escrow at session creation and cancellation for
   their own funds.
 - Sellers authorize settlement and cannot settle more than the buyer's cap.
+- Asset activation performs a bounded read-only probe of SEP-41 balance and
+  metadata methods without moving funds, then emits an activation event. This
+  rejects missing, reverting, and observably malformed contracts at that time.
 - The configured token contract is trusted to implement SEP-41 transfer and
   balance semantics correctly. Escrow checks exact before/after balance deltas
   and rolls back on failed, under-reporting, or partial behavior, but a token
@@ -34,9 +37,12 @@ testnet deployment and lifecycle evidence are published in
 - Before expiry, `cancel` requires the stored buyer's authorization, refunds the escrow, and prevents later settlement.
 - At or after expiry, `recover_expired` requires no caller authorization and can refund only the stored buyer.
 - Repeated settlement and cancellation attempts fail against finalized state.
-- Host-rejected nested callbacks from an asset contract cannot re-enter a
-  terminal transition. The adversarial suite confirms that an attempted nested
-  settlement cannot create a second payout or alter the final recipient split.
+- Soroban rejects a callback that tries to invoke the active escrow contract
+  again while its token transfer is on the call stack. Test-only callback-token
+  fixtures cover create, settle, cancel, and recovery and assert that no second
+  success event, authorization, balance movement, or liability transition is
+  produced. This regression evidence does not make arbitrary token behavior
+  trustworthy.
 
 ## Amount, expiry, and storage risks
 

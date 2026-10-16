@@ -1,8 +1,11 @@
 use crate::{ContractError, Session};
-use soroban_sdk::{Address, BytesN, Env};
+use soroban_sdk::{token, Address, BytesN, Env};
 
 pub const MAX_SESSION_DURATION_LEDGERS: u32 = 518_400;
 pub const MAX_ADMIN_ROTATION_DURATION_LEDGERS: u32 = 17_280;
+pub const MAX_TOKEN_DECIMALS: u32 = 38;
+pub const MAX_TOKEN_NAME_BYTES: u32 = 64;
+pub const MAX_TOKEN_SYMBOL_BYTES: u32 = 12;
 
 pub fn validate_admin_rotation(
     env: &Env,
@@ -27,6 +30,36 @@ pub fn validate_asset_cap(max_session_amount: i128) -> Result<(), ContractError>
         return Err(ContractError::InvalidAssetCap);
     }
     Ok(())
+}
+
+pub struct AssetProbe {
+    pub decimals: u32,
+}
+
+pub fn validate_supported_asset(
+    env: &Env,
+    asset: &Address,
+    admin: &Address,
+) -> Result<AssetProbe, ContractError> {
+    let token = token::Client::new(env, asset);
+    let admin_balance = token.balance(admin);
+    let escrow_balance = token.balance(&env.current_contract_address());
+    let decimals = token.decimals();
+    let name = token.name();
+    let symbol = token.symbol();
+
+    if admin_balance < 0
+        || escrow_balance < 0
+        || decimals > MAX_TOKEN_DECIMALS
+        || name.is_empty()
+        || name.len() > MAX_TOKEN_NAME_BYTES
+        || symbol.is_empty()
+        || symbol.len() > MAX_TOKEN_SYMBOL_BYTES
+    {
+        return Err(ContractError::InvalidAssetInterface);
+    }
+
+    Ok(AssetProbe { decimals })
 }
 
 pub fn validate_create_session(

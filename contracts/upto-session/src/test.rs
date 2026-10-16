@@ -20,6 +20,10 @@ use soroban_sdk::{
 };
 use test_token::{
     adversarial::{AdversarialBehavior, AdversarialTokenContract, AdversarialTokenContractClient},
+    asset_probe::{
+        IncompatibleContract, ProbeBehavior, ProbeTokenContract, ProbeTokenContractClient,
+    },
+    reentry::{ReentryAction, ReentryTokenContract, ReentryTokenContractClient},
     TestTokenContract, TestTokenContractClient,
 };
 
@@ -103,6 +107,23 @@ fn assert_adversarial_creation_rolls_back(behavior: AdversarialBehavior) {
         .filter_by_contract(&contract_id)
         .events()
         .is_empty());
+}
+
+fn create_reentry_token(env: &Env, buyer: &Address, amount: i128) -> (Address, Address) {
+    let admin = Address::generate(env);
+    let token_id = env.register(ReentryTokenContract, ());
+    let token = ReentryTokenContractClient::new(env, &token_id);
+    token.initialize(&admin);
+    token.mint(buyer, &amount);
+    (admin, token_id)
+}
+
+fn escrow_event_count(env: &Env, contract_id: &Address) -> usize {
+    env.events()
+        .all()
+        .filter_by_contract(contract_id)
+        .events()
+        .len()
 }
 
 fn initialize_for_asset(
@@ -369,6 +390,179 @@ fn native_rpc_differential_repeated_recovery() {
 }
 
 #[test]
+fn nested_create_during_funding_is_rejected_without_duplicate_state() {
+    let env = Env::default();
+    env.mock_all_auths_allowing_non_root_auth();
+    let contract_id = env.register(UptoSessionContract, ());
+    let client = UptoSessionContractClient::new(&env, &contract_id);
+    let buyer = Address::generate(&env);
+    let seller = Address::generate(&env);
+    let (token_admin, asset) = create_reentry_token(&env, &buyer, 500);
+    let token = ReentryTokenContractClient::new(&env, &asset);
+    initialize_for_asset(&env, &client, &buyer, &asset);
+    let resource_hash = BytesN::from_array(&env, &[70; 32]);
+    token.configure_create(&contract_id, &buyer, &seller, &100, &50, &resource_hash);
+
+    let session_id = client.create_session(&buyer, &seller, &asset, &100, &50, &resource_hash);
+    let event_count = escrow_event_count(&env, &contract_id);
+    let auth_count = env.auths().len();
+
+    assert!(token.callback_rejected());
+    assert_eq!(client.get_session(&session_id).status, SessionStatus::Open);
+    assert_eq!(token.balance(&buyer), 400);
+    assert_eq!(token.balance(&contract_id), 100);
+    assert_eq!(token.balance(&token_admin), 0);
+    assert_eq!(event_count, 1);
+    assert_eq!(auth_count, 1);
+    env.as_contract(&contract_id, || {
+        assert_eq!(storage::read_next_session_sequence(&env), 1);
+        assert_eq!(storage::read_liability(&env, &asset), 100);
+    });
+}
+
+#[test]
+fn nested_settle_during_payout_cannot_finalize_twice() {
+    let env = Env::default();
+    env.mock_all_auths_allowing_non_root_auth();
+    let contract_id = env.register(UptoSessionContract, ());
+    let client = UptoSessionContractClient::new(&env, &contract_id);
+    let buyer = Address::generate(&env);
+    let seller = Address::generate(&env);
+    let (_, asset) = create_reentry_token(&env, &buyer, 500);
+    let token = ReentryTokenContractClient::new(&env, &asset);
+    initialize_for_asset(&env, &client, &buyer, &asset);
+    let session_id = client.create_session(
+        &buyer,
+        &seller,
+        &asset,
+        &100,
+        &50,
+        &BytesN::from_array(&env, &[71; 32]),
+    );
+    let usage_hash = BytesN::from_array(&env, &[72; 32]);
+    token.configure_terminal(
+        &contract_id,
+        &ReentryAction::Settle,
+        &session_id,
+        &60,
+        &usage_hash,
+    );
+
+    client.settle(&session_id, &60, &usage_hash);
+    let event_count = escrow_event_count(&env, &contract_id);
+    let auth_count = env.auths().len();
+
+    let session = client.get_session(&session_id);
+    assert!(token.callback_rejected());
+    assert_eq!(session.status, SessionStatus::Settled);
+    assert_eq!(session.settled_amount, 60);
+    assert_eq!(session.escrowed_amount, 0);
+    assert_eq!(token.balance(&buyer), 440);
+    assert_eq!(token.balance(&seller), 60);
+    assert_eq!(token.balance(&contract_id), 0);
+    assert_eq!(event_count, 1);
+    assert_eq!(auth_count, 1);
+    env.as_contract(&contract_id, || {
+        assert_eq!(storage::read_liability(&env, &asset), 0);
+    });
+}
+
+#[test]
+fn nested_cancel_during_refund_cannot_finalize_twice() {
+    let env = Env::default();
+    env.mock_all_auths_allowing_non_root_auth();
+    let contract_id = env.register(UptoSessionContract, ());
+    let client = UptoSessionContractClient::new(&env, &contract_id);
+    let buyer = Address::generate(&env);
+    let seller = Address::generate(&env);
+    let (_, asset) = create_reentry_token(&env, &buyer, 500);
+    let token = ReentryTokenContractClient::new(&env, &asset);
+    initialize_for_asset(&env, &client, &buyer, &asset);
+    let session_id = client.create_session(
+        &buyer,
+        &seller,
+        &asset,
+        &100,
+        &50,
+        &BytesN::from_array(&env, &[73; 32]),
+    );
+    token.configure_terminal(
+        &contract_id,
+        &ReentryAction::Cancel,
+        &session_id,
+        &1,
+        &BytesN::from_array(&env, &[74; 32]),
+    );
+
+    client.cancel(&session_id);
+    let event_count = escrow_event_count(&env, &contract_id);
+    let auth_count = env.auths().len();
+
+    assert!(token.callback_rejected());
+    assert_eq!(
+        client.get_session(&session_id).status,
+        SessionStatus::Cancelled
+    );
+    assert_eq!(token.balance(&buyer), 500);
+    assert_eq!(token.balance(&seller), 0);
+    assert_eq!(token.balance(&contract_id), 0);
+    assert_eq!(event_count, 1);
+    assert_eq!(auth_count, 1);
+    env.as_contract(&contract_id, || {
+        assert_eq!(storage::read_liability(&env, &asset), 0);
+    });
+}
+
+#[test]
+fn nested_recovery_during_refund_cannot_finalize_twice() {
+    let env = Env::default();
+    env.mock_all_auths_allowing_non_root_auth();
+    let contract_id = env.register(UptoSessionContract, ());
+    let client = UptoSessionContractClient::new(&env, &contract_id);
+    let buyer = Address::generate(&env);
+    let seller = Address::generate(&env);
+    let caller = Address::generate(&env);
+    let (_, asset) = create_reentry_token(&env, &buyer, 500);
+    let token = ReentryTokenContractClient::new(&env, &asset);
+    initialize_for_asset(&env, &client, &buyer, &asset);
+    let session_id = client.create_session(
+        &buyer,
+        &seller,
+        &asset,
+        &100,
+        &10,
+        &BytesN::from_array(&env, &[75; 32]),
+    );
+    token.configure_terminal(
+        &contract_id,
+        &ReentryAction::Recover,
+        &session_id,
+        &1,
+        &BytesN::from_array(&env, &[76; 32]),
+    );
+    env.ledger().set_sequence_number(10);
+
+    client.recover_expired(&session_id);
+    let event_count = escrow_event_count(&env, &contract_id);
+    let auth_count = env.auths().len();
+
+    assert!(token.callback_rejected());
+    assert_eq!(
+        client.get_session(&session_id).status,
+        SessionStatus::Expired
+    );
+    assert_eq!(token.balance(&buyer), 500);
+    assert_eq!(token.balance(&seller), 0);
+    assert_eq!(token.balance(&caller), 0);
+    assert_eq!(token.balance(&contract_id), 0);
+    assert_eq!(event_count, 1);
+    assert_eq!(auth_count, 0);
+    env.as_contract(&contract_id, || {
+        assert_eq!(storage::read_liability(&env, &asset), 0);
+    });
+}
+
+#[test]
 fn public_interface_is_callable() {
     let env = Env::default();
     env.mock_all_auths_allowing_non_root_auth();
@@ -523,7 +717,9 @@ fn initialize_stores_admin_once() {
     let client = UptoSessionContractClient::new(&env, &contract_id);
     let admin = Address::generate(&env);
 
-    let asset = Address::generate(&env);
+    let asset = env
+        .register_stellar_asset_contract_v2(Address::generate(&env))
+        .address();
     let asset_policies = soroban_sdk::vec![&env, asset_policy(&asset, 500)];
     client.initialize(&admin, &asset_policies);
 
@@ -542,6 +738,163 @@ fn initialize_stores_admin_once() {
 }
 
 #[test]
+fn configuration_query_returns_bounded_versioned_public_state() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let contract_id = env.register(UptoSessionContract, ());
+    let client = UptoSessionContractClient::new(&env, &contract_id);
+    let admin = Address::generate(&env);
+    let first_asset = env
+        .register_stellar_asset_contract_v2(Address::generate(&env))
+        .address();
+    let second_asset = env
+        .register_stellar_asset_contract_v2(Address::generate(&env))
+        .address();
+    let assets = soroban_sdk::vec![&env, first_asset.clone(), second_asset.clone()];
+    let policies = soroban_sdk::vec![
+        &env,
+        asset_policy(&first_asset, i128::MAX),
+        asset_policy(&second_asset, i128::MAX)
+    ];
+
+    assert_eq!(
+        client.try_get_configuration(),
+        Err(Ok(ContractError::NotInitialized))
+    );
+    client.initialize(&admin, &policies);
+
+    assert_eq!(
+        client.get_configuration(),
+        ContractConfiguration {
+            response_version: CONFIGURATION_RESPONSE_VERSION,
+            interface_version: INTERFACE_VERSION,
+            storage_layout_version: storage::STORAGE_LAYOUT_VERSION,
+            admin,
+            supported_assets: assets,
+            max_supported_assets: MAX_SUPPORTED_ASSETS,
+            operational_state: OperationalState::Active,
+            instance_ttl_threshold: storage::DEFAULT_TTL_THRESHOLD,
+            instance_ttl_extension: storage::TTL_EXTENSION_AMOUNT,
+        }
+    );
+}
+
+#[test]
+fn configuration_query_decodes_paused_and_deprecated_states() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let contract_id = env.register(UptoSessionContract, ());
+    let client = UptoSessionContractClient::new(&env, &contract_id);
+    let admin = Address::generate(&env);
+    let asset = env
+        .register_stellar_asset_contract_v2(Address::generate(&env))
+        .address();
+    client.initialize(
+        &admin,
+        &soroban_sdk::vec![&env, asset_policy(&asset, i128::MAX)],
+    );
+
+    env.as_contract(&contract_id, || {
+        storage::write_operational_state(&env, &OperationalState::Paused);
+    });
+    assert_eq!(
+        client.get_configuration().operational_state,
+        OperationalState::Paused
+    );
+
+    env.as_contract(&contract_id, || {
+        storage::write_operational_state(&env, &OperationalState::Deprecated);
+    });
+    assert_eq!(
+        client.get_configuration().operational_state,
+        OperationalState::Deprecated
+    );
+    assert_eq!(client.interface_version(), INTERFACE_VERSION);
+}
+
+#[test]
+fn activation_probes_valid_asset_without_moving_funds_and_emits_event() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let contract_id = env.register(UptoSessionContract, ());
+    let client = UptoSessionContractClient::new(&env, &contract_id);
+    let admin = Address::generate(&env);
+    let asset = create_local_test_token(&env, &admin, 100);
+    let token = TestTokenContractClient::new(&env, &asset);
+
+    client.initialize(
+        &admin,
+        &soroban_sdk::vec![&env, asset_policy(&asset, i128::MAX)],
+    );
+    let activation_events = env.events().all().filter_by_contract(&contract_id);
+
+    assert_eq!(token.balance(&admin), 100);
+    assert_eq!(token.balance(&contract_id), 0);
+    assert_eq!(
+        activation_events,
+        std::vec![events::AssetActivated {
+            asset: asset.clone(),
+            decimals: 7,
+            event_version: 3,
+        }
+        .to_xdr(&env, &contract_id)]
+    );
+    env.as_contract(&contract_id, || {
+        assert!(storage::is_supported_asset(&env, &asset));
+    });
+}
+
+#[test]
+fn activation_rejects_missing_incompatible_reverting_and_malformed_assets() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let admin = Address::generate(&env);
+
+    let missing = Address::generate(&env);
+    let incompatible = env.register(IncompatibleContract, ());
+    let reverting = env.register(ProbeTokenContract, ());
+    ProbeTokenContractClient::new(&env, &reverting).initialize(&ProbeBehavior::Reverting);
+    let malformed = env.register(ProbeTokenContract, ());
+    ProbeTokenContractClient::new(&env, &malformed).initialize(&ProbeBehavior::Malformed);
+
+    for asset in [missing, incompatible, reverting] {
+        let contract_id = env.register(UptoSessionContract, ());
+        let client = UptoSessionContractClient::new(&env, &contract_id);
+        assert!(client
+            .try_initialize(
+                &admin,
+                &soroban_sdk::vec![&env, asset_policy(&asset, i128::MAX)]
+            )
+            .is_err());
+        let event_count = env
+            .events()
+            .all()
+            .filter_by_contract(&contract_id)
+            .events()
+            .len();
+        assert_eq!(event_count, 0);
+        env.as_contract(&contract_id, || {
+            assert!(!storage::has_admin(&env));
+            assert!(!storage::is_supported_asset(&env, &asset));
+        });
+    }
+
+    let contract_id = env.register(UptoSessionContract, ());
+    let client = UptoSessionContractClient::new(&env, &contract_id);
+    assert_eq!(
+        client.try_initialize(
+            &admin,
+            &soroban_sdk::vec![&env, asset_policy(&malformed, i128::MAX)]
+        ),
+        Err(Ok(ContractError::InvalidAssetInterface))
+    );
+    env.as_contract(&contract_id, || {
+        assert!(!storage::has_admin(&env));
+        assert!(!storage::is_supported_asset(&env, &malformed));
+    });
+}
+
+#[test]
 fn initialize_rejects_empty_duplicate_or_invalid_asset_policies() {
     let env = Env::default();
     env.mock_all_auths();
@@ -556,7 +909,9 @@ fn initialize_rejects_empty_duplicate_or_invalid_asset_policies() {
 
     let duplicate_id = env.register(UptoSessionContract, ());
     let duplicate_client = UptoSessionContractClient::new(&env, &duplicate_id);
-    let asset = Address::generate(&env);
+    let asset = env
+        .register_stellar_asset_contract_v2(Address::generate(&env))
+        .address();
     assert_eq!(
         duplicate_client.try_initialize(
             &admin,
@@ -570,6 +925,17 @@ fn initialize_rejects_empty_duplicate_or_invalid_asset_policies() {
     assert_eq!(
         invalid_client.try_initialize(&admin, &soroban_sdk::vec![&env, asset_policy(&asset, 0)]),
         Err(Ok(ContractError::InvalidAssetCap))
+    );
+
+    let oversized_id = env.register(UptoSessionContract, ());
+    let oversized_client = UptoSessionContractClient::new(&env, &oversized_id);
+    let mut oversized = soroban_sdk::Vec::new(&env);
+    for _ in 0..=MAX_SUPPORTED_ASSETS {
+        oversized.push_back(asset_policy(&Address::generate(&env), i128::MAX));
+    }
+    assert_eq!(
+        oversized_client.try_initialize(&admin, &oversized),
+        Err(Ok(ContractError::InvalidSupportedAssets))
     );
 }
 
@@ -687,7 +1053,7 @@ fn cap_updates_require_the_current_admin() {
     let client = UptoSessionContractClient::new(&env, &contract_id);
     let admin = Address::generate(&env);
     let attacker = Address::generate(&env);
-    let asset = Address::generate(&env);
+    let asset = create_test_asset(&env, &admin, 1);
     let policies = soroban_sdk::vec![&env, asset_policy(&asset, 100)];
     client
         .mock_auths(&[MockAuth {
@@ -726,7 +1092,8 @@ fn admin_rotation_requires_acceptance_and_changes_privileges_atomically() {
     let pending_admin = Address::generate(&env);
     let attacker = Address::generate(&env);
     let later_admin = Address::generate(&env);
-    let asset_policies = soroban_sdk::vec![&env, asset_policy(&Address::generate(&env), i128::MAX)];
+    let asset = create_test_asset(&env, &admin, 1);
+    let asset_policies = soroban_sdk::vec![&env, asset_policy(&asset, i128::MAX)];
     client
         .mock_auths(&[MockAuth {
             address: &admin,
@@ -853,9 +1220,10 @@ fn admin_rotation_rejects_overwrite_expiry_and_replay() {
     let admin = Address::generate(&env);
     let first_pending = Address::generate(&env);
     let second_pending = Address::generate(&env);
+    let asset = create_test_asset(&env, &admin, 1);
     client.initialize(
         &admin,
-        &soroban_sdk::vec![&env, asset_policy(&Address::generate(&env), i128::MAX)],
+        &soroban_sdk::vec![&env, asset_policy(&asset, i128::MAX)],
     );
 
     client.propose_admin(&first_pending, &5);
@@ -966,7 +1334,9 @@ fn create_rejects_uninitialized_unsupported_and_excessive_duration() {
 fn liability_arithmetic_is_checked() {
     let env = Env::default();
     let contract_id = env.register(UptoSessionContract, ());
-    let asset = Address::generate(&env);
+    let asset = env
+        .register_stellar_asset_contract_v2(Address::generate(&env))
+        .address();
 
     env.as_contract(&contract_id, || {
         assert_eq!(
@@ -1221,7 +1591,9 @@ fn create_session_requires_buyer_auth() {
     let admin = Address::generate(&env);
     let buyer = Address::generate(&env);
     let seller = Address::generate(&env);
-    let asset = Address::generate(&env);
+    let asset = env
+        .register_stellar_asset_contract_v2(Address::generate(&env))
+        .address();
     let resource_hash = BytesN::from_array(&env, &[5; 32]);
     let asset_policies = soroban_sdk::vec![&env, asset_policy(&asset, 500)];
     client
@@ -1849,6 +2221,173 @@ fn expiry_recovery_is_permissionless_fixed_recipient_and_single_use() {
         client.try_cancel(&session_id),
         Err(Ok(ContractError::SessionExpired))
     );
+}
+
+#[test]
+fn batch_recovery_is_bounded_and_reports_partial_results_in_order() {
+    let env = Env::default();
+    env.mock_all_auths_allowing_non_root_auth();
+    let contract_id = env.register(UptoSessionContract, ());
+    let client = UptoSessionContractClient::new(&env, &contract_id);
+    let buyer = Address::generate(&env);
+    let seller = Address::generate(&env);
+    let asset = create_test_asset(&env, &buyer, 700);
+    let token_client = token::Client::new(&env, &asset);
+    initialize_for_asset(&env, &client, &buyer, &asset);
+
+    let recoverable = client.create_session(
+        &buyer,
+        &seller,
+        &asset,
+        &100,
+        &10,
+        &BytesN::from_array(&env, &[70; 32]),
+    );
+    let cancelled = client.create_session(
+        &buyer,
+        &seller,
+        &asset,
+        &100,
+        &20,
+        &BytesN::from_array(&env, &[71; 32]),
+    );
+    let settled = client.create_session(
+        &buyer,
+        &seller,
+        &asset,
+        &100,
+        &20,
+        &BytesN::from_array(&env, &[72; 32]),
+    );
+    let not_expired = client.create_session(
+        &buyer,
+        &seller,
+        &asset,
+        &100,
+        &20,
+        &BytesN::from_array(&env, &[73; 32]),
+    );
+    client.cancel(&cancelled);
+    client.settle(&settled, &100, &BytesN::from_array(&env, &[74; 32]));
+    env.ledger().set_sequence_number(10);
+    let missing = BytesN::from_array(&env, &[75; 32]);
+
+    let results = client.recover_expired_batch(&soroban_sdk::vec![
+        &env,
+        recoverable.clone(),
+        missing.clone(),
+        recoverable.clone(),
+        cancelled.clone(),
+        settled.clone(),
+        not_expired.clone(),
+    ]);
+    assert_eq!(
+        results,
+        soroban_sdk::vec![
+            &env,
+            BatchRecoveryResult {
+                session_id: recoverable.clone(),
+                status: BatchRecoveryStatus::Recovered,
+                refunded_amount: 100,
+            },
+            BatchRecoveryResult {
+                session_id: missing,
+                status: BatchRecoveryStatus::NotFound,
+                refunded_amount: 0,
+            },
+            BatchRecoveryResult {
+                session_id: recoverable.clone(),
+                status: BatchRecoveryStatus::Duplicate,
+                refunded_amount: 0,
+            },
+            BatchRecoveryResult {
+                session_id: cancelled,
+                status: BatchRecoveryStatus::AlreadyCancelled,
+                refunded_amount: 0,
+            },
+            BatchRecoveryResult {
+                session_id: settled,
+                status: BatchRecoveryStatus::AlreadySettled,
+                refunded_amount: 0,
+            },
+            BatchRecoveryResult {
+                session_id: not_expired,
+                status: BatchRecoveryStatus::NotExpired,
+                refunded_amount: 0,
+            },
+        ]
+    );
+    assert_eq!(token_client.balance(&buyer), 500);
+    assert_eq!(token_client.balance(&seller), 100);
+    assert_eq!(token_client.balance(&contract_id), 100);
+    env.as_contract(&contract_id, || {
+        assert_eq!(storage::read_liability(&env, &asset), 100);
+    });
+
+    let repeated = client.recover_expired_batch(&soroban_sdk::vec![&env, recoverable.clone()]);
+    assert_eq!(
+        repeated.get(0).unwrap().status,
+        BatchRecoveryStatus::AlreadyRecovered
+    );
+    assert_eq!(client.get_session(&recoverable).escrowed_amount, 0);
+
+    assert_eq!(
+        client.try_recover_expired_batch(&soroban_sdk::vec![&env]),
+        Err(Ok(ContractError::InvalidBatchSize))
+    );
+    let mut oversized = soroban_sdk::Vec::new(&env);
+    for byte in 0..=MAX_RECOVERY_BATCH_SIZE {
+        oversized.push_back(BytesN::from_array(&env, &[byte as u8; 32]));
+    }
+    assert_eq!(
+        client.try_recover_expired_batch(&oversized),
+        Err(Ok(ContractError::InvalidBatchSize))
+    );
+}
+
+#[test]
+fn batch_recovery_refunds_each_stored_buyer_only() {
+    let env = Env::default();
+    env.mock_all_auths_allowing_non_root_auth();
+    let contract_id = env.register(UptoSessionContract, ());
+    let client = UptoSessionContractClient::new(&env, &contract_id);
+    let first_buyer = Address::generate(&env);
+    let second_buyer = Address::generate(&env);
+    let seller = Address::generate(&env);
+    let caller = Address::generate(&env);
+    let asset = create_test_asset(&env, &first_buyer, 100);
+    token::StellarAssetClient::new(&env, &asset).mint(&second_buyer, &100);
+    let token_client = token::Client::new(&env, &asset);
+    initialize_for_asset(&env, &client, &first_buyer, &asset);
+    let first = client.create_session(
+        &first_buyer,
+        &seller,
+        &asset,
+        &100,
+        &10,
+        &BytesN::from_array(&env, &[76; 32]),
+    );
+    let second = client.create_session(
+        &second_buyer,
+        &seller,
+        &asset,
+        &100,
+        &10,
+        &BytesN::from_array(&env, &[77; 32]),
+    );
+    env.ledger().set_sequence_number(10);
+
+    let results = client.recover_expired_batch(&soroban_sdk::vec![&env, first, second]);
+    assert!(results
+        .iter()
+        .all(|result| result.status == BatchRecoveryStatus::Recovered));
+    assert_eq!(token_client.balance(&first_buyer), 100);
+    assert_eq!(token_client.balance(&second_buyer), 100);
+    assert_eq!(token_client.balance(&caller), 0);
+    assert_eq!(token_client.balance(&contract_id), 0);
+    env.as_contract(&contract_id, || {
+        assert_eq!(storage::read_liability(&env, &asset), 0);
+    });
 }
 
 #[test]

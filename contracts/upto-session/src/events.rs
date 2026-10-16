@@ -37,6 +37,14 @@ pub struct AdminRotationCancelled {
 }
 
 #[contractevent]
+pub struct AssetActivated {
+    #[topic]
+    pub asset: Address,
+    pub decimals: u32,
+    pub event_version: u32,
+}
+
+#[contractevent]
 pub struct SessionCreated {
     #[topic]
     pub session_id: BytesN<32>,
@@ -148,6 +156,15 @@ pub fn publish_admin_rotation_cancelled(
     AdminRotationCancelled {
         pending_admin: pending_admin.clone(),
         current_admin: current_admin.clone(),
+        event_version: 3,
+    }
+    .publish(env);
+}
+
+pub fn publish_asset_activated(env: &Env, asset: &Address, decimals: u32) {
+    AssetActivated {
+        asset: asset.clone(),
+        decimals,
         event_version: 3,
     }
     .publish(env);

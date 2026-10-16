@@ -1,7 +1,7 @@
 {
   "contractVersion": "0.3.0",
   "interfaceVersion": 3,
-  "sourceSpecSha256": "a0c375cf1e088173fcbf6c4a33182f3c7d395310f89dccd071bd6c1c54a3124c",
+  "sourceSpecSha256": "936736bcb5882519c2211bd7f3061f3e3b89d104f63360888046fa6ef901a431",
   "methods": [
     "accept_admin",
     "cancel",
@@ -11,12 +11,14 @@
     "get_admin",
     "get_admin_rotation",
     "get_asset_max_session_amount",
+    "get_configuration",
     "get_escrow_liability",
     "get_session",
     "initialize",
     "interface_version",
     "propose_admin",
     "recover_expired",
+    "recover_expired_batch",
     "set_asset_max_session_amount",
     "settle"
   ],
@@ -85,6 +87,29 @@
         },
         {
           "name": "expires_at_ledger",
+          "location": "data",
+          "type": "u32"
+        },
+        {
+          "name": "event_version",
+          "location": "data",
+          "type": "u32"
+        }
+      ]
+    },
+    {
+      "name": "AssetActivated",
+      "prefixTopics": [
+        "asset_activated"
+      ],
+      "fields": [
+        {
+          "name": "asset",
+          "location": "topic_list",
+          "type": "address"
+        },
+        {
+          "name": "decimals",
           "location": "data",
           "type": "u32"
         },
@@ -445,6 +470,14 @@
     {
       "name": "TokenInvariantViolation",
       "value": 30
+    },
+    {
+      "name": "InvalidBatchSize",
+      "value": 31
+    },
+    {
+      "name": "InvalidAssetInterface",
+      "value": 32
     }
   ]
 }

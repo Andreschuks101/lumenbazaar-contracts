@@ -19,12 +19,14 @@ const requiredMethods = [
   "propose_admin",
   "accept_admin",
   "cancel_admin_rotation",
+  "get_configuration",
   "create_session",
   "get_session",
   "get_escrow_liability",
   "settle",
   "cancel",
   "recover_expired",
+  "recover_expired_batch",
   "extend_ttl",
 ];
 
@@ -42,6 +44,12 @@ if (bindings.ContractError?.[24]?.message !== "AssetCapNotConfigured") {
   throw new Error("Expected stable asset cap error mapping");
 }
 if (bindings.ContractError?.[29]?.message !== "AdminRotationExpired") {
+  throw new Error("Expected complete governance error mapping");
+}
+if (bindings.ContractError?.[31]?.message !== "InvalidBatchSize") {
+  throw new Error("Expected stable InvalidBatchSize error mapping");
+}
+if (bindings.ContractError?.[32]?.message !== "InvalidAssetInterface") {
   throw new Error("Expected complete v3 ContractError mapping");
 }
 if (packageJson.version !== "3.0.0") {

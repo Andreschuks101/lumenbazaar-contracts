@@ -34,6 +34,8 @@ pub enum ContractError {
     AdminRotationNotFound = 28,
     AdminRotationExpired = 29,
     TokenInvariantViolation = 30,
+    InvalidBatchSize = 31,
+    InvalidAssetInterface = 32,
 }
 
 #[cfg(test)]
@@ -72,5 +74,7 @@ mod tests {
         assert_eq!(ContractError::AdminRotationNotFound as u32, 28);
         assert_eq!(ContractError::AdminRotationExpired as u32, 29);
         assert_eq!(ContractError::TokenInvariantViolation as u32, 30);
+        assert_eq!(ContractError::InvalidBatchSize as u32, 31);
+        assert_eq!(ContractError::InvalidAssetInterface as u32, 32);
     }
 }

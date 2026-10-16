@@ -29,12 +29,14 @@ const requiredFunctions = [
   "propose_admin",
   "accept_admin",
   "cancel_admin_rotation",
+  "get_configuration",
   "create_session",
   "get_session",
   "get_escrow_liability",
   "settle",
   "cancel",
   "recover_expired",
+  "recover_expired_batch",
   "extend_ttl",
 ];
 const requiredErrors = [
@@ -68,6 +70,8 @@ const requiredErrors = [
   "AdminRotationNotFound",
   "AdminRotationExpired",
   "TokenInvariantViolation",
+  "InvalidBatchSize",
+  "InvalidAssetInterface",
 ];
 
 for (const item of [...requiredFunctions, ...requiredErrors]) {

@@ -1,6 +1,6 @@
 use soroban_sdk::{
     contract, contracterror, contractimpl, contracttype, panic_with_error, symbol_short, Address,
-    BytesN, Env, Error, IntoVal,
+    BytesN, Env, Error, IntoVal, String,
 };
 
 #[contracttype]
@@ -136,6 +136,18 @@ impl AdversarialTokenContract {
             return 0;
         }
         read_balance(&env, &id)
+    }
+
+    pub fn decimals() -> u32 {
+        7
+    }
+
+    pub fn name(env: Env) -> String {
+        String::from_str(&env, "LumenBazaar Adversarial Token")
+    }
+
+    pub fn symbol(env: Env) -> String {
+        String::from_str(&env, "LAT")
     }
 
     pub fn raw_balance(env: Env, id: Address) -> i128 {

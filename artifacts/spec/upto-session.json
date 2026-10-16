@@ -103,6 +103,37 @@
       "data_format": "map",
       "doc": "",
       "lib": "",
+      "name": "AssetActivated",
+      "params": [
+        {
+          "doc": "",
+          "location": "topic_list",
+          "name": "asset",
+          "type": "address"
+        },
+        {
+          "doc": "",
+          "location": "data",
+          "name": "decimals",
+          "type": "u32"
+        },
+        {
+          "doc": "",
+          "location": "data",
+          "name": "event_version",
+          "type": "u32"
+        }
+      ],
+      "prefix_topics": [
+        "asset_activated"
+      ]
+    }
+  },
+  {
+    "event_v0": {
+      "data_format": "map",
+      "doc": "",
+      "lib": "",
       "name": "AssetSessionCapUpdated",
       "params": [
         {
@@ -604,6 +635,29 @@
   {
     "function_v0": {
       "doc": "",
+      "inputs": [],
+      "name": "get_configuration",
+      "outputs": [
+        {
+          "result": {
+            "error_type": {
+              "udt": {
+                "name": "ContractError"
+              }
+            },
+            "ok_type": {
+              "udt": {
+                "name": "ContractConfiguration"
+              }
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "function_v0": {
+      "doc": "",
       "inputs": [
         {
           "doc": "",
@@ -761,6 +815,47 @@
               }
             },
             "ok_type": "void"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "function_v0": {
+      "doc": "",
+      "inputs": [
+        {
+          "doc": "",
+          "name": "session_ids",
+          "type": {
+            "vec": {
+              "element_type": {
+                "bytes_n": {
+                  "n": 32
+                }
+              }
+            }
+          }
+        }
+      ],
+      "name": "recover_expired_batch",
+      "outputs": [
+        {
+          "result": {
+            "error_type": {
+              "udt": {
+                "name": "ContractError"
+              }
+            },
+            "ok_type": {
+              "vec": {
+                "element_type": {
+                  "udt": {
+                    "name": "BatchRecoveryResult"
+                  }
+                }
+              }
+            }
           }
         }
       ]
@@ -991,6 +1086,16 @@
           "doc": "",
           "name": "TokenInvariantViolation",
           "value": 30
+        },
+        {
+          "doc": "",
+          "name": "InvalidBatchSize",
+          "value": 31
+        },
+        {
+          "doc": "",
+          "name": "InvalidAssetInterface",
+          "value": 32
         }
       ],
       "doc": "",
@@ -1034,6 +1139,100 @@
       ],
       "lib": "",
       "name": "AssetPolicy"
+    }
+  },
+  {
+    "udt_struct_v0": {
+      "doc": "",
+      "fields": [
+        {
+          "doc": "",
+          "name": "refunded_amount",
+          "type": "i128"
+        },
+        {
+          "doc": "",
+          "name": "session_id",
+          "type": {
+            "bytes_n": {
+              "n": 32
+            }
+          }
+        },
+        {
+          "doc": "",
+          "name": "status",
+          "type": {
+            "udt": {
+              "name": "BatchRecoveryStatus"
+            }
+          }
+        }
+      ],
+      "lib": "",
+      "name": "BatchRecoveryResult"
+    }
+  },
+  {
+    "udt_struct_v0": {
+      "doc": "",
+      "fields": [
+        {
+          "doc": "",
+          "name": "admin",
+          "type": "address"
+        },
+        {
+          "doc": "",
+          "name": "instance_ttl_extension",
+          "type": "u32"
+        },
+        {
+          "doc": "",
+          "name": "instance_ttl_threshold",
+          "type": "u32"
+        },
+        {
+          "doc": "",
+          "name": "interface_version",
+          "type": "u32"
+        },
+        {
+          "doc": "",
+          "name": "max_supported_assets",
+          "type": "u32"
+        },
+        {
+          "doc": "",
+          "name": "operational_state",
+          "type": {
+            "udt": {
+              "name": "OperationalState"
+            }
+          }
+        },
+        {
+          "doc": "",
+          "name": "response_version",
+          "type": "u32"
+        },
+        {
+          "doc": "",
+          "name": "storage_layout_version",
+          "type": "u32"
+        },
+        {
+          "doc": "",
+          "name": "supported_assets",
+          "type": {
+            "vec": {
+              "element_type": "address"
+            }
+          }
+        }
+      ],
+      "lib": "",
+      "name": "ContractConfiguration"
     }
   },
   {
@@ -1118,6 +1317,90 @@
       ],
       "lib": "",
       "name": "Session"
+    }
+  },
+  {
+    "udt_union_v0": {
+      "cases": [
+        {
+          "void_v0": {
+            "doc": "",
+            "name": "Recovered"
+          }
+        },
+        {
+          "void_v0": {
+            "doc": "",
+            "name": "NotFound"
+          }
+        },
+        {
+          "void_v0": {
+            "doc": "",
+            "name": "NotExpired"
+          }
+        },
+        {
+          "void_v0": {
+            "doc": "",
+            "name": "AlreadySettled"
+          }
+        },
+        {
+          "void_v0": {
+            "doc": "",
+            "name": "AlreadyCancelled"
+          }
+        },
+        {
+          "void_v0": {
+            "doc": "",
+            "name": "AlreadyRecovered"
+          }
+        },
+        {
+          "void_v0": {
+            "doc": "",
+            "name": "Duplicate"
+          }
+        },
+        {
+          "void_v0": {
+            "doc": "",
+            "name": "EscrowUnavailable"
+          }
+        }
+      ],
+      "doc": "",
+      "lib": "",
+      "name": "BatchRecoveryStatus"
+    }
+  },
+  {
+    "udt_union_v0": {
+      "cases": [
+        {
+          "void_v0": {
+            "doc": "",
+            "name": "Active"
+          }
+        },
+        {
+          "void_v0": {
+            "doc": "",
+            "name": "Paused"
+          }
+        },
+        {
+          "void_v0": {
+            "doc": "",
+            "name": "Deprecated"
+          }
+        }
+      ],
+      "doc": "",
+      "lib": "",
+      "name": "OperationalState"
     }
   },
   {
