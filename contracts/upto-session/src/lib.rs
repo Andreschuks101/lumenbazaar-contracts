@@ -9,8 +9,8 @@ pub mod validation;
 
 pub use errors::ContractError;
 pub use types::{
-    AdminRotation, AssetPolicy, BatchRecoveryResult, BatchRecoveryStatus, ContractConfiguration,
-    OperationalState, Session, SessionStatus,
+    AdminRotation, AssetPolicy, AssetStatus, BatchRecoveryResult, BatchRecoveryStatus,
+    ContractConfiguration, OperationalState, Session, SessionStatus,
 };
 
 use soroban_sdk::{contract, contractimpl, token, Address, BytesN, Env, Vec};
@@ -264,6 +264,34 @@ impl UptoSessionContract {
         events::publish_session_created(&env, &session);
 
         Ok(session_id)
+    }
+
+    pub fn deprecate_asset(env: Env, asset: Address) -> Result<(), ContractError> {
+        let admin = require_admin(&env)?;
+        match storage::read_asset_status(&env, &asset) {
+            Some(AssetStatus::Active) => {}
+            Some(AssetStatus::Deprecated) | None => return Err(ContractError::AssetNotActive),
+        }
+
+        storage::write_asset_status(&env, &asset, &AssetStatus::Deprecated);
+        storage::extend_instance_ttl(&env);
+        events::publish_asset_deprecated(&env, &asset, &admin);
+        Ok(())
+    }
+
+    pub fn remove_asset(env: Env, asset: Address) -> Result<(), ContractError> {
+        let admin = require_admin(&env)?;
+        if storage::read_asset_status(&env, &asset) != Some(AssetStatus::Deprecated) {
+            return Err(ContractError::AssetNotDeprecated);
+        }
+        if storage::read_liability(&env, &asset) != 0 {
+            return Err(ContractError::AssetLiabilityOutstanding);
+        }
+
+        storage::remove_asset_status(&env, &asset);
+        storage::extend_instance_ttl(&env);
+        events::publish_asset_removed(&env, &asset, &admin);
+        Ok(())
     }
 
     pub fn settle(
@@ -543,5 +571,13 @@ fn verify_credit(before: i128, after: i128, amount: i128) -> Result<(), Contract
     Ok(())
 }
 
+fn require_admin(env: &Env) -> Result<Address, ContractError> {
+    let admin = storage::read_admin(env).ok_or(ContractError::NotInitialized)?;
+    admin.require_auth();
+    Ok(admin)
+}
+
+#[cfg(test)]
+mod receipt_test;
 #[cfg(test)]
 mod test;

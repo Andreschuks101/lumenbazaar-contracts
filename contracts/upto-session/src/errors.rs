@@ -36,6 +36,9 @@ pub enum ContractError {
     TokenInvariantViolation = 30,
     InvalidBatchSize = 31,
     InvalidAssetInterface = 32,
+    AssetNotActive = 33,
+    AssetNotDeprecated = 34,
+    AssetLiabilityOutstanding = 35,
 }
 
 #[cfg(test)]
@@ -76,5 +79,8 @@ mod tests {
         assert_eq!(ContractError::TokenInvariantViolation as u32, 30);
         assert_eq!(ContractError::InvalidBatchSize as u32, 31);
         assert_eq!(ContractError::InvalidAssetInterface as u32, 32);
+        assert_eq!(ContractError::AssetNotActive as u32, 33);
+        assert_eq!(ContractError::AssetNotDeprecated as u32, 34);
+        assert_eq!(ContractError::AssetLiabilityOutstanding as u32, 35);
     }
 }

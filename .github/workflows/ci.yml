@@ -87,11 +87,21 @@ jobs:
           npm --prefix bindings/upto-session run build
           node scripts/smoke-upto-session-bindings.mjs
 
+      - name: Check usage receipt commitments
+        run: node scripts/check-usage-receipt-fixtures.mjs
+
       - name: Check interface fixtures
         run: node scripts/generate-interface-fixtures.mjs --check
 
+      - name: Check cross-release ABI compatibility
+        run: |
+          node scripts/test-abi-compatibility.mjs
+          node scripts/check-abi-compatibility.mjs
+
       - name: Check backend handoff
-        run: node scripts/check-backend-handoff.mjs
+        run: |
+          node scripts/check-domain-vectors.mjs
+          node scripts/check-backend-handoff.mjs
 
       - name: Check security checklist
         run: node scripts/check-security-checklist.mjs

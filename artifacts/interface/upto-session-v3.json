@@ -1,12 +1,13 @@
 {
   "contractVersion": "0.3.0",
   "interfaceVersion": 3,
-  "sourceSpecSha256": "936736bcb5882519c2211bd7f3061f3e3b89d104f63360888046fa6ef901a431",
+  "sourceSpecSha256": "1958bdd8f4654d58a215d8b4a597a053aae8eadeb9c04de848c075ba963d703d",
   "methods": [
     "accept_admin",
     "cancel",
     "cancel_admin_rotation",
     "create_session",
+    "deprecate_asset",
     "extend_ttl",
     "get_admin",
     "get_admin_rotation",
@@ -19,6 +20,7 @@
     "propose_admin",
     "recover_expired",
     "recover_expired_batch",
+    "remove_asset",
     "set_asset_max_session_amount",
     "settle"
   ],
@@ -112,6 +114,52 @@
           "name": "decimals",
           "location": "data",
           "type": "u32"
+        },
+        {
+          "name": "event_version",
+          "location": "data",
+          "type": "u32"
+        }
+      ]
+    },
+    {
+      "name": "AssetDeprecated",
+      "prefixTopics": [
+        "asset_deprecated"
+      ],
+      "fields": [
+        {
+          "name": "asset",
+          "location": "topic_list",
+          "type": "address"
+        },
+        {
+          "name": "admin",
+          "location": "data",
+          "type": "address"
+        },
+        {
+          "name": "event_version",
+          "location": "data",
+          "type": "u32"
+        }
+      ]
+    },
+    {
+      "name": "AssetRemoved",
+      "prefixTopics": [
+        "asset_removed"
+      ],
+      "fields": [
+        {
+          "name": "asset",
+          "location": "topic_list",
+          "type": "address"
+        },
+        {
+          "name": "admin",
+          "location": "data",
+          "type": "address"
         },
         {
           "name": "event_version",
@@ -478,6 +526,18 @@
     {
       "name": "InvalidAssetInterface",
       "value": 32
+    },
+    {
+      "name": "AssetNotActive",
+      "value": 33
+    },
+    {
+      "name": "AssetNotDeprecated",
+      "value": 34
+    },
+    {
+      "name": "AssetLiabilityOutstanding",
+      "value": 35
     }
   ]
 }

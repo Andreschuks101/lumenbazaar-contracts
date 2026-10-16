@@ -12,6 +12,14 @@ pub struct AssetSessionCapUpdated {
 }
 
 #[contractevent]
+pub struct AssetDeprecated {
+    #[topic]
+    pub asset: Address,
+    pub admin: Address,
+    pub event_version: u32,
+}
+
+#[contractevent]
 pub struct AdminRotationProposed {
     #[topic]
     pub pending_admin: Address,
@@ -41,6 +49,14 @@ pub struct AssetActivated {
     #[topic]
     pub asset: Address,
     pub decimals: u32,
+    pub event_version: u32,
+}
+
+#[contractevent]
+pub struct AssetRemoved {
+    #[topic]
+    pub asset: Address,
+    pub admin: Address,
     pub event_version: u32,
 }
 
@@ -124,6 +140,15 @@ pub fn publish_asset_session_cap_updated(
     .publish(env);
 }
 
+pub fn publish_asset_deprecated(env: &Env, asset: &Address, admin: &Address) {
+    AssetDeprecated {
+        asset: asset.clone(),
+        admin: admin.clone(),
+        event_version: 3,
+    }
+    .publish(env);
+}
+
 pub fn publish_admin_rotation_proposed(
     env: &Env,
     current_admin: &Address,
@@ -165,6 +190,15 @@ pub fn publish_asset_activated(env: &Env, asset: &Address, decimals: u32) {
     AssetActivated {
         asset: asset.clone(),
         decimals,
+        event_version: 3,
+    }
+    .publish(env);
+}
+
+pub fn publish_asset_removed(env: &Env, asset: &Address, admin: &Address) {
+    AssetRemoved {
+        asset: asset.clone(),
+        admin: admin.clone(),
         event_version: 3,
     }
     .publish(env);

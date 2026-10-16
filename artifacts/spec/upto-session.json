@@ -134,6 +134,68 @@
       "data_format": "map",
       "doc": "",
       "lib": "",
+      "name": "AssetDeprecated",
+      "params": [
+        {
+          "doc": "",
+          "location": "topic_list",
+          "name": "asset",
+          "type": "address"
+        },
+        {
+          "doc": "",
+          "location": "data",
+          "name": "admin",
+          "type": "address"
+        },
+        {
+          "doc": "",
+          "location": "data",
+          "name": "event_version",
+          "type": "u32"
+        }
+      ],
+      "prefix_topics": [
+        "asset_deprecated"
+      ]
+    }
+  },
+  {
+    "event_v0": {
+      "data_format": "map",
+      "doc": "",
+      "lib": "",
+      "name": "AssetRemoved",
+      "params": [
+        {
+          "doc": "",
+          "location": "topic_list",
+          "name": "asset",
+          "type": "address"
+        },
+        {
+          "doc": "",
+          "location": "data",
+          "name": "admin",
+          "type": "address"
+        },
+        {
+          "doc": "",
+          "location": "data",
+          "name": "event_version",
+          "type": "u32"
+        }
+      ],
+      "prefix_topics": [
+        "asset_removed"
+      ]
+    }
+  },
+  {
+    "event_v0": {
+      "data_format": "map",
+      "doc": "",
+      "lib": "",
       "name": "AssetSessionCapUpdated",
       "params": [
         {
@@ -547,6 +609,31 @@
       "inputs": [
         {
           "doc": "",
+          "name": "asset",
+          "type": "address"
+        }
+      ],
+      "name": "deprecate_asset",
+      "outputs": [
+        {
+          "result": {
+            "error_type": {
+              "udt": {
+                "name": "ContractError"
+              }
+            },
+            "ok_type": "void"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "function_v0": {
+      "doc": "",
+      "inputs": [
+        {
+          "doc": "",
           "name": "session_id",
           "type": {
             "bytes_n": {
@@ -869,6 +956,31 @@
           "doc": "",
           "name": "asset",
           "type": "address"
+        }
+      ],
+      "name": "remove_asset",
+      "outputs": [
+        {
+          "result": {
+            "error_type": {
+              "udt": {
+                "name": "ContractError"
+              }
+            },
+            "ok_type": "void"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "function_v0": {
+      "doc": "",
+      "inputs": [
+        {
+          "doc": "",
+          "name": "asset",
+          "type": "address"
         },
         {
           "doc": "",
@@ -1096,6 +1208,21 @@
           "doc": "",
           "name": "InvalidAssetInterface",
           "value": 32
+        },
+        {
+          "doc": "",
+          "name": "AssetNotActive",
+          "value": 33
+        },
+        {
+          "doc": "",
+          "name": "AssetNotDeprecated",
+          "value": 34
+        },
+        {
+          "doc": "",
+          "name": "AssetLiabilityOutstanding",
+          "value": 35
         }
       ],
       "doc": "",

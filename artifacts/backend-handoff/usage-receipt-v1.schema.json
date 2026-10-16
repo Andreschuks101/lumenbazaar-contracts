@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lumenbazaar.example/schemas/usage-receipt-v1.json",
+  "title": "LumenBazaar Usage Receipt Commitment v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "protocol",
+    "interfaceVersion",
+    "networkPassphrase",
+    "contractId",
+    "sessionId",
+    "amount",
+    "resourceHash",
+    "measurement",
+    "receiptId"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "protocol": { "const": "lumenbazaar" },
+    "interfaceVersion": { "type": "integer", "minimum": 1 },
+    "networkPassphrase": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "contractId": { "type": "string", "pattern": "^C[A-Z2-7]{55}$" },
+    "sessionId": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "amount": { "type": "string", "pattern": "^[1-9][0-9]*$" },
+    "resourceHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "measurement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unit", "quantity", "startedAtLedger", "endedAtLedger"],
+      "properties": {
+        "unit": { "type": "string", "pattern": "^[a-z][a-z0-9._-]{0,63}$" },
+        "quantity": { "type": "string", "pattern": "^[1-9][0-9]*$" },
+        "startedAtLedger": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
+        "endedAtLedger": { "type": "integer", "minimum": 0, "maximum": 4294967295 }
+      }
+    },
+    "receiptId": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$" }
+  }
+}

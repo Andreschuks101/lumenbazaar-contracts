@@ -38,10 +38,10 @@ contract. See `docs/replacement-deployment-rehearsal.md` and
 
 Backend services should prefer the generated TypeScript package for transaction construction and result decoding.
 
-The escrow contract is version `0.3.0` and the generated package is version
-`3.0.0`; `interface_version()` returns `3`. Existing lifecycle events retain
-event version `2`; asset activation, asset-cap, and administrator-rotation
-events use version `3`.
+The domain-separated, asset-lifecycle escrow contract and generated package are version `0.3.0`.
+The public `interface_version()` result is `3`; session lifecycle events retain
+event version `2`, while asset activation, asset lifecycle, asset-cap, and
+administrator-rotation events use version `3`.
 
 ## Upto Session Functions
 
@@ -58,6 +58,8 @@ events use version `3`.
 | `cancel_admin_rotation()` | Current-admin-authorized removal of a pending or expired proposal. |
 | `get_configuration()` | Read response/interface/storage versions, administrator, bounded supported assets, operational state, and instance TTL policy without authorization. |
 | `create_session(buyer, seller, asset, max_amount, expires_at_ledger, resource_hash)` | Create a buyer-authorized spending cap and escrow the full cap for a resource. |
+| `deprecate_asset(asset)` | Admin-authorized transition from active to deprecated; blocks new sessions without changing existing sessions. |
+| `remove_asset(asset)` | Admin-authorized final removal after deprecation and only when recorded liability is exactly zero. |
 | `get_session(session_id)` | Read current session state for API responses, reconciliation, and settlement guards. |
 | `get_escrow_liability(asset)` | Read aggregate open-session escrow accounting for a supported asset and compare it with contract token custody. |
 | `settle(session_id, actual_amount, usage_hash)` | Seller-authorized settlement for actual usage. |
@@ -92,6 +94,40 @@ name, and symbol. It rejects negative balances, decimals above 38, empty or
 oversized metadata, missing methods, and reverting contracts. It never calls
 `transfer` or `mint`. A successful probe is point-in-time compatibility
 evidence, not a guarantee of future token behavior.
+
+Version 3 is a replacement deployment. It intentionally changes new session
+identifiers without changing the `create_session` arguments: the SHA-256
+preimage is Soroban ScVal XDR for `(domain_xdr, payload_xdr)`. The session
+domain is the ordered tuple `("lumenbazaar/session-id", 3, network_id,
+contract_address)`. The payload tuple remains `(buyer, seller, asset,
+max_amount, expires_at_ledger, resource_hash, sequence)`.
+
+Usage commitments use the separate domain tuple
+`("lumenbazaar/usage-commitment", 3, network_id, contract_address)` and the
+payload `(receipt_schema_version, session_id, actual_amount, resource_hash,
+measurement_hash)`. The domain and payload are each encoded to ScVal XDR, then
+the outer two-element tuple is encoded and hashed with SHA-256. Never substitute
+the session domain for the usage domain.
+
+Canonical vectors are in
+`artifacts/backend-handoff/domain-separation-v3.json` and checked in Rust and
+Node. A change to any field boundary, network ID, contract address, interface
+version, or domain label produces an intentionally different digest.
+
+assets use explicit `Active` and `Deprecated` states rather than a boolean
+marker. Initialize the replacement with the reviewed active set and keep every
+existing v2 session routed to its original contract.
+
+Deprecation changes only admission: `create_session` returns `UnsupportedAsset`
+for a deprecated asset. Settlement, cancellation, and expiry recovery use the
+asset recorded in each existing session and remain available. Removal deletes
+only the activation state and is rejected until aggregate liability is zero;
+it never transfers escrow or redirects a refund.
+
+Existing v2 session IDs remain valid only at their original v2 contract ID.
+Backends must route them there and must not recompute, migrate, or reinterpret
+them under v3. The machine-readable migration record is
+`artifacts/interface/migrations/v2-to-v3.json`.
 
 ## V1 To V2 Compatibility
 
@@ -140,12 +176,44 @@ codes 23 through 32 without changing the earlier mappings.
 | 30 | `TokenInvariantViolation` | Stop processing and quarantine the configured asset; an observed transfer balance delta did not match the requested amount. |
 | 31 | `InvalidBatchSize` | Supply between one and eight session IDs. |
 | 32 | `InvalidAssetInterface` | Reject an asset whose read-only SEP-41 behavior or metadata is malformed. |
+| 33 | `AssetNotActive` | Do not deprecate an unknown or already deprecated asset. |
+| 34 | `AssetNotDeprecated` | Deprecate the asset before requesting final removal. |
+| 35 | `AssetLiabilityOutstanding` | Settle, cancel, or recover every open session before removal. |
 
 ## Hash Inputs
 
 `resource_hash` and `usage_hash` are both `BytesN<32>`.
 
-Use SHA-256 over canonical UTF-8 JSON with sorted keys. Store the original JSON in backend records so API, worker, and audit flows can recompute the hash.
+Usage commitments use the versioned schema in
+`artifacts/backend-handoff/usage-receipt-v1.schema.json`. Encode exactly these
+fields in this order with no whitespace or trailing newline:
+
+1. `schemaVersion`, fixed to `1`.
+2. `protocol`, fixed to `lumenbazaar`.
+3. `interfaceVersion`, the target contract interface.
+4. `networkPassphrase` and `contractId`, which bind the environment and deployment.
+5. `sessionId`, lowercase 32-byte hex.
+6. `amount`, a positive base-unit integer encoded as a canonical decimal string.
+7. `resourceHash`, lowercase 32-byte hex.
+8. `measurement`, containing `unit`, decimal-string `quantity`, `startedAtLedger`, and `endedAtLedger` in that order.
+9. `receiptId`, the backend's non-secret idempotency identifier.
+
+Strings must already be NFC-normalized and must not contain leading or trailing
+whitespace. Objects must contain exactly the schema fields. Producers must
+reject duplicate or unknown fields, numeric encodings of `amount` or
+`quantity`, reordered fields, non-lowercase hashes, and any byte sequence that
+does not equal the canonical re-encoding. Hash the resulting UTF-8 bytes with
+SHA-256 to produce `measurement_hash`. Supply that digest to the v3
+domain-separated XDR preimage described above; the SHA-256 of the XDR preimage
+is the final on-chain `usage_hash`.
+
+The generated binding exports `canonicalizeUsageReceipt`, `hashUsageReceipt`,
+and `parseCanonicalUsageReceipt`. Shared Rust and TypeScript vectors are in
+`artifacts/backend-handoff/usage-receipt-v1.fixtures.json`.
+
+Store the canonical receipt and measurement preimage in backend records so
+API, worker, and audit flows can recompute both commitment stages. Do not store
+private receipt contents on-chain.
 
 Example resource descriptor:
 
@@ -160,19 +228,37 @@ Example resource descriptor:
 }
 ```
 
-Example usage receipt:
+Canonical v3 usage receipt example:
 
 ```json
 {
-  "meteredAtLedger": 123456,
-  "quantity": 42,
-  "requestId": "req_01HZYK7G7MN5P85V3QP4Q8Y9X2",
-  "sessionId": "32-byte-session-id-hex",
-  "unit": "request"
+  "schemaVersion": 1,
+  "protocol": "lumenbazaar",
+  "interfaceVersion": 3,
+  "networkPassphrase": "Synthetic test network id 07x32",
+  "contractId": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+  "sessionId": "1e40041a83cce938f7084a2394738cae4a6403745e92ba829d353d903affa836",
+  "amount": "210000000",
+  "resourceHash": "0909090909090909090909090909090909090909090909090909090909090909",
+  "measurement": {
+    "unit": "request",
+    "quantity": "42",
+    "startedAtLedger": 5067500,
+    "endedAtLedger": 5067542
+  },
+  "receiptId": "usage_01HZYK7G7MN5P85V3QP4Q8Y9X2"
 }
 ```
 
-Example hashes are committed in `artifacts/backend-handoff/usage-hashes.example.json`.
+Versioned examples are committed in
+`artifacts/backend-handoff/usage-hashes.example.json` and
+`artifacts/backend-handoff/domain-separation-v3.json`.
+
+Only the canonical commitment belongs on-chain. Raw request/response bodies,
+customer identifiers, access tokens, IP addresses, URLs containing private
+parameters, and fine-grained usage logs must remain in access-controlled
+off-chain storage. Use opaque `receiptId` values and coarse measurement units
+that do not reveal private activity.
 
 ## Settlement Guardrails
 

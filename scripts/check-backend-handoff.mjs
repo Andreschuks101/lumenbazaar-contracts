@@ -31,6 +31,8 @@ const requiredFunctions = [
   "cancel_admin_rotation",
   "get_configuration",
   "create_session",
+  "deprecate_asset",
+  "remove_asset",
   "get_session",
   "get_escrow_liability",
   "settle",
@@ -72,6 +74,9 @@ const requiredErrors = [
   "TokenInvariantViolation",
   "InvalidBatchSize",
   "InvalidAssetInterface",
+  "AssetNotActive",
+  "AssetNotDeprecated",
+  "AssetLiabilityOutstanding",
 ];
 
 for (const item of [...requiredFunctions, ...requiredErrors]) {
@@ -85,7 +90,12 @@ assertHash(
   hashes.resourceHashHex,
   "resourceHashHex",
 );
-assertHash(hashes.usageReceiptCanonicalJson, hashes.usageHashHex, "usageHashHex");
+assertHash(
+  hashes.usageReceiptCanonicalJson,
+  hashes.measurementHashHex,
+  "measurementHashHex",
+);
+assertHexHash(hashes.usageCommitmentPreimageHex, hashes.usageHashHex, "usageHashHex");
 
 console.log("backend handoff check passed");
 
@@ -94,4 +104,11 @@ function assertHash(input, expected, label) {
   if (actual !== expected || !/^[0-9a-f]{64}$/.test(expected)) {
     throw new Error(`Invalid ${label}`);
   }
+}
+
+function assertHexHash(input, expected, label) {
+  if (!/^(?:[0-9a-f]{2})+$/.test(input)) {
+    throw new Error(`Invalid ${label} preimage`);
+  }
+  assertHash(Buffer.from(input, "hex"), expected, label);
 }

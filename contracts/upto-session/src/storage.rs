@@ -1,4 +1,4 @@
-use crate::{AdminRotation, ContractError, OperationalState, Session};
+use crate::{AdminRotation, AssetStatus, ContractError, OperationalState, Session};
 use soroban_sdk::{contracttype, Address, BytesN, Env, Vec};
 
 pub const STORAGE_LAYOUT_VERSION: u32 = 3;
@@ -55,16 +55,32 @@ pub fn extend_instance_ttl(env: &Env) {
 }
 
 pub fn write_supported_asset(env: &Env, asset: &Address) {
-    env.storage()
-        .instance()
-        .set(&DataKey::SupportedAsset(asset.clone()), &true);
+    env.storage().instance().set(
+        &DataKey::SupportedAsset(asset.clone()),
+        &AssetStatus::Active,
+    );
 }
 
 pub fn is_supported_asset(env: &Env, asset: &Address) -> bool {
+    read_asset_status(env, asset) == Some(AssetStatus::Active)
+}
+
+pub fn read_asset_status(env: &Env, asset: &Address) -> Option<AssetStatus> {
     env.storage()
         .instance()
         .get(&DataKey::SupportedAsset(asset.clone()))
-        .unwrap_or(false)
+}
+
+pub fn write_asset_status(env: &Env, asset: &Address, status: &AssetStatus) {
+    env.storage()
+        .instance()
+        .set(&DataKey::SupportedAsset(asset.clone()), status);
+}
+
+pub fn remove_asset_status(env: &Env, asset: &Address) {
+    env.storage()
+        .instance()
+        .remove(&DataKey::SupportedAsset(asset.clone()));
 }
 
 pub fn write_asset_max_session_amount(env: &Env, asset: &Address, amount: i128) {

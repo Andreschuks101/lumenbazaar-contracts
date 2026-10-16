@@ -15,15 +15,35 @@ The review target is the `upto-session` contract public interface:
 - `propose_admin(pending_admin, expires_at_ledger)`
 - `accept_admin()`
 - `cancel_admin_rotation()`
+- `get_configuration()`
 - `create_session(buyer, seller, asset, max_amount, expires_at_ledger, resource_hash)`
+- `deprecate_asset(asset)`
+- `remove_asset(asset)`
 - `get_session(session_id)`
 - `get_escrow_liability(asset)`
 - `settle(session_id, actual_amount, usage_hash)`
 - `cancel(session_id)`
 - `recover_expired(session_id)`
+- `recover_expired_batch(session_ids)`
 - `extend_ttl(session_id)`
 
 The frozen interface evidence is stored in `artifacts/audit-readiness/interface-freeze.json`. It hashes the public contract files, generated XDR spec, versioned TypeScript binding, and the complete public event/error fixture at `artifacts/interface/upto-session-v3.json`.
+
+Cross-release review uses `artifacts/interface/upto-session-release-baseline.json`,
+which records the released tag, normalized spec checksum, methods, argument and
+return types, errors, events, user-defined types, storage layout version, and
+interface version. Run these checks for every interface change:
+
+```bash
+node scripts/test-abi-compatibility.mjs
+node scripts/check-abi-compatibility.mjs
+```
+
+The checker reports compatible, additive, and breaking changes separately. A
+breaking change is accepted only when `INTERFACE_VERSION` increases and a
+matching `artifacts/interface/migrations/v<old>-to-v<new>.json` file identifies
+the pinned baseline checksum and provides migration compatibility notes. This
+allows reviewed replacement releases without silently weakening ABI review.
 
 Regenerate only after an intentional interface change:
 
@@ -42,7 +62,8 @@ node scripts/check-audit-readiness.mjs
 - Local SDK resource usage is a regression signal, not a replacement for target-network RPC simulation.
 - `policy-wallet-example` is example-only smart account policy code and is not production wallet infrastructure.
 - `test-token` is utility code for local and testnet testing and is not a production asset.
-- Canonical `resource_hash` and `usage_hash` payload storage is a backend responsibility.
+- Canonical receipt payload storage remains a backend responsibility; only domain-separated hashes belong on-chain.
+- V2 identifiers are not reinterpreted by v3; clients must route them to their original deployment.
 
 ## Threat Model
 
@@ -80,7 +101,7 @@ Out of scope until later review:
 
 The current workspace test suite covers:
 
-- `upto-session`: 76 tests, including a 128-case deterministic property campaign.
+- `upto-session`: the complete contract suite, including a 128-case deterministic property campaign.
 - `policy-wallet-example`: 16 tests.
 - `test-token`: 5 tests.
 
@@ -106,10 +127,11 @@ Before deployment:
 7. Run `stellar contract build --locked`.
 8. Run `node scripts/generate-specs.mjs --skip-build` and check no spec drift.
 9. Run `node scripts/generate-bindings.mjs --skip-build` and check no binding drift.
-10. Run `npm --prefix bindings/upto-session audit --omit=dev`.
-11. Run `node scripts/check-backend-handoff.mjs`.
-12. Run `node scripts/check-security-checklist.mjs`.
-13. Run `node scripts/check-audit-readiness.mjs`.
+10. Run `node scripts/test-abi-compatibility.mjs` and `node scripts/check-abi-compatibility.mjs`.
+11. Run `npm --prefix bindings/upto-session audit --omit=dev`.
+12. Run `node scripts/check-backend-handoff.mjs`.
+13. Run `node scripts/check-security-checklist.mjs`.
+14. Run `node scripts/check-audit-readiness.mjs`.
 
 Local deployment:
 

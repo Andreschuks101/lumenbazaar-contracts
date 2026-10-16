@@ -16,6 +16,13 @@ pub struct AdminRotation {
 
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub enum AssetStatus {
+    Active,
+    Deprecated,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum SessionStatus {
     Open,
     Settled,
