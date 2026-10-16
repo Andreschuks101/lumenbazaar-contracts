@@ -23,5 +23,10 @@ For testnet:
 
 Validate committed public evidence with `node scripts/check-deployment-evidence.mjs`.
 
+`replacement-rehearsal.example.json` documents the client routing state used by
+the executable local replacement rehearsal. Live rehearsal evidence is written
+under ignored `target/rehearsals/`; it is local evidence, not a public deployment
+claim.
+
 The exact build, deployment, and independent verification commands for the corrected deployment
 are in `docs/testnet-deployment-2026-10-07.md`.

@@ -986,6 +986,11 @@
           "doc": "",
           "name": "AdminRotationExpired",
           "value": 29
+        },
+        {
+          "doc": "",
+          "name": "TokenInvariantViolation",
+          "value": 30
         }
       ],
       "doc": "",

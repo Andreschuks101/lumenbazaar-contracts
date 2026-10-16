@@ -1,0 +1,115 @@
+{
+  "schemaVersion": 1,
+  "nativeCommand": "cargo test -p upto-session native_rpc_differential_ -- --nocapture --test-threads=1",
+  "rpc": {
+    "network": "testnet",
+    "rpcUrl": "https://soroban-testnet.stellar.org",
+    "contractId": "CCENNI5ZMMD3DCJXG5MURDXWUU3NG6JCFHDCDSEI4OMNWDJRY2IR36L3",
+    "stellarCli": "28.0.0",
+    "simulationOnly": true,
+    "requiresSigningSecret": false,
+    "sourceEvidence": "artifacts/testnet/lifecycle-2026-10-07.json"
+  },
+  "comparisonPolicy": {
+    "result": "exact semantic outcome",
+    "authorization": "exact entry count",
+    "contractEvents": "exact successful contract-event count",
+    "resources": "record absolute and percentage differences; classify native versus public-ledger differences as expected_environmental"
+  },
+  "fixtures": [
+    {
+      "name": "create_session",
+      "sourceAccount": "GC3BUJJML3SWDJM62FGVSFGJMHF5FIDUB2JKXPOQFW5YC32GHYF6BQA3",
+      "method": "create_session",
+      "args": [
+        "--buyer",
+        "GC3BUJJML3SWDJM62FGVSFGJMHF5FIDUB2JKXPOQFW5YC32GHYF6BQA3",
+        "--seller",
+        "GDDOA5IMNKAAPZLUSSVRAKJT3ZMKSGAUXPRV7NGUWDDWJKMRH5XUGWPO",
+        "--asset",
+        "CB256KDRXDO2FYJN3YBYZE5KCU46WIIE67DRP5T7HI45DRH2GM6YOJFS",
+        "--max_amount",
+        "1000",
+        "--expires_at_ledger",
+        "${LATEST_PLUS_100}",
+        "--resource_hash",
+        "7777777777777777777777777777777777777777777777777777777777777777"
+      ],
+      "expected": {
+        "outcome": "success",
+        "result": "Created",
+        "authorizationEntries": 1,
+        "contractEventCount": 1,
+        "contractEventNames": ["session_created"]
+      }
+    },
+    {
+      "name": "read_settled",
+      "sourceAccount": "GDDOA5IMNKAAPZLUSSVRAKJT3ZMKSGAUXPRV7NGUWDDWJKMRH5XUGWPO",
+      "method": "get_session",
+      "args": [
+        "--session_id",
+        "5f8f2ce89c680fdfbe3b182db86ef18afbd86ffde1bcb255a5e246f1f94ed896"
+      ],
+      "expected": {
+        "outcome": "success",
+        "result": "Settled",
+        "authorizationEntries": 0,
+        "contractEventCount": 0,
+        "contractEventNames": []
+      }
+    },
+    {
+      "name": "repeated_settle",
+      "sourceAccount": "GDDOA5IMNKAAPZLUSSVRAKJT3ZMKSGAUXPRV7NGUWDDWJKMRH5XUGWPO",
+      "method": "settle",
+      "args": [
+        "--session_id",
+        "5f8f2ce89c680fdfbe3b182db86ef18afbd86ffde1bcb255a5e246f1f94ed896",
+        "--actual_amount",
+        "6500000",
+        "--usage_hash",
+        "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"
+      ],
+      "expected": {
+        "outcome": "error",
+        "result": "ContractError#6",
+        "authorizationEntries": 0,
+        "contractEventCount": 0,
+        "contractEventNames": []
+      }
+    },
+    {
+      "name": "repeated_cancel",
+      "sourceAccount": "GC3BUJJML3SWDJM62FGVSFGJMHF5FIDUB2JKXPOQFW5YC32GHYF6BQA3",
+      "method": "cancel",
+      "args": [
+        "--session_id",
+        "72ba07a5fa5a74ac6db30cd886280c228e2ef21b09aa66ab3ebf3c837ae0067e"
+      ],
+      "expected": {
+        "outcome": "error",
+        "result": "ContractError#7",
+        "authorizationEntries": 0,
+        "contractEventCount": 0,
+        "contractEventNames": []
+      }
+    },
+    {
+      "name": "repeated_recovery",
+      "sourceAccount": "GACEQ7VOYCL535J77MKQYNHMWWCGXHHDL6B4E7B6OGQ7OX3PRQHJQJWM",
+      "method": "recover_expired",
+      "args": [
+        "--session_id",
+        "af92bf501e45a7c60fbd223293c2922db0fd97a0b1470766325a453bc8bd00ff"
+      ],
+      "expected": {
+        "outcome": "error",
+        "result": "ContractError#21",
+        "authorizationEntries": 0,
+        "contractEventCount": 0,
+        "contractEventNames": []
+      }
+    }
+  ]
+}

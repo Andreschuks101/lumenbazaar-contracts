@@ -67,6 +67,7 @@ const requiredErrors = [
   "AdminRotationPending",
   "AdminRotationNotFound",
   "AdminRotationExpired",
+  "TokenInvariantViolation",
 ];
 
 for (const item of [...requiredFunctions, ...requiredErrors]) {

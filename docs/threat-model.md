@@ -15,7 +15,11 @@ testnet deployment and lifecycle evidence are published in
 - Buyers authorize full-cap escrow at session creation and cancellation for
   their own funds.
 - Sellers authorize settlement and cannot settle more than the buyer's cap.
-- The configured token contract is trusted to implement the expected transfer interface correctly.
+- The configured token contract is trusted to implement SEP-41 transfer and
+  balance semantics correctly. Escrow checks exact before/after balance deltas
+  and rolls back on failed, under-reporting, or partial behavior, but a token
+  that consistently fabricates every observed balance can defeat local
+  reconciliation. Asset review and allowlisting remain mandatory.
 - The `resource_hash` and `usage_hash` values are commitments only. The contract does not validate
   off-chain resource contents or metering calculations.
 - RPC nodes, Horizon, indexers, backend services, and user interfaces are outside the on-chain trust
@@ -30,6 +34,9 @@ testnet deployment and lifecycle evidence are published in
 - Before expiry, `cancel` requires the stored buyer's authorization, refunds the escrow, and prevents later settlement.
 - At or after expiry, `recover_expired` requires no caller authorization and can refund only the stored buyer.
 - Repeated settlement and cancellation attempts fail against finalized state.
+- Host-rejected nested callbacks from an asset contract cannot re-enter a
+  terminal transition. The adversarial suite confirms that an attempted nested
+  settlement cannot create a second payout or alter the final recipient split.
 
 ## Amount, expiry, and storage risks
 
@@ -60,3 +67,6 @@ testnet deployment and lifecycle evidence are published in
   idempotency.
 - Production use requires an independently reviewed token, a live transaction submission client,
   durable backend idempotency, and monitoring for failed or delayed finality.
+- The malicious-token suite demonstrates bounded behaviors, not safety against
+  arbitrary token bytecode. Exact balance checks are defense in depth and do
+  not remove the configured-asset trust boundary.

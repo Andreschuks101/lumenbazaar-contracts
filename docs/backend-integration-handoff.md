@@ -21,6 +21,12 @@ LUMENBAZAAR_POLICY_WALLET_CONTRACT_ID=C...
 
 No production contract ID is committed in this repository yet.
 
+Replacement deployments must store the originating `contract_id` with every
+`session_id`. Switching or rolling back the active deployment changes only the
+destination for new sessions; existing sessions always route to their recorded
+contract. See `docs/replacement-deployment-rehearsal.md` and
+`deployments/replacement-rehearsal.example.json`.
+
 ## Generated Interfaces
 
 - TypeScript package: `bindings/upto-session`
@@ -100,6 +106,7 @@ not represent a deployed v3 contract.
 | 27 | `AdminRotationPending` | Cancel or complete the existing proposal before creating another. |
 | 28 | `AdminRotationNotFound` | Treat acceptance or cancellation as stale and refresh state. |
 | 29 | `AdminRotationExpired` | Do not accept at or after the recorded expiry ledger. |
+| 30 | `TokenInvariantViolation` | Stop processing and quarantine the configured asset; an observed transfer balance delta did not match the requested amount. |
 
 ## Hash Inputs
 

@@ -84,9 +84,10 @@ export function invokeContract({
   source,
   network = "local",
   args,
+  capture = false,
   dryRun = false,
 }) {
-  runStellar(
+  return runStellar(
     [
       "contract",
       "invoke",
@@ -98,7 +99,7 @@ export function invokeContract({
       "--",
       ...args,
     ],
-    { dryRun },
+    { capture, dryRun },
   );
 }
 

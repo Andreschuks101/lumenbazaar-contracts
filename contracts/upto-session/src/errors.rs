@@ -33,6 +33,7 @@ pub enum ContractError {
     AdminRotationPending = 27,
     AdminRotationNotFound = 28,
     AdminRotationExpired = 29,
+    TokenInvariantViolation = 30,
 }
 
 #[cfg(test)]
@@ -70,5 +71,6 @@ mod tests {
         assert_eq!(ContractError::AdminRotationPending as u32, 27);
         assert_eq!(ContractError::AdminRotationNotFound as u32, 28);
         assert_eq!(ContractError::AdminRotationExpired as u32, 29);
+        assert_eq!(ContractError::TokenInvariantViolation as u32, 30);
     }
 }

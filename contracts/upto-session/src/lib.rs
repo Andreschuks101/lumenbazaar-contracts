@@ -202,7 +202,15 @@ impl UptoSessionContract {
 
         let escrow = token::Client::new(&env, &asset);
         let contract = env.current_contract_address();
+        let buyer_balance_before = escrow.balance(&buyer);
+        let contract_balance_before = escrow.balance(&contract);
         escrow.transfer(&buyer, &contract, &max_amount);
+        verify_debit(buyer_balance_before, escrow.balance(&buyer), max_amount)?;
+        verify_credit(
+            contract_balance_before,
+            escrow.balance(&contract),
+            max_amount,
+        )?;
         let liability = storage::increase_liability(&env, &asset, max_amount)?;
         if escrow.balance(&contract) < liability {
             return Err(ContractError::EscrowUnderfunded);
@@ -256,11 +264,29 @@ impl UptoSessionContract {
             return Err(ContractError::EscrowUnderfunded);
         }
         let refunded_amount = escrowed_amount - actual_amount;
+        let contract_balance_before = asset.balance(&contract);
+        let seller_balance_before = asset.balance(&session.seller);
+        let buyer_balance_before = asset.balance(&session.buyer);
         storage::decrease_liability(&env, &session.asset, escrowed_amount)?;
         asset.transfer(&contract, &session.seller, &actual_amount);
         if refunded_amount > 0 {
             asset.transfer(&contract, &session.buyer, &refunded_amount);
         }
+        verify_debit(
+            contract_balance_before,
+            asset.balance(&contract),
+            escrowed_amount,
+        )?;
+        verify_credit(
+            seller_balance_before,
+            asset.balance(&session.seller),
+            actual_amount,
+        )?;
+        verify_credit(
+            buyer_balance_before,
+            asset.balance(&session.buyer),
+            refunded_amount,
+        )?;
         session.settled_amount = actual_amount;
         session.escrowed_amount = 0;
         session.usage_hash = Some(usage_hash.clone());
@@ -302,8 +328,20 @@ impl UptoSessionContract {
         {
             return Err(ContractError::EscrowUnderfunded);
         }
+        let contract_balance_before = asset.balance(&contract);
+        let buyer_balance_before = asset.balance(&session.buyer);
         storage::decrease_liability(&env, &session.asset, refunded_amount)?;
         asset.transfer(&contract, &session.buyer, &refunded_amount);
+        verify_debit(
+            contract_balance_before,
+            asset.balance(&contract),
+            refunded_amount,
+        )?;
+        verify_credit(
+            buyer_balance_before,
+            asset.balance(&session.buyer),
+            refunded_amount,
+        )?;
         session.escrowed_amount = 0;
         session.status = SessionStatus::Cancelled;
         storage::write_session(&env, &session);
@@ -340,8 +378,20 @@ impl UptoSessionContract {
         {
             return Err(ContractError::EscrowUnderfunded);
         }
+        let contract_balance_before = asset.balance(&contract);
+        let buyer_balance_before = asset.balance(&session.buyer);
         storage::decrease_liability(&env, &session.asset, refunded_amount)?;
         asset.transfer(&contract, &session.buyer, &refunded_amount);
+        verify_debit(
+            contract_balance_before,
+            asset.balance(&contract),
+            refunded_amount,
+        )?;
+        verify_credit(
+            buyer_balance_before,
+            asset.balance(&session.buyer),
+            refunded_amount,
+        )?;
         session.escrowed_amount = 0;
         session.status = SessionStatus::Expired;
         storage::write_session(&env, &session);
@@ -378,6 +428,20 @@ impl UptoSessionContract {
             }
         }
     }
+}
+
+fn verify_debit(before: i128, after: i128, amount: i128) -> Result<(), ContractError> {
+    if before.checked_sub(amount) != Some(after) {
+        return Err(ContractError::TokenInvariantViolation);
+    }
+    Ok(())
+}
+
+fn verify_credit(before: i128, after: i128, amount: i128) -> Result<(), ContractError> {
+    if before.checked_add(amount) != Some(after) {
+        return Err(ContractError::TokenInvariantViolation);
+    }
+    Ok(())
 }
 
 #[cfg(test)]

@@ -51,8 +51,27 @@ jobs:
       - name: Model-check escrow state machine
         run: cargo test -p escrow-model -- --nocapture
 
+      - name: Check replacement deployment rehearsal
+        run: |
+          node --test scripts/local/replacement-routing.test.mjs
+          node scripts/local/rehearse-replacement.mjs --dry-run
+
+      - name: Check native differential fixtures
+        run: node scripts/run-native-rpc-differential.mjs --native-only
+
       - name: Build WASM contracts
         run: stellar contract build --locked
+
+      - name: Check WASM size budgets
+        run: node scripts/check-wasm-size-budget.mjs --report "${{ runner.temp }}/wasm-size-report.json"
+
+      - name: Upload WASM size report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wasm-size-report
+          path: ${{ runner.temp }}/wasm-size-report.json
+          if-no-files-found: error
 
       - name: Check generated specs
         run: |

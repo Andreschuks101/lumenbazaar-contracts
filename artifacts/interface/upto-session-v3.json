@@ -1,7 +1,7 @@
 {
   "contractVersion": "0.3.0",
   "interfaceVersion": 3,
-  "sourceSpecSha256": "0af044b31209b83bd3c1ce63d7ca8856354cb7835b2abac2b686a07e39c5baaa",
+  "sourceSpecSha256": "a0c375cf1e088173fcbf6c4a33182f3c7d395310f89dccd071bd6c1c54a3124c",
   "methods": [
     "accept_admin",
     "cancel",
@@ -441,6 +441,10 @@
     {
       "name": "AdminRotationExpired",
       "value": 29
+    },
+    {
+      "name": "TokenInvariantViolation",
+      "value": 30
     }
   ]
 }

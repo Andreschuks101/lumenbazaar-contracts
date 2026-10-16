@@ -18,7 +18,10 @@ use soroban_sdk::{
     testutils::{Address as _, Events as _, Ledger as _, MockAuth, MockAuthInvoke},
     token, Address, BytesN, Env, Event, IntoVal,
 };
-use test_token::{TestTokenContract, TestTokenContractClient};
+use test_token::{
+    adversarial::{AdversarialBehavior, AdversarialTokenContract, AdversarialTokenContractClient},
+    TestTokenContract, TestTokenContractClient,
+};
 
 fn create_test_asset(env: &Env, buyer: &Address, amount: i128) -> Address {
     let token_admin = Address::generate(env);
@@ -55,6 +58,51 @@ fn asset_policy(asset: &Address, max_session_amount: i128) -> AssetPolicy {
         asset: asset.clone(),
         max_session_amount,
     }
+}
+
+fn create_adversarial_token(env: &Env, buyer: &Address, amount: i128) -> Address {
+    let admin = Address::generate(env);
+    let token_id = env.register(AdversarialTokenContract, ());
+    let token = AdversarialTokenContractClient::new(env, &token_id);
+    token.initialize(&admin);
+    token.mint(buyer, &amount);
+    token_id
+}
+
+fn assert_adversarial_creation_rolls_back(behavior: AdversarialBehavior) {
+    let env = Env::default();
+    env.mock_all_auths_allowing_non_root_auth();
+    let contract_id = env.register(UptoSessionContract, ());
+    let client = UptoSessionContractClient::new(&env, &contract_id);
+    let buyer = Address::generate(&env);
+    let seller = Address::generate(&env);
+    let asset = create_adversarial_token(&env, &buyer, 500);
+    let token = AdversarialTokenContractClient::new(&env, &asset);
+    initialize_for_asset(&env, &client, &buyer, &asset);
+    token.set_behavior(&behavior);
+
+    assert!(client
+        .try_create_session(
+            &buyer,
+            &seller,
+            &asset,
+            &500,
+            &50,
+            &BytesN::from_array(&env, &[71; 32]),
+        )
+        .is_err());
+    assert_eq!(token.raw_balance(&buyer), 500);
+    assert_eq!(token.raw_balance(&contract_id), 0);
+    env.as_contract(&contract_id, || {
+        assert_eq!(storage::read_liability(&env, &asset), 0);
+        assert_eq!(storage::read_next_session_sequence(&env), 0);
+    });
+    assert!(env
+        .events()
+        .all()
+        .filter_by_contract(&contract_id)
+        .events()
+        .is_empty());
 }
 
 fn initialize_for_asset(
@@ -107,6 +155,216 @@ fn print_resource_usage(operation: &str, env: &Env) {
         resources.temporary_rent_ledger_bytes,
         resources.temporary_entry_rent_bumps,
         fee.total,
+    );
+}
+
+fn contract_event_count(env: &Env, contract_id: &Address) -> usize {
+    env.events()
+        .all()
+        .filter_by_contract(contract_id)
+        .events()
+        .len()
+}
+
+fn print_native_rpc_fixture(
+    name: &str,
+    outcome: &str,
+    result: &str,
+    authorization_entries: usize,
+    contract_events: usize,
+    env: &Env,
+) {
+    let resources = env.cost_estimate().resources();
+    let fee = env.cost_estimate().fee();
+    std::println!(
+        concat!(
+            "NATIVE_RPC_DIFFERENTIAL_JSON ",
+            "{{",
+            "\"name\":\"{}\",",
+            "\"outcome\":\"{}\",",
+            "\"result\":\"{}\",",
+            "\"authorizationEntries\":{},",
+            "\"contractEventCount\":{},",
+            "\"resources\":{{",
+            "\"instructions\":{},",
+            "\"memoryBytes\":{},",
+            "\"diskReadBytes\":{},",
+            "\"writeBytes\":{},",
+            "\"estimatedFeeStroops\":{}",
+            "}}",
+            "}}"
+        ),
+        name,
+        outcome,
+        result,
+        authorization_entries,
+        contract_events,
+        resources.instructions,
+        resources.mem_bytes,
+        resources.disk_read_bytes,
+        resources.write_bytes,
+        fee.total,
+    );
+}
+
+#[test]
+fn native_rpc_differential_create_session() {
+    let env = Env::default();
+    env.mock_all_auths_allowing_non_root_auth();
+    let contract_id = env.register(UptoSessionContract, ());
+    let client = UptoSessionContractClient::new(&env, &contract_id);
+    let buyer = Address::generate(&env);
+    let seller = Address::generate(&env);
+    let asset = create_test_asset(&env, &buyer, 500);
+    initialize_for_asset(&env, &client, &buyer, &asset);
+    let session_id = client.create_session(
+        &buyer,
+        &seller,
+        &asset,
+        &100,
+        &50,
+        &BytesN::from_array(&env, &[76; 32]),
+    );
+    print_native_rpc_fixture(
+        "create_session",
+        "success",
+        "Created",
+        env.auths().len(),
+        contract_event_count(&env, &contract_id),
+        &env,
+    );
+    assert_eq!(client.get_session(&session_id).status, SessionStatus::Open);
+}
+
+#[test]
+fn native_rpc_differential_read_settled() {
+    let env = Env::default();
+    env.mock_all_auths_allowing_non_root_auth();
+    let contract_id = env.register(UptoSessionContract, ());
+    let client = UptoSessionContractClient::new(&env, &contract_id);
+    let buyer = Address::generate(&env);
+    let seller = Address::generate(&env);
+    let asset = create_test_asset(&env, &buyer, 500);
+    initialize_for_asset(&env, &client, &buyer, &asset);
+    let session_id = client.create_session(
+        &buyer,
+        &seller,
+        &asset,
+        &100,
+        &50,
+        &BytesN::from_array(&env, &[77; 32]),
+    );
+    client.settle(&session_id, &60, &BytesN::from_array(&env, &[78; 32]));
+    let session = client.get_session(&session_id);
+    assert_eq!(session.status, SessionStatus::Settled);
+    print_native_rpc_fixture(
+        "read_settled",
+        "success",
+        "Settled",
+        env.auths().len(),
+        contract_event_count(&env, &contract_id),
+        &env,
+    );
+}
+
+#[test]
+fn native_rpc_differential_repeated_settle() {
+    let env = Env::default();
+    env.mock_all_auths_allowing_non_root_auth();
+    let contract_id = env.register(UptoSessionContract, ());
+    let client = UptoSessionContractClient::new(&env, &contract_id);
+    let buyer = Address::generate(&env);
+    let seller = Address::generate(&env);
+    let asset = create_test_asset(&env, &buyer, 500);
+    initialize_for_asset(&env, &client, &buyer, &asset);
+    let session_id = client.create_session(
+        &buyer,
+        &seller,
+        &asset,
+        &100,
+        &50,
+        &BytesN::from_array(&env, &[79; 32]),
+    );
+    let usage_hash = BytesN::from_array(&env, &[80; 32]);
+    client.settle(&session_id, &60, &usage_hash);
+    assert_eq!(
+        client.try_settle(&session_id, &60, &usage_hash),
+        Err(Ok(ContractError::SessionAlreadySettled))
+    );
+    print_native_rpc_fixture(
+        "repeated_settle",
+        "error",
+        "ContractError#6",
+        env.auths().len(),
+        contract_event_count(&env, &contract_id),
+        &env,
+    );
+}
+
+#[test]
+fn native_rpc_differential_repeated_cancel() {
+    let env = Env::default();
+    env.mock_all_auths_allowing_non_root_auth();
+    let contract_id = env.register(UptoSessionContract, ());
+    let client = UptoSessionContractClient::new(&env, &contract_id);
+    let buyer = Address::generate(&env);
+    let seller = Address::generate(&env);
+    let asset = create_test_asset(&env, &buyer, 500);
+    initialize_for_asset(&env, &client, &buyer, &asset);
+    let session_id = client.create_session(
+        &buyer,
+        &seller,
+        &asset,
+        &100,
+        &50,
+        &BytesN::from_array(&env, &[81; 32]),
+    );
+    client.cancel(&session_id);
+    assert_eq!(
+        client.try_cancel(&session_id),
+        Err(Ok(ContractError::SessionCancelled))
+    );
+    print_native_rpc_fixture(
+        "repeated_cancel",
+        "error",
+        "ContractError#7",
+        env.auths().len(),
+        contract_event_count(&env, &contract_id),
+        &env,
+    );
+}
+
+#[test]
+fn native_rpc_differential_repeated_recovery() {
+    let env = Env::default();
+    env.mock_all_auths_allowing_non_root_auth();
+    let contract_id = env.register(UptoSessionContract, ());
+    let client = UptoSessionContractClient::new(&env, &contract_id);
+    let buyer = Address::generate(&env);
+    let seller = Address::generate(&env);
+    let asset = create_test_asset(&env, &buyer, 500);
+    initialize_for_asset(&env, &client, &buyer, &asset);
+    let session_id = client.create_session(
+        &buyer,
+        &seller,
+        &asset,
+        &100,
+        &50,
+        &BytesN::from_array(&env, &[82; 32]),
+    );
+    env.ledger().set_sequence_number(50);
+    client.recover_expired(&session_id);
+    assert_eq!(
+        client.try_recover_expired(&session_id),
+        Err(Ok(ContractError::SessionExpired))
+    );
+    print_native_rpc_fixture(
+        "repeated_recovery",
+        "error",
+        "ContractError#21",
+        env.auths().len(),
+        contract_event_count(&env, &contract_id),
+        &env,
     );
 }
 
@@ -1334,6 +1592,100 @@ fn settle_accepts_local_test_token_contract() {
     assert_eq!(
         client.get_session(&session_id).status,
         SessionStatus::Settled
+    );
+}
+
+#[test]
+fn adversarial_create_failures_roll_back_funds_liability_and_sequence() {
+    assert_adversarial_creation_rolls_back(AdversarialBehavior::FailTransfer);
+    assert_adversarial_creation_rolls_back(AdversarialBehavior::FalseBalance);
+    assert_adversarial_creation_rolls_back(AdversarialBehavior::PartialTransfer);
+}
+
+#[test]
+fn adversarial_terminal_failures_leave_the_session_open_and_funded() {
+    let env = Env::default();
+    env.mock_all_auths_allowing_non_root_auth();
+    let contract_id = env.register(UptoSessionContract, ());
+    let client = UptoSessionContractClient::new(&env, &contract_id);
+    let buyer = Address::generate(&env);
+    let seller = Address::generate(&env);
+    let asset = create_adversarial_token(&env, &buyer, 500);
+    let token = AdversarialTokenContractClient::new(&env, &asset);
+    initialize_for_asset(&env, &client, &buyer, &asset);
+    let session_id = client.create_session(
+        &buyer,
+        &seller,
+        &asset,
+        &500,
+        &50,
+        &BytesN::from_array(&env, &[72; 32]),
+    );
+    let usage_hash = BytesN::from_array(&env, &[73; 32]);
+
+    for behavior in [
+        AdversarialBehavior::FailTransfer,
+        AdversarialBehavior::FalseBalance,
+        AdversarialBehavior::PartialTransfer,
+    ] {
+        token.set_behavior(&behavior);
+        assert!(client.try_settle(&session_id, &100, &usage_hash).is_err());
+        let session = client.get_session(&session_id);
+        assert_eq!(session.status, SessionStatus::Open);
+        assert_eq!(session.escrowed_amount, 500);
+        assert_eq!(token.raw_balance(&contract_id), 500);
+        assert_eq!(token.raw_balance(&seller), 0);
+        assert_eq!(token.raw_balance(&buyer), 0);
+        env.as_contract(&contract_id, || {
+            assert_eq!(storage::read_liability(&env, &asset), 500);
+        });
+    }
+
+    token.set_behavior(&AdversarialBehavior::Honest);
+    client.settle(&session_id, &100, &usage_hash);
+    assert_eq!(
+        client.get_session(&session_id).status,
+        SessionStatus::Settled
+    );
+    assert_eq!(token.raw_balance(&seller), 100);
+    assert_eq!(token.raw_balance(&buyer), 400);
+    assert_eq!(token.raw_balance(&contract_id), 0);
+}
+
+#[test]
+fn nested_token_callback_cannot_reenter_a_terminal_transition() {
+    let env = Env::default();
+    env.mock_all_auths_allowing_non_root_auth();
+    let contract_id = env.register(UptoSessionContract, ());
+    let client = UptoSessionContractClient::new(&env, &contract_id);
+    let buyer = Address::generate(&env);
+    let seller = Address::generate(&env);
+    let asset = create_adversarial_token(&env, &buyer, 500);
+    let token = AdversarialTokenContractClient::new(&env, &asset);
+    initialize_for_asset(&env, &client, &buyer, &asset);
+    let session_id = client.create_session(
+        &buyer,
+        &seller,
+        &asset,
+        &500,
+        &50,
+        &BytesN::from_array(&env, &[74; 32]),
+    );
+    let usage_hash = BytesN::from_array(&env, &[75; 32]);
+    token.configure_nested_attempt(&contract_id, &session_id, &100, &usage_hash);
+
+    client.settle(&session_id, &100, &usage_hash);
+
+    let session = client.get_session(&session_id);
+    assert_eq!(session.status, SessionStatus::Settled);
+    assert_eq!(session.settled_amount, 100);
+    assert!(token.callback_rejected());
+    assert_eq!(token.raw_balance(&seller), 100);
+    assert_eq!(token.raw_balance(&buyer), 400);
+    assert_eq!(token.raw_balance(&contract_id), 0);
+    assert_eq!(
+        client.try_settle(&session_id, &100, &usage_hash),
+        Err(Ok(ContractError::SessionAlreadySettled))
     );
 }
 
