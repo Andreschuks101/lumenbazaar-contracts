@@ -2,6 +2,25 @@
   {
     "function_v0": {
       "doc": "",
+      "inputs": [],
+      "name": "accept_owner",
+      "outputs": [
+        {
+          "result": {
+            "error_type": {
+              "udt": {
+                "name": "PolicyWalletError"
+              }
+            },
+            "ok_type": "void"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "function_v0": {
+      "doc": "",
       "inputs": [
         {
           "doc": "",
@@ -34,6 +53,25 @@
         }
       ],
       "name": "authorize_payment",
+      "outputs": [
+        {
+          "result": {
+            "error_type": {
+              "udt": {
+                "name": "PolicyWalletError"
+              }
+            },
+            "ok_type": "void"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "function_v0": {
+      "doc": "",
+      "inputs": [],
+      "name": "cancel_owner_rotation",
       "outputs": [
         {
           "result": {
@@ -133,6 +171,43 @@
   {
     "function_v0": {
       "doc": "",
+      "inputs": [],
+      "name": "get_owner",
+      "outputs": [
+        {
+          "result": {
+            "error_type": {
+              "udt": {
+                "name": "PolicyWalletError"
+              }
+            },
+            "ok_type": "address"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "function_v0": {
+      "doc": "",
+      "inputs": [],
+      "name": "get_owner_rotation",
+      "outputs": [
+        {
+          "option": {
+            "value_type": {
+              "udt": {
+                "name": "OwnerRotation"
+              }
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "function_v0": {
+      "doc": "",
       "inputs": [
         {
           "doc": "",
@@ -175,6 +250,36 @@
         }
       ],
       "name": "initialize",
+      "outputs": [
+        {
+          "result": {
+            "error_type": {
+              "udt": {
+                "name": "PolicyWalletError"
+              }
+            },
+            "ok_type": "void"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "function_v0": {
+      "doc": "",
+      "inputs": [
+        {
+          "doc": "",
+          "name": "pending_owner",
+          "type": "address"
+        },
+        {
+          "doc": "",
+          "name": "expires_at_ledger",
+          "type": "u32"
+        }
+      ],
+      "name": "propose_owner",
       "outputs": [
         {
           "result": {
@@ -310,11 +415,55 @@
           "doc": "",
           "name": "ResourceHashNotAllowed",
           "value": 11
+        },
+        {
+          "doc": "",
+          "name": "InvalidOwner",
+          "value": 12
+        },
+        {
+          "doc": "",
+          "name": "InvalidOwnerRotationExpiry",
+          "value": 13
+        },
+        {
+          "doc": "",
+          "name": "OwnerRotationPending",
+          "value": 14
+        },
+        {
+          "doc": "",
+          "name": "OwnerRotationNotFound",
+          "value": 15
+        },
+        {
+          "doc": "",
+          "name": "OwnerRotationExpired",
+          "value": 16
         }
       ],
       "doc": "",
       "lib": "",
       "name": "PolicyWalletError"
+    }
+  },
+  {
+    "udt_struct_v0": {
+      "doc": "",
+      "fields": [
+        {
+          "doc": "",
+          "name": "expires_at_ledger",
+          "type": "u32"
+        },
+        {
+          "doc": "",
+          "name": "pending_owner",
+          "type": "address"
+        }
+      ],
+      "lib": "",
+      "name": "OwnerRotation"
     }
   },
   {

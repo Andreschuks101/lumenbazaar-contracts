@@ -56,6 +56,9 @@ jobs:
           node --test scripts/local/replacement-routing.test.mjs
           node scripts/local/rehearse-replacement.mjs --dry-run
 
+      - name: Check Stellar CLI wrapper unit tests
+        run: node --test scripts/lib/stellar-cli.test.mjs
+
       - name: Check native differential fixtures
         run: node scripts/run-native-rpc-differential.mjs --native-only
 

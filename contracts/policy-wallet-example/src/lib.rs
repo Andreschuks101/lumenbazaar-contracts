@@ -10,6 +10,14 @@ pub enum DataKey {
     Config,
     Policy(Address),
     DailySpend(Address, u32),
+    OwnerRotation,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct OwnerRotation {
+    pub pending_owner: Address,
+    pub expires_at_ledger: u32,
 }
 
 #[contracttype]
@@ -48,6 +56,11 @@ pub enum PolicyWalletError {
     SellerNotAllowed = 9,
     AssetNotAllowed = 10,
     ResourceHashNotAllowed = 11,
+    InvalidOwner = 12,
+    InvalidOwnerRotationExpiry = 13,
+    OwnerRotationPending = 14,
+    OwnerRotationNotFound = 15,
+    OwnerRotationExpired = 16,
 }
 
 #[contract]
@@ -147,6 +160,79 @@ impl PolicyWalletExampleContract {
 
     pub fn spent_today(env: Env, agent: Address) -> i128 {
         read_daily_spend(&env, &agent, current_ledger_day(&env))
+    }
+
+    pub fn propose_owner(
+        env: Env,
+        pending_owner: Address,
+        expires_at_ledger: u32,
+    ) -> Result<(), PolicyWalletError> {
+        let config = read_config(&env)?;
+        config.owner.require_auth();
+
+        if pending_owner == config.owner {
+            return Err(PolicyWalletError::InvalidOwner);
+        }
+
+        if expires_at_ledger <= env.ledger().sequence() {
+            return Err(PolicyWalletError::InvalidOwnerRotationExpiry);
+        }
+
+        if env.storage().instance().has(&DataKey::OwnerRotation) {
+            return Err(PolicyWalletError::OwnerRotationPending);
+        }
+
+        let rotation = OwnerRotation {
+            pending_owner,
+            expires_at_ledger,
+        };
+        env.storage()
+            .instance()
+            .set(&DataKey::OwnerRotation, &rotation);
+
+        Ok(())
+    }
+
+    pub fn accept_owner(env: Env) -> Result<(), PolicyWalletError> {
+        let mut config = read_config(&env)?;
+        let rotation: OwnerRotation = env
+            .storage()
+            .instance()
+            .get(&DataKey::OwnerRotation)
+            .ok_or(PolicyWalletError::OwnerRotationNotFound)?;
+
+        if env.ledger().sequence() >= rotation.expires_at_ledger {
+            return Err(PolicyWalletError::OwnerRotationExpired);
+        }
+
+        rotation.pending_owner.require_auth();
+
+        config.owner = rotation.pending_owner;
+        env.storage().instance().set(&DataKey::Config, &config);
+        env.storage().instance().remove(&DataKey::OwnerRotation);
+
+        Ok(())
+    }
+
+    pub fn cancel_owner_rotation(env: Env) -> Result<(), PolicyWalletError> {
+        let config = read_config(&env)?;
+        config.owner.require_auth();
+
+        if !env.storage().instance().has(&DataKey::OwnerRotation) {
+            return Err(PolicyWalletError::OwnerRotationNotFound);
+        }
+
+        env.storage().instance().remove(&DataKey::OwnerRotation);
+
+        Ok(())
+    }
+
+    pub fn get_owner_rotation(env: Env) -> Option<OwnerRotation> {
+        env.storage().instance().get(&DataKey::OwnerRotation)
+    }
+
+    pub fn get_owner(env: Env) -> Result<Address, PolicyWalletError> {
+        Ok(read_config(&env)?.owner)
     }
 
     pub fn example_only(_env: Env) -> bool {

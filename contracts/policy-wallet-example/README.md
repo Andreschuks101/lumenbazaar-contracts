@@ -20,4 +20,14 @@ Spending policies are keyed by agent address and can restrict:
 
 `check_payment` validates a proposed payment without mutating state. `authorize_payment` requires the agent signature and records the amount against the current ledger-day bucket.
 
+## Owner Rotation
+
+The contract provides an expiring two-step owner rotation modeled independently from `upto-session` administration:
+
+- `propose_owner(pending_owner, expires_at_ledger)`: The current owner proposes a replacement owner before a specified ledger expiry. Self-targeted proposals or proposals overwriting an active proposal fail.
+- `accept_owner()`: The pending owner accepts the proposal before `expires_at_ledger`. Expired proposals, missing proposals, and unauthorized calls fail. Upon acceptance, the owner updates atomically, the proposal is cleared, and existing spending policies and daily counters survive intact.
+- `cancel_owner_rotation()`: The current owner cancels an active proposal.
+- `get_owner_rotation()`: Queries the active proposal, if one exists.
+- `get_owner()`: Queries the current owner address.
+
 See [docs/policy-examples.md](docs/policy-examples.md) for the executable examples mirrored by the test suite.

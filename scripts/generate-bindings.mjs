@@ -1,5 +1,6 @@
 import { execFileSync } from "node:child_process";
-import { copyFileSync, existsSync, readFileSync, writeFileSync } from "node:fs";
+import { copyFileSync, cpSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -17,27 +18,38 @@ if (!skipBuild) {
   });
 }
 
-execFileSync(
-  "stellar",
-  [
-    "contract",
-    "bindings",
-    "typescript",
-    "--wasm",
-    wasm,
-    "--output-dir",
-    outputDir,
-    "--overwrite",
-  ],
-  {
-    cwd: repoRoot,
-    stdio: "inherit",
-  },
-);
+const tempParent = mkdtempSync(join(tmpdir(), "bindings-"));
+const tempDir = join(tempParent, "upto-session");
+try {
+  execFileSync(
+    "stellar",
+    [
+      "contract",
+      "bindings",
+      "typescript",
+      "--wasm",
+      wasm,
+      "--output-dir",
+      tempDir,
+      "--overwrite",
+    ],
+    {
+      cwd: repoRoot,
+      stdio: "inherit",
+    },
+  );
+  cpSync(tempDir, outputDir, { recursive: true, force: true });
+} finally {
+  rmSync(tempParent, { recursive: true, force: true });
+}
 
 copyFileSync(
   join(repoRoot, "scripts", "templates", "usageReceipt.ts"),
   join(outputDir, "src", "usageReceipt.ts"),
+);
+copyFileSync(
+  join(repoRoot, "scripts", "templates", "sessionId.ts"),
+  join(outputDir, "src", "sessionId.ts"),
 );
 
 const bindingPath = join(outputDir, "src", "index.ts");
@@ -65,6 +77,10 @@ let canonicalBinding = binding.replace(contractSpecPattern, canonicalContractSpe
 const usageReceiptExport = 'export * from "./usageReceipt.js";';
 if (!canonicalBinding.includes(usageReceiptExport)) {
   canonicalBinding = `${canonicalBinding.trimEnd()}\n\n${usageReceiptExport}\n`;
+}
+const sessionIdExport = 'export * from "./sessionId.js";';
+if (!canonicalBinding.includes(sessionIdExport)) {
+  canonicalBinding = `${canonicalBinding.trimEnd()}\n${sessionIdExport}\n`;
 }
 writeFileSync(bindingPath, canonicalBinding, "utf8");
 

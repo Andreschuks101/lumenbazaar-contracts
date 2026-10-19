@@ -17,15 +17,15 @@
     {
       "name": "upto-session",
       "artifact": "target/wasm32v1-none/release/upto_session.wasm",
-      "baselineBytes": 24660,
-      "maxBytes": 29592,
+      "baselineBytes": 33977,
+      "maxBytes": 40772,
       "maxIncreasePercent": 20
     },
     {
       "name": "policy-wallet-example",
       "artifact": "target/wasm32v1-none/release/policy_wallet_example.wasm",
-      "baselineBytes": 8742,
-      "maxBytes": 10490,
+      "baselineBytes": 11264,
+      "maxBytes": 13516,
       "maxIncreasePercent": 20
     },
     {

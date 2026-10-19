@@ -24,7 +24,7 @@
     },
     {
       "path": "bindings/upto-session/src/index.ts",
-      "sha256": "6debc327e2d3f4eec7c98f5f3e3ced9b21c8eb359e1de0d66d443e353f6dc301"
+      "sha256": "839ebfb42e163092e040554b349bc48e9b34c4e2dbc43f9b872ff32f86b8df5b"
     },
     {
       "path": "bindings/upto-session/package.json",

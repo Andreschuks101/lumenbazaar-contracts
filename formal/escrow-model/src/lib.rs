@@ -22,9 +22,19 @@ mod tests {
     }
 
     #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+    enum AssetState {
+        Absent,
+        Active,
+        Deprecated,
+    }
+
+    #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
     struct State {
         initialized: bool,
-        asset_supported: bool,
+        admin: u8,
+        pending_admin: Option<u8>,
+        admin_rotation_expiry: u8,
+        asset_state: AssetState,
         status: Status,
         ledger: u8,
         cap: u8,
@@ -41,7 +51,10 @@ mod tests {
         fn default() -> Self {
             Self {
                 initialized: false,
-                asset_supported: false,
+                admin: 0,
+                pending_admin: None,
+                admin_rotation_expiry: 0,
+                asset_state: AssetState::Absent,
                 status: Status::Absent,
                 ledger: 0,
                 cap: 0,
@@ -58,12 +71,39 @@ mod tests {
 
     #[derive(Clone, Copy, Debug, Eq, PartialEq)]
     enum Action {
-        Initialize { admin_authorized: bool },
-        Create { buyer_authorized: bool, cap: u8 },
-        Settle { seller_authorized: bool, amount: u8 },
-        Cancel { buyer_authorized: bool },
+        Initialize {
+            admin_authorized: bool,
+        },
+        Create {
+            buyer_authorized: bool,
+            cap: u8,
+        },
+        Settle {
+            seller_authorized: bool,
+            amount: u8,
+        },
+        Cancel {
+            buyer_authorized: bool,
+        },
         AdvanceToExpiry,
         Recover,
+        DeprecateAsset {
+            caller: u8,
+        },
+        RemoveAsset {
+            caller: u8,
+        },
+        ProposeAdmin {
+            caller: u8,
+            pending: u8,
+            expires_at: u8,
+        },
+        AcceptAdmin {
+            caller: u8,
+        },
+        CancelAdminRotation {
+            caller: u8,
+        },
     }
 
     #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -74,9 +114,17 @@ mod tests {
         Expired,
         NotExpired,
         UnsupportedAsset,
+        AssetNotActive,
+        AssetNotDeprecated,
+        AssetLiabilityOutstanding,
+        AdminRotationPending,
+        AdminRotationNotFound,
+        AdminRotationExpired,
+        InvalidAdmin,
+        InvalidAdminRotationExpiry,
     }
 
-    const ACTIONS: [Action; 17] = [
+    const ACTIONS: [Action; 27] = [
         Action::Initialize {
             admin_authorized: false,
         },
@@ -135,6 +183,24 @@ mod tests {
             seller_authorized: false,
             amount: 2,
         },
+        Action::DeprecateAsset { caller: 1 },
+        Action::DeprecateAsset { caller: 3 },
+        Action::RemoveAsset { caller: 1 },
+        Action::RemoveAsset { caller: 3 },
+        Action::ProposeAdmin {
+            caller: 1,
+            pending: 2,
+            expires_at: 2,
+        },
+        Action::ProposeAdmin {
+            caller: 3,
+            pending: 2,
+            expires_at: 2,
+        },
+        Action::AcceptAdmin { caller: 2 },
+        Action::AcceptAdmin { caller: 3 },
+        Action::CancelAdminRotation { caller: 1 },
+        Action::CancelAdminRotation { caller: 3 },
     ];
 
     fn apply(state: &mut State, action: Action) -> Result<(), Rejection> {
@@ -147,13 +213,14 @@ mod tests {
                     return Err(Rejection::InvalidState);
                 }
                 state.initialized = true;
-                state.asset_supported = true;
+                state.admin = 1;
+                state.asset_state = AssetState::Active;
             }
             Action::Create {
                 buyer_authorized,
                 cap,
             } => {
-                if !state.initialized || !state.asset_supported {
+                if !state.initialized || state.asset_state != AssetState::Active {
                     return Err(Rejection::UnsupportedAsset);
                 }
                 if !buyer_authorized {
@@ -214,6 +281,86 @@ mod tests {
                 state.buyer_refunded = state.cap;
                 finish_terminal_transition(state);
             }
+            Action::DeprecateAsset { caller } => {
+                if !state.initialized {
+                    return Err(Rejection::InvalidState);
+                }
+                if caller != state.admin {
+                    return Err(Rejection::Unauthorized);
+                }
+                if state.asset_state != AssetState::Active {
+                    return Err(Rejection::AssetNotActive);
+                }
+                state.asset_state = AssetState::Deprecated;
+            }
+            Action::RemoveAsset { caller } => {
+                if !state.initialized {
+                    return Err(Rejection::InvalidState);
+                }
+                if caller != state.admin {
+                    return Err(Rejection::Unauthorized);
+                }
+                if state.asset_state != AssetState::Deprecated {
+                    return Err(Rejection::AssetNotDeprecated);
+                }
+                if state.liability != 0 {
+                    return Err(Rejection::AssetLiabilityOutstanding);
+                }
+                state.asset_state = AssetState::Absent;
+            }
+            Action::ProposeAdmin {
+                caller,
+                pending,
+                expires_at,
+            } => {
+                if !state.initialized {
+                    return Err(Rejection::InvalidState);
+                }
+                if caller != state.admin {
+                    return Err(Rejection::Unauthorized);
+                }
+                if state.pending_admin.is_some() {
+                    return Err(Rejection::AdminRotationPending);
+                }
+                if pending == 0 || pending == state.admin {
+                    return Err(Rejection::InvalidAdmin);
+                }
+                if expires_at <= state.ledger {
+                    return Err(Rejection::InvalidAdminRotationExpiry);
+                }
+                state.pending_admin = Some(pending);
+                state.admin_rotation_expiry = expires_at;
+            }
+            Action::AcceptAdmin { caller } => {
+                if !state.initialized {
+                    return Err(Rejection::InvalidState);
+                }
+                let pending = state
+                    .pending_admin
+                    .ok_or(Rejection::AdminRotationNotFound)?;
+                if state.ledger >= state.admin_rotation_expiry {
+                    return Err(Rejection::AdminRotationExpired);
+                }
+                if caller != pending {
+                    return Err(Rejection::Unauthorized);
+                }
+                state.admin = pending;
+                state.pending_admin = None;
+                state.admin_rotation_expiry = 0;
+            }
+            Action::CancelAdminRotation { caller } => {
+                if !state.initialized {
+                    return Err(Rejection::InvalidState);
+                }
+                if caller != state.admin {
+                    return Err(Rejection::Unauthorized);
+                }
+                if state.pending_admin.is_none() {
+                    return Err(Rejection::AdminRotationNotFound);
+                }
+                state.pending_admin = None;
+                state.admin_rotation_expiry = 0;
+            }
         }
         Ok(())
     }
@@ -264,6 +411,15 @@ mod tests {
                     return Some("terminal session retained escrow or invalid transition count");
                 }
             }
+        }
+        if state.asset_state == AssetState::Absent && state.initialized && state.liability != 0 {
+            return Some("removed asset retained liability");
+        }
+        if !state.initialized && (state.admin != 0 || state.asset_state != AssetState::Absent) {
+            return Some("uninitialized state had active admin or asset");
+        }
+        if state.initialized && state.admin == 0 {
+            return Some("initialized contract had no admin");
         }
         None
     }
@@ -339,5 +495,246 @@ mod tests {
              2. Create { buyer_authorized: true, cap: 2 }\n\
              3. Settle { seller_authorized: true, amount: 3 }"
         );
+    }
+
+    #[test]
+    fn counterexample_deprecated_asset_rejects_new_sessions_preserving_terminal_exits() {
+        let mut base_state = State::default();
+        apply(
+            &mut base_state,
+            Action::Initialize {
+                admin_authorized: true,
+            },
+        )
+        .unwrap();
+        apply(
+            &mut base_state,
+            Action::Create {
+                buyer_authorized: true,
+                cap: 2,
+            },
+        )
+        .unwrap();
+        apply(&mut base_state, Action::DeprecateAsset { caller: 1 }).unwrap();
+        assert_eq!(base_state.asset_state, AssetState::Deprecated);
+
+        // Deprecated asset rejects new session creation
+        let mut new_session_state = base_state;
+        let create_err = apply(
+            &mut new_session_state,
+            Action::Create {
+                buyer_authorized: true,
+                cap: 1,
+            },
+        );
+        assert_eq!(create_err, Err(Rejection::UnsupportedAsset));
+
+        // Terminal exit: Settle succeeds on existing session
+        let mut settle_state = base_state;
+        assert!(apply(
+            &mut settle_state,
+            Action::Settle {
+                seller_authorized: true,
+                amount: 1,
+            }
+        )
+        .is_ok());
+        assert_eq!(settle_state.status, Status::Settled);
+        assert_eq!(settle_state.liability, 0);
+
+        // Terminal exit: Cancel succeeds on existing session
+        let mut cancel_state = base_state;
+        assert!(apply(
+            &mut cancel_state,
+            Action::Cancel {
+                buyer_authorized: true,
+            }
+        )
+        .is_ok());
+        assert_eq!(cancel_state.status, Status::Cancelled);
+        assert_eq!(cancel_state.liability, 0);
+
+        // Terminal exit: Expiry recovery succeeds on existing session
+        let mut recover_state = base_state;
+        assert!(apply(&mut recover_state, Action::AdvanceToExpiry).is_ok());
+        assert!(apply(&mut recover_state, Action::Recover).is_ok());
+        assert_eq!(recover_state.status, Status::Expired);
+        assert_eq!(recover_state.liability, 0);
+    }
+
+    #[test]
+    fn counterexample_removal_impossible_until_liability_zero() {
+        let mut state = State::default();
+        apply(
+            &mut state,
+            Action::Initialize {
+                admin_authorized: true,
+            },
+        )
+        .unwrap();
+
+        // Cannot remove active asset
+        assert_eq!(
+            apply(&mut state, Action::RemoveAsset { caller: 1 }),
+            Err(Rejection::AssetNotDeprecated)
+        );
+
+        // Open session creates liability
+        apply(
+            &mut state,
+            Action::Create {
+                buyer_authorized: true,
+                cap: 2,
+            },
+        )
+        .unwrap();
+        assert_eq!(state.liability, 2);
+
+        // Deprecate asset
+        apply(&mut state, Action::DeprecateAsset { caller: 1 }).unwrap();
+
+        // Removal fails while liability is outstanding
+        assert_eq!(
+            apply(&mut state, Action::RemoveAsset { caller: 1 }),
+            Err(Rejection::AssetLiabilityOutstanding)
+        );
+
+        // Settle session to clear liability
+        apply(
+            &mut state,
+            Action::Settle {
+                seller_authorized: true,
+                amount: 2,
+            },
+        )
+        .unwrap();
+        assert_eq!(state.liability, 0);
+
+        // Removal now succeeds
+        assert!(apply(&mut state, Action::RemoveAsset { caller: 1 }).is_ok());
+        assert_eq!(state.asset_state, AssetState::Absent);
+    }
+
+    #[test]
+    fn counterexample_only_accepted_nonexpired_rotation_changes_admin() {
+        let mut state = State::default();
+        apply(
+            &mut state,
+            Action::Initialize {
+                admin_authorized: true,
+            },
+        )
+        .unwrap();
+        assert_eq!(state.admin, 1);
+
+        // Propose rotation to admin 2 expiring at ledger 2
+        apply(
+            &mut state,
+            Action::ProposeAdmin {
+                caller: 1,
+                pending: 2,
+                expires_at: 2,
+            },
+        )
+        .unwrap();
+        assert_eq!(state.pending_admin, Some(2));
+        assert_eq!(state.admin, 1);
+
+        // Cannot overwrite active proposal
+        assert_eq!(
+            apply(
+                &mut state,
+                Action::ProposeAdmin {
+                    caller: 1,
+                    pending: 3,
+                    expires_at: 2,
+                }
+            ),
+            Err(Rejection::AdminRotationPending)
+        );
+
+        // Unauthorized caller cannot accept
+        assert_eq!(
+            apply(&mut state, Action::AcceptAdmin { caller: 3 }),
+            Err(Rejection::Unauthorized)
+        );
+        assert_eq!(state.admin, 1);
+
+        // Current admin cannot accept (must be pending)
+        assert_eq!(
+            apply(&mut state, Action::AcceptAdmin { caller: 1 }),
+            Err(Rejection::Unauthorized)
+        );
+        assert_eq!(state.admin, 1);
+
+        // Admin cancels rotation
+        apply(&mut state, Action::CancelAdminRotation { caller: 1 }).unwrap();
+        assert_eq!(state.pending_admin, None);
+        assert_eq!(state.admin, 1);
+
+        // Propose again with expiry at ledger 2
+        apply(
+            &mut state,
+            Action::ProposeAdmin {
+                caller: 1,
+                pending: 2,
+                expires_at: 2,
+            },
+        )
+        .unwrap();
+
+        // Advance past expiry
+        apply(&mut state, Action::AdvanceToExpiry).unwrap();
+        assert_eq!(state.ledger, EXPIRY_LEDGER);
+
+        // Expired acceptance fails
+        assert_eq!(
+            apply(&mut state, Action::AcceptAdmin { caller: 2 }),
+            Err(Rejection::AdminRotationExpired)
+        );
+        assert_eq!(state.admin, 1);
+
+        // Cancel expired rotation
+        apply(&mut state, Action::CancelAdminRotation { caller: 1 }).unwrap();
+
+        // Propose with valid future expiry (expires_at = 3 > ledger 2)
+        apply(
+            &mut state,
+            Action::ProposeAdmin {
+                caller: 1,
+                pending: 2,
+                expires_at: 3,
+            },
+        )
+        .unwrap();
+
+        // Pending admin accepts before expiry
+        apply(&mut state, Action::AcceptAdmin { caller: 2 }).unwrap();
+        assert_eq!(state.admin, 2);
+        assert_eq!(state.pending_admin, None);
+
+        // Old admin 1 can no longer propose
+        assert_eq!(
+            apply(
+                &mut state,
+                Action::ProposeAdmin {
+                    caller: 1,
+                    pending: 3,
+                    expires_at: 4,
+                }
+            ),
+            Err(Rejection::Unauthorized)
+        );
+
+        // New admin 2 can propose
+        assert!(apply(
+            &mut state,
+            Action::ProposeAdmin {
+                caller: 2,
+                pending: 3,
+                expires_at: 4,
+            }
+        )
+        .is_ok());
     }
 }

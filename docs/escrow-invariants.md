@@ -38,14 +38,26 @@ session still carries its complete cap and that the contract token balance
 covers the aggregate liability for that asset. A failed check returns
 `EscrowUnderfunded` before liability or session state changes.
 
-Asset membership is immutable after initialization. Each supported asset has a
+Asset policies are established at initialization. Each supported asset has a
 positive explicit session cap; authenticated cap changes affect only later
-creation and do not rewrite stored sessions. Each session ID commits to buyer,
-seller, asset, cap, expiry, resource hash, and the contract sequence.
-No caller supplies a payout source or destination at settlement, so the
-contract cannot act as a deputy for another account and one session cannot use
-another session's authorization or parameters. Full-cap escrow avoids shared
-allowance leakage and makes seller-only deferred settlement enforceable.
+creation and do not rewrite stored sessions. Assets follow an explicit lifecycle:
+active assets can be deprecated by the administrator, which immediately rejects
+new session creations while preserving every terminal exit (settle, cancel,
+recover) for existing open sessions. A deprecated asset can only be removed once
+its aggregate liability reaches zero.
+
+Administrator authority follows a two-step expiring rotation. The current
+administrator proposes a pending administrator with an expiration ledger. Only the
+pending administrator can accept the rotation before the expiration ledger, which
+atomically transfers administrator privileges. The current administrator may
+cancel a pending rotation at any time before acceptance.
+
+Each session ID commits to buyer, seller, asset, cap, expiry, resource hash, and
+the contract sequence. No caller supplies a payout source or destination at
+settlement, so the contract cannot act as a deputy for another account and one
+session cannot use another session's authorization or parameters. Full-cap escrow
+avoids shared allowance leakage and makes seller-only deferred settlement
+enforceable.
 
 Contract-to-token calls do not introduce a callback into `upto-session`; state
 changes and token movements remain atomic under Soroban transaction semantics.
@@ -58,15 +70,21 @@ metadata. Resource and usage hashes remain opaque fixed-length digests.
 
 `formal/escrow-model` exhaustively explores the reachable states of one
 session through bounded sequences of initialization, creation, settlement,
-cancellation, expiry, and recovery actions. The finite model checks:
+cancellation, expiry, recovery, asset lifecycle (deprecation and removal), and
+two-step admin rotation (proposal, acceptance, cancellation, expiry) actions.
+The finite model checks:
 
 - at most one terminal transition succeeds;
 - seller payout never exceeds the recorded cap;
 - deposited value equals contract balance plus seller payout plus buyer refund;
 - open liability equals the full escrowed cap and terminal liability is zero;
-- cancellation and expiry recovery refund only the recorded buyer; and
-- initialization, creation, settlement, and cancellation authorization gates
-  reject unauthorized actions without changing state.
+- cancellation and expiry recovery refund only the recorded buyer;
+- deprecated assets reject new session creation while preserving all terminal exits;
+- asset removal is impossible until modeled liability reaches zero;
+- only accepted, non-expired rotation changes the administrator; and
+- initialization, creation, settlement, cancellation, deprecation, removal,
+  and admin rotation authorization gates reject unauthorized actions without
+  changing state.
 
 The model checker visits actions in a fixed order and reports the shortest
 known action trace when an invariant fails. CI runs it with `--nocapture`, so a
@@ -88,3 +106,9 @@ model action to implementation and test evidence that must remain green.
 | `Cancel` | `cancel`, buyer authorization, pre-expiry gate, full refund | `cancel_requires_buyer_auth`, `cancel_allows_buyer_cancellation_before_settlement`, `cancel_rejects_already_cancelled_session` |
 | `AdvanceToExpiry` | ledger sequence compared with `expires_at_ledger` | `expiry_boundary_selects_exactly_one_terminal_path` |
 | `Recover` | `recover_expired`, fixed stored buyer recipient, full refund | `expiry_recovery_is_permissionless_fixed_recipient_and_single_use`, `expiry_recovery_rejects_missing_settled_and_cancelled_sessions` |
+| `DeprecateAsset` | `deprecate_asset`, admin authorization, active-asset status gate | `asset_deprecation_requires_admin_and_blocks_new_sessions` |
+| `RemoveAsset` | `remove_asset`, admin authorization, deprecated status and zero liability gates | `deprecated_asset_terminal_paths_clear_liability_before_removal` |
+| `ProposeAdmin` | `propose_admin`, admin authorization, single pending rotation gate, expiry validation | `admin_rotation_requires_acceptance_and_changes_privileges_atomically`, `admin_rotation_rejects_overwrite_expiry_and_replay` |
+| `AcceptAdmin` | `accept_admin`, pending admin authorization, non-expired ledger gate | `admin_rotation_requires_acceptance_and_changes_privileges_atomically`, `admin_rotation_rejects_overwrite_expiry_and_replay` |
+| `CancelAdminRotation` | `cancel_admin_rotation`, current admin authorization, pending rotation existence gate | `admin_rotation_requires_acceptance_and_changes_privileges_atomically`, `admin_rotation_rejects_overwrite_expiry_and_replay` |
+

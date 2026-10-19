@@ -362,6 +362,97 @@ mod tests {
         });
     }
 
+    #[test]
+    fn domain_compatibility_all_vectors_match_artifact() {
+        let env = Env::default();
+        let fixture: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../artifacts/backend-handoff/domain-separation-v3.json"
+        ))
+        .expect("domain fixture must decode");
+
+        let vectors = fixture["vectors"]
+            .as_array()
+            .expect("vectors array must be present");
+
+        for vec in vectors {
+            let network_id_hex = vec["networkIdHex"].as_str().expect("networkIdHex");
+            let mut network_id_bytes = [0u8; 32];
+            hex::decode_to_slice(network_id_hex, &mut network_id_bytes)
+                .expect("valid network ID hex");
+            env.ledger().set_network_id(network_id_bytes);
+
+            let contract = Address::from_string(&soroban_sdk::String::from_str(
+                &env,
+                vec["contractId"].as_str().expect("contractId"),
+            ));
+            let buyer = Address::from_string(&soroban_sdk::String::from_str(
+                &env,
+                vec["buyer"].as_str().expect("buyer"),
+            ));
+            let seller = Address::from_string(&soroban_sdk::String::from_str(
+                &env,
+                vec["seller"].as_str().expect("seller"),
+            ));
+            let asset = Address::from_string(&soroban_sdk::String::from_str(
+                &env,
+                vec["asset"].as_str().expect("asset"),
+            ));
+
+            let mut resource_bytes = [0u8; 32];
+            hex::decode_to_slice(
+                vec["resourceHashHex"].as_str().expect("resourceHashHex"),
+                &mut resource_bytes,
+            )
+            .expect("valid resource hash hex");
+            let resource_hash = BytesN::from_array(&env, &resource_bytes);
+
+            let max_amount: i128 = vec["maxAmount"]
+                .as_str()
+                .expect("maxAmount")
+                .parse()
+                .expect("valid i128");
+            let expires_at_ledger: u32 =
+                vec["expiresAtLedger"].as_u64().expect("expiresAtLedger") as u32;
+            let sequence: u64 = vec["sequence"]
+                .as_str()
+                .expect("sequence")
+                .parse()
+                .expect("valid u64");
+
+            let input = SessionIdInput {
+                buyer: &buyer,
+                seller: &seller,
+                asset: &asset,
+                max_amount,
+                expires_at_ledger,
+                resource_hash: &resource_hash,
+                sequence,
+            };
+
+            env.register_at(&contract, crate::UptoSessionContract, ());
+
+            let (preimage, session_id) = env.as_contract(&contract, || {
+                (
+                    session_id_preimage(&env, &input),
+                    derive_session_id(&env, &input),
+                )
+            });
+
+            assert_eq!(
+                hex_bytes(&preimage),
+                vec["preimageXdrHex"].as_str().expect("preimageXdrHex"),
+                "Preimage mismatch for vector {}",
+                vec["name"]
+            );
+            assert_eq!(
+                hex_array(session_id.to_array()),
+                vec["sha256"].as_str().expect("sha256"),
+                "SHA256 mismatch for vector {}",
+                vec["name"]
+            );
+        }
+    }
+
     fn hex_bytes(value: &Bytes) -> std::string::String {
         value
             .iter()
