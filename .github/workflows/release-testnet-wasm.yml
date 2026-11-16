@@ -28,8 +28,19 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  malware-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout without credentials
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+      - name: Scan for known malware indicators
+        run: PYTHONDONTWRITEBYTECODE=1 python3 scripts/security/scan_malware.py
+
   verify-tag:
     name: Verify signed tag
+    needs: malware-scan
     if: github.event_name == 'push'
     runs-on: ubuntu-24.04
     steps:
@@ -53,8 +64,8 @@ jobs:
 
   build:
     name: Reproduce and verify
-    needs: verify-tag
-    if: ${{ !cancelled() && (github.event_name == 'workflow_dispatch' || needs.verify-tag.result == 'success') }}
+    needs: [malware-scan, verify-tag]
+    if: ${{ !cancelled() && needs.malware-scan.result == 'success' && (github.event_name == 'workflow_dispatch' || needs.verify-tag.result == 'success') }}
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
