@@ -7,3 +7,46 @@
 /deployments/ @Hallab7
 /Cargo.lock @Hallab7
 /.github/ @Hallab7
+/.vscode/ @Hallab7
+/.devcontainer/ @Hallab7
+/.cargo/ @Hallab7
+/.githooks/ @Hallab7
+/.husky/ @Hallab7
+/scripts/security/ @Hallab7
+
+/Cargo.toml @Hallab7
+/Cargo.lock @Hallab7
+**/Cargo.toml @Hallab7
+**/Cargo.lock @Hallab7
+**/package.json @Hallab7
+**/package-lock.json @Hallab7
+**/pnpm-lock.yaml @Hallab7
+**/yarn.lock @Hallab7
+**/bun.lock @Hallab7
+**/bun.lockb @Hallab7
+**/install.* @Hallab7
+**/preinstall.* @Hallab7
+**/postinstall.* @Hallab7
+**/prepare.* @Hallab7
+**/setup.* @Hallab7
+
+*.exe @Hallab7
+*.dll @Hallab7
+*.so @Hallab7
+*.dylib @Hallab7
+*.node @Hallab7
+*.wasm @Hallab7
+*.woff @Hallab7
+*.woff2 @Hallab7
+*.eot @Hallab7
+*.ttf @Hallab7
+*.otf @Hallab7
+*.lfk @Hallab7
+*.llf @Hallab7
+
+next.config.* @Hallab7
+vite.config.* @Hallab7
+eslint.config.* @Hallab7
+jest.config.* @Hallab7
+tailwind.config.* @Hallab7
+postcss.config.* @Hallab7

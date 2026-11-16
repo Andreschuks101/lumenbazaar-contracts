@@ -1,0 +1,11 @@
+[package]
+name = "lumenbazaar-security-task"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[workspace]
+
+[[bin]]
+name = "security-task"
+path = "task.rs"
