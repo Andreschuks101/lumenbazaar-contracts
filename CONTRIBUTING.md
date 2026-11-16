@@ -16,6 +16,14 @@ cargo test --workspace --all-features
 stellar contract build --locked
 ```
 
+Enable the repository hook and run the dependency-free Python malware checks before pushing:
+
+```bash
+git config core.hooksPath .githooks
+cargo security-malware-scan
+cargo security-malware-test
+```
+
 ## Contract-facing changelog gate
 
 For changes to contract production source (including methods, errors and events),
