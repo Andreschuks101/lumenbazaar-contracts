@@ -49,6 +49,8 @@ pub enum DataKey {
     MaxBuyerOpenSessions,
     // Persistent aggregate per buyer; extended only alongside that buyer's session.
     BuyerOpenSessions(Address),
+    // Persistent monotonic count of every session created by this buyer.
+    BuyerTotalSessions(Address),
     // Instance, optional.
     MaxSellerOpenSessions,
     // Persistent aggregate per seller; extended only alongside that seller's session.
@@ -339,6 +341,23 @@ pub fn increment_buyer_open_sessions(env: &Env, buyer: &Address) -> Result<u32, 
     Ok(updated)
 }
 
+pub fn read_buyer_total_sessions(env: &Env, buyer: &Address) -> u32 {
+    env.storage()
+        .persistent()
+        .get(&DataKey::BuyerTotalSessions(buyer.clone()))
+        .unwrap_or(0)
+}
+
+pub fn increment_buyer_total_sessions(env: &Env, buyer: &Address) -> Result<u32, ContractError> {
+    let updated = read_buyer_total_sessions(env, buyer)
+        .checked_add(1)
+        .ok_or(ContractError::LiabilityOverflow)?;
+    env.storage()
+        .persistent()
+        .set(&DataKey::BuyerTotalSessions(buyer.clone()), &updated);
+    Ok(updated)
+}
+
 pub fn decrement_buyer_open_sessions(env: &Env, buyer: &Address) -> Result<u32, ContractError> {
     let current = read_buyer_open_sessions(env, buyer);
     let updated = current
@@ -565,6 +584,14 @@ pub fn extend_session_and_liability_ttl(env: &Env, session: &Session) {
     if env.storage().persistent().has(&buyer_key) {
         env.storage().persistent().extend_ttl(
             &buyer_key,
+            DEFAULT_TTL_THRESHOLD,
+            TTL_EXTENSION_AMOUNT,
+        );
+    }
+    let buyer_total_key = DataKey::BuyerTotalSessions(session.buyer.clone());
+    if env.storage().persistent().has(&buyer_total_key) {
+        env.storage().persistent().extend_ttl(
+            &buyer_total_key,
             DEFAULT_TTL_THRESHOLD,
             TTL_EXTENSION_AMOUNT,
         );

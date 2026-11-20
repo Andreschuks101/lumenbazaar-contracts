@@ -61,6 +61,14 @@ pub enum SessionStatus {
 
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct BuyerSessionCount {
+    pub response_version: u32,
+    pub open: u32,
+    pub total: u32,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CapIncreaseProposal {
     pub proposed_max_amount: i128,
     pub active_at_ledger: u32,
