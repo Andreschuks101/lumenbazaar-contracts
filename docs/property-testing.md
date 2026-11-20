@@ -20,7 +20,9 @@ terminal-state immutability, and isolation between both sessions and assets.
 
 The CI/default campaign is 128 cases with fixed seed
 `0x4c554d454e425a52`. Proptest shrinks a failure and prints the smallest
-reproducing input. The fixed seed makes the generated sequence reproducible.
+reproducing input. Every campaign prints its seed, bounded case count, and an
+exact replay command. Override the seed with `LUMENBAZAAR_PROPERTY_SEED` or
+`LUMENBAZAAR_POLICY_SEED`; both accept the displayed hexadecimal value.
 
 Run the CI campaign:
 

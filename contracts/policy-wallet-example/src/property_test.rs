@@ -29,9 +29,14 @@ fn property_config(default_cases: u32) -> ProptestConfig {
         .ok()
         .and_then(|value| value.parse().ok())
         .unwrap_or(default_cases);
+    let seed = std::env::var("LUMENBAZAAR_POLICY_SEED")
+        .ok()
+        .and_then(|value| u64::from_str_radix(value.trim_start_matches("0x"), 16).ok())
+        .unwrap_or(POLICY_SEED);
+    std::println!("policy campaign seed=0x{seed:016x} cases={cases}; replay: LUMENBAZAAR_POLICY_SEED=0x{seed:016x} LUMENBAZAAR_POLICY_CASES={cases} cargo test -p policy-wallet-example property_test -- --nocapture --test-threads=1");
     ProptestConfig {
         cases,
-        rng_seed: RngSeed::Fixed(POLICY_SEED),
+        rng_seed: RngSeed::Fixed(seed),
         max_shrink_iters: 2_000,
         ..ProptestConfig::default()
     }

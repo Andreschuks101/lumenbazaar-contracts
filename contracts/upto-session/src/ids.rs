@@ -2,6 +2,7 @@ use soroban_sdk::{xdr::ToXdr, Address, Bytes, BytesN, Env};
 
 pub const SESSION_ID_DOMAIN: &[u8] = b"lumenbazaar/session-id";
 pub const USAGE_COMMITMENT_DOMAIN: &[u8] = b"lumenbazaar/usage-commitment";
+pub const TERMINAL_EVIDENCE_DOMAIN: &[u8] = b"lumenbazaar/terminal-evidence";
 
 pub struct SessionIdInput<'a> {
     pub buyer: &'a Address,
@@ -56,6 +57,25 @@ pub fn session_id_preimage(env: &Env, input: &SessionIdInput<'_>) -> Bytes {
 
 pub fn usage_commitment_preimage(env: &Env, input: &UsageCommitmentInput<'_>) -> Bytes {
     usage_commitment_preimage_for_version(env, input, crate::INTERFACE_VERSION)
+}
+
+pub fn terminal_evidence_digest(
+    env: &Env,
+    session_id: &BytesN<32>,
+    status: &crate::SessionStatus,
+    finalized_ledger: u32,
+    usage_hash: &Option<BytesN<32>>,
+) -> BytesN<32> {
+    let payload = (
+        Bytes::from_slice(env, TERMINAL_EVIDENCE_DOMAIN),
+        crate::TERMINAL_EVIDENCE_VERSION,
+        env.current_contract_address(),
+        session_id.clone(),
+        status.clone(),
+        finalized_ledger,
+        usage_hash.clone(),
+    );
+    env.crypto().sha256(&payload.to_xdr(env)).to_bytes()
 }
 
 fn derive_session_id_for_version(

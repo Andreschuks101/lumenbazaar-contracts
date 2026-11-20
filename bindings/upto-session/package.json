@@ -5,7 +5,8 @@
   "exports": "./dist/index.js",
   "typings": "dist/index.d.ts",
   "scripts": {
-    "build": "tsc"
+    "build": "tsc",
+    "prepack": "node ../../scripts/generate-binding-attestation.mjs && node ../../scripts/verify-binding-attestation.mjs"
   },
   "dependencies": {
     "@stellar/stellar-sdk": "17.2.1",
