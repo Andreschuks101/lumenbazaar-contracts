@@ -3911,6 +3911,103 @@ fn recoverability_query_matches_recover_expired_boundary_and_terminal_states() {
 
 #[test]
 fn solvency_query_reports_ordered_mixed_health_with_defined_edge_cases() {
+    let env = Env::default();
+    env.mock_all_auths_allowing_non_root_auth();
+    let contract_id = env.register(UptoSessionContract, ());
+    let client = UptoSessionContractClient::new(&env, &contract_id);
+    let admin = Address::generate(&env);
+    let buyer = Address::generate(&env);
+    let seller = Address::generate(&env);
+    let healthy = create_test_asset(&env, &buyer, 300);
+    let surplus = create_test_asset(&env, &buyer, 300);
+    let underfunded = create_test_asset(&env, &buyer, 300);
+    let deprecated = create_test_asset(&env, &buyer, 300);
+    let unknown = Address::generate(&env);
+
+    assert_eq!(
+        client.try_get_solvency(&soroban_sdk::vec![&env, healthy.clone()]),
+        Err(Ok(ContractError::NotInitialized))
+    );
+    client.initialize(
+        &admin,
+        &soroban_sdk::vec![
+            &env,
+            asset_policy(&healthy, 300),
+            asset_policy(&surplus, 300),
+            asset_policy(&underfunded, 300),
+            asset_policy(&deprecated, 300)
+        ],
+    );
+    let hash = BytesN::from_array(&env, &[97; 32]);
+    let key = BytesN::from_array(&env, &[98; 32]);
+    client.create_session(&buyer, &seller, &healthy, &100, &50, &hash, &key);
+    client.create_session(&buyer, &seller, &surplus, &100, &50, &hash, &key);
+    client.create_session(
+        &buyer,
+        &seller,
+        &underfunded,
+        &100,
+        &50,
+        &hash,
+        &key,
+    );
+    token::StellarAssetClient::new(&env, &surplus).mint(&contract_id, &40);
+    env.as_contract(&contract_id, || {
+        storage::increase_liability(&env, &underfunded, 25).unwrap();
+    });
+    client.deprecate_asset(&deprecated);
+
+    let query = soroban_sdk::vec![
+        &env,
+        underfunded.clone(),
+        unknown.clone(),
+        healthy.clone(),
+        deprecated.clone(),
+        surplus.clone(),
+        healthy.clone()
+    ];
+    let results = client.get_solvency(&query);
+    assert_eq!(results.len(), 6);
+    let expected = [
+        (&underfunded, SolvencyAssetState::Active, 100, 125, -25),
+        (&unknown, SolvencyAssetState::Unknown, 0, 0, 0),
+        (&healthy, SolvencyAssetState::Active, 100, 100, 0),
+        (&deprecated, SolvencyAssetState::Deprecated, 0, 0, 0),
+        (&surplus, SolvencyAssetState::Active, 140, 100, 40),
+        (&healthy, SolvencyAssetState::Active, 100, 100, 0),
+    ];
+    for (index, (asset, state, balance, liability, delta)) in expected.iter().enumerate() {
+        let item = results.get(index as u32).unwrap();
+        assert_eq!(&item.asset, *asset);
+        assert_eq!(&item.state, state);
+        assert_eq!(item.balance, *balance);
+        assert_eq!(item.liability, *liability);
+        assert_eq!(item.surplus, *delta);
+    }
+
+    assert_eq!(
+        client.try_get_solvency(&soroban_sdk::Vec::new(&env)),
+        Err(Ok(ContractError::InvalidBatchSize))
+    );
+    let mut oversized = soroban_sdk::Vec::new(&env);
+    for _ in 0..=MAX_SOLVENCY_QUERY_ASSETS {
+        oversized.push_back(healthy.clone());
+    }
+    assert_eq!(
+        client.try_get_solvency(&oversized),
+        Err(Ok(ContractError::InvalidBatchSize))
+    );
+    let mut at_limit = soroban_sdk::Vec::new(&env);
+    for _ in 0..MAX_SOLVENCY_QUERY_ASSETS {
+        at_limit.push_back(healthy.clone());
+    }
+    assert_eq!(
+        client.get_solvency(&at_limit).len(),
+        MAX_SOLVENCY_QUERY_ASSETS
+    );
+}
+
+#[test]
 fn per_asset_minimum_enforces_boundaries_and_policy_invariants() {
     let env = Env::default();
     env.mock_all_auths_allowing_non_root_auth();
@@ -4335,87 +4432,6 @@ fn creation_pause_rejects_repeated_calls_and_resume_restores_creation() {
     let admin = Address::generate(&env);
     let buyer = Address::generate(&env);
     let seller = Address::generate(&env);
-    let healthy = create_test_asset(&env, &buyer, 300);
-    let surplus = create_test_asset(&env, &buyer, 300);
-    let underfunded = create_test_asset(&env, &buyer, 300);
-    let deprecated = create_test_asset(&env, &buyer, 300);
-    let unknown = Address::generate(&env);
-
-    assert_eq!(
-        client.try_get_solvency(&soroban_sdk::vec![&env, healthy.clone()]),
-        Err(Ok(ContractError::NotInitialized))
-    );
-    client.initialize(
-        &admin,
-        &soroban_sdk::vec![
-            &env,
-            asset_policy(&healthy, 300),
-            asset_policy(&surplus, 300),
-            asset_policy(&underfunded, 300),
-            asset_policy(&deprecated, 300)
-        ],
-    );
-    let hash = BytesN::from_array(&env, &[97; 32]);
-    client.create_session(&buyer, &seller, &healthy, &100, &50, &hash);
-    client.create_session(&buyer, &seller, &surplus, &100, &50, &hash);
-    client.create_session(&buyer, &seller, &underfunded, &100, &50, &hash);
-    // Surplus: unsolicited transfer into escrow custody.
-    token::StellarAssetClient::new(&env, &surplus).mint(&contract_id, &40);
-    // Underfunded: raise recorded liability above custody.
-    env.as_contract(&contract_id, || {
-        storage::increase_liability(&env, &underfunded, 25).unwrap();
-    });
-    client.deprecate_asset(&deprecated);
-
-    let query = soroban_sdk::vec![
-        &env,
-        underfunded.clone(),
-        unknown.clone(),
-        healthy.clone(),
-        deprecated.clone(),
-        surplus.clone(),
-        healthy.clone()
-    ];
-    let results = client.get_solvency(&query);
-    assert_eq!(results.len(), 6);
-    let expected = [
-        (&underfunded, SolvencyAssetState::Active, 100, 125, -25),
-        (&unknown, SolvencyAssetState::Unknown, 0, 0, 0),
-        (&healthy, SolvencyAssetState::Active, 100, 100, 0),
-        (&deprecated, SolvencyAssetState::Deprecated, 0, 0, 0),
-        (&surplus, SolvencyAssetState::Active, 140, 100, 40),
-        (&healthy, SolvencyAssetState::Active, 100, 100, 0),
-    ];
-    for (index, (asset, state, balance, liability, delta)) in expected.iter().enumerate() {
-        let item = results.get(index as u32).unwrap();
-        assert_eq!(&item.asset, *asset);
-        assert_eq!(&item.state, state);
-        assert_eq!(item.balance, *balance);
-        assert_eq!(item.liability, *liability);
-        assert_eq!(item.surplus, *delta);
-    }
-
-    // Strict bounds.
-    assert_eq!(
-        client.try_get_solvency(&soroban_sdk::Vec::new(&env)),
-        Err(Ok(ContractError::InvalidBatchSize))
-    );
-    let mut oversized = soroban_sdk::Vec::new(&env);
-    for _ in 0..=MAX_SOLVENCY_QUERY_ASSETS {
-        oversized.push_back(healthy.clone());
-    }
-    assert_eq!(
-        client.try_get_solvency(&oversized),
-        Err(Ok(ContractError::InvalidBatchSize))
-    );
-    let mut at_limit = soroban_sdk::Vec::new(&env);
-    for _ in 0..MAX_SOLVENCY_QUERY_ASSETS {
-        at_limit.push_back(healthy.clone());
-    }
-    assert_eq!(
-        client.get_solvency(&at_limit).len(),
-        MAX_SOLVENCY_QUERY_ASSETS
-    );
     let asset = create_test_asset(&env, &buyer, 1_000);
     let resource_hash = BytesN::from_array(&env, &[72; 32]);
     initialize_for_asset(&env, &client, &admin, &asset);

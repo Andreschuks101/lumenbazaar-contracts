@@ -199,6 +199,9 @@ pub struct SessionRejected {
     pub asset: Address,
     pub event_version: u32,
     pub refunded_amount: i128,
+}
+
+#[contractevent]
 pub struct SessionCapReduced {
     #[topic]
     pub session_id: BytesN<32>,
@@ -527,6 +530,10 @@ pub fn publish_session_rejected(
         asset: asset.clone(),
         event_version: 2,
         refunded_amount,
+    }
+    .publish(env);
+}
+
 pub fn publish_session_cap_reduced(
     env: &Env,
     session_id: &BytesN<32>,
