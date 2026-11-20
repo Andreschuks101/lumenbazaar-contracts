@@ -11,8 +11,11 @@ use soroban_sdk::{
 use upto_session::{
     storage,
     validation::{
-        validate_asset_cap, validate_asset_policy, validate_cap_increase_proposal,
-        validate_settlement_amount, MAX_CAP_INCREASE_DELAY_LEDGERS, MIN_CAP_INCREASE_DELAY_LEDGERS,
+        validate_admin_rotation, validate_asset_cap, validate_asset_policy,
+        validate_cap_increase_proposal, validate_create_session, validate_expiry_extension,
+        validate_settlement_amount, MAX_ADMIN_ROTATION_DURATION_LEDGERS,
+        MAX_CAP_INCREASE_DELAY_LEDGERS, MAX_SESSION_DURATION_LEDGERS,
+        MIN_ADMIN_ROTATION_DURATION_LEDGERS, MIN_CAP_INCREASE_DELAY_LEDGERS,
     },
     ContractError, Session, SessionStatus, UptoSessionContract,
 };
@@ -25,14 +28,17 @@ pub fn token_amount(data: &[u8]) {
     let y = input.u32(39);
     let env = Env::default();
     // Pure validation accepts any ledger, including values whose additions overflow.
-    let ledger = match input.u8(43) % 3 {
+    let ledger = match input.u8(43) % 6 {
         0 => DEFAULT_LEDGER,
         1 => input.u32(44),
-        _ => u32::MAX,
+        2 => u32::MAX,
+        3 => u32::MAX - MIN_CAP_INCREASE_DELAY_LEDGERS + 1,
+        4 => u32::MAX - MAX_CAP_INCREASE_DELAY_LEDGERS + 1,
+        _ => u32::MAX - MAX_SESSION_DURATION_LEDGERS,
     };
     env.ledger().set_sequence_number(ledger);
 
-    match input.u8(0) % 5 {
+    match input.u8(0) % 8 {
         0 => {
             let expected = if a > 0 {
                 Ok(())
@@ -87,7 +93,7 @@ pub fn token_amount(data: &[u8]) {
             );
         }
         3 => liability(&env, a, b, ledger),
-        _ => {
+        4 => {
             let expected = expected_cap_increase(a, b, x, y, ledger);
             assert_eq!(
                 validate_cap_increase_proposal(&env, a, b, x, y),
@@ -95,6 +101,103 @@ pub fn token_amount(data: &[u8]) {
                 "cap increase {a} -> {b}, active {x}, expires {y}, ledger {ledger}"
             );
         }
+        5 => {
+            let buyer = Address::generate(&env);
+            let seller = Address::generate(&env);
+            let asset = Address::generate(&env);
+            let resource_hash = BytesN::from_array(&env, &[1; 32]);
+            let expected = expected_create_session(a, x, ledger);
+            assert_eq!(
+                validate_create_session(&env, &buyer, &seller, &asset, a, x, &resource_hash),
+                expected,
+                "create session amount {a}, expires {x}, ledger {ledger}"
+            );
+        }
+        6 => {
+            let session = Session {
+                id: BytesN::from_array(&env, &[2; 32]),
+                buyer: Address::generate(&env),
+                seller: Address::generate(&env),
+                asset: Address::generate(&env),
+                max_amount: a.max(1),
+                escrowed_amount: a.max(1),
+                settled_amount: 0,
+                status: SessionStatus::Open,
+                creation_ledger: ledger.min(x),
+                expires_at_ledger: x,
+                finalized_ledger: None,
+                resource_hash: BytesN::from_array(&env, &[1; 32]),
+                resource_scheme_version: 1,
+                usage_hash: None,
+                usage_scheme_version: None,
+            };
+            let expected = expected_expiry_extension(x, y, ledger);
+            assert_eq!(
+                validate_expiry_extension(&env, &session, y),
+                expected,
+                "extend expiry current_exp {x} -> new_exp {y}, ledger {ledger}"
+            );
+        }
+        _ => {
+            let current_admin = Address::generate(&env);
+            let pending_admin = Address::generate(&env);
+            let expected = expected_admin_rotation(x, ledger);
+            assert_eq!(
+                validate_admin_rotation(&env, &current_admin, &pending_admin, x),
+                expected,
+                "admin rotation expires {x}, ledger {ledger}"
+            );
+        }
+    }
+}
+
+fn expected_create_session(
+    max_amount: i128,
+    expires_at_ledger: u32,
+    current_ledger: u32,
+) -> Result<(), ContractError> {
+    if max_amount <= 0 {
+        return Err(ContractError::InvalidAmount);
+    }
+    if expires_at_ledger <= current_ledger {
+        return Err(ContractError::ExpiredSession);
+    }
+    if expires_at_ledger - current_ledger > MAX_SESSION_DURATION_LEDGERS {
+        return Err(ContractError::SessionDurationTooLong);
+    }
+    Ok(())
+}
+
+fn expected_expiry_extension(
+    current_expires_at_ledger: u32,
+    new_expires_at_ledger: u32,
+    current_ledger: u32,
+) -> Result<(), ContractError> {
+    if current_ledger >= current_expires_at_ledger
+        || new_expires_at_ledger <= current_expires_at_ledger
+    {
+        return Err(ContractError::ExpiredSession);
+    }
+    if new_expires_at_ledger - current_ledger > MAX_SESSION_DURATION_LEDGERS {
+        return Err(ContractError::SessionDurationTooLong);
+    }
+    Ok(())
+}
+
+fn expected_admin_rotation(
+    expires_at_ledger: u32,
+    current_ledger: u32,
+) -> Result<(), ContractError> {
+    match (
+        current_ledger.checked_add(MIN_ADMIN_ROTATION_DURATION_LEDGERS),
+        current_ledger.checked_add(MAX_ADMIN_ROTATION_DURATION_LEDGERS),
+    ) {
+        (Some(min_expiry), Some(max_expiry))
+            if expires_at_ledger >= min_expiry && expires_at_ledger <= max_expiry =>
+        {
+            Ok(())
+        }
+        _ => Err(ContractError::InvalidAdminRotationExpiry),
     }
 }
 

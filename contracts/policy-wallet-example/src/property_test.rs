@@ -215,6 +215,7 @@ fn build_policy(env: &Env, actors: &Actors, spec: &PolicySpec) -> SpendingPolicy
         allowed_resource_hashes: resources,
         seller_limits,
         resource_limits,
+        revision: 0,
     }
 }
 
@@ -384,7 +385,7 @@ type Trace = std::vec::Vec<(u32, Result<(), PolicyWalletError>, i128, u32)>;
 fn run_case(spec: &PolicySpec, steps: &[Step]) -> Trace {
     let env = Env::default();
     let (client, actors) = setup(&env);
-    client.set_policy(&build_policy(&env, &actors, spec));
+    client.set_policy(&build_policy(&env, &actors, spec), &0);
     let wallet = client.address.clone();
     let mut model = Model::default();
     let mut trace = Trace::new();
@@ -522,12 +523,10 @@ fn p4_day_rollover_is_pinned_at_the_boundary() {
     let env = Env::default();
     let (client, actors) = setup(&env);
     let boundary = next_day_start(START_LEDGER);
-    client.set_policy(&pinned_policy(
-        &env,
-        &actors,
-        100,
-        boundary + LEDGERS_PER_DAY,
-    ));
+    client.set_policy(
+        &pinned_policy(&env, &actors, 100, boundary + LEDGERS_PER_DAY),
+        &0,
+    );
     let pay = |amount: i128| {
         defined(client.try_authorize_payment(
             &actors.agent,
@@ -567,7 +566,7 @@ fn p5_validity_window_is_inclusive_at_both_ends() {
     let valid_until = START_LEDGER + 10;
     let mut policy = pinned_policy(&env, &actors, 100, valid_until);
     policy.valid_from_ledger = START_LEDGER + 2;
-    client.set_policy(&policy);
+    client.set_policy(&policy, &0);
     let check = || {
         defined(client.try_check_payment(
             &actors.agent,
@@ -654,7 +653,7 @@ fn p5_degenerate_policies_are_rejected_without_state_change() {
         let mut policy = valid.clone();
         mutate(&mut policy, &env, &unlisted_seller, &unlisted_resource);
         let before = snapshot(&env, &wallet);
-        let result = defined(client.try_set_policy(&policy));
+        let result = defined(client.try_set_policy(&policy, &0));
         assert!(
             matches!(
                 result,
@@ -673,7 +672,7 @@ fn p7_extreme_amounts_return_defined_errors() {
     let (client, actors) = setup(&env);
     let mut policy = pinned_policy(&env, &actors, i128::MAX, START_LEDGER + 10);
     policy.max_authorizations_per_day = u32::MAX;
-    client.set_policy(&policy);
+    client.set_policy(&policy, &0);
     let pay = |amount: i128| {
         defined(client.try_authorize_payment(
             &actors.agent,

@@ -67,7 +67,7 @@ pub fn parse_hex_seed(text: &str) -> Result<Vec<u8>, String> {
         .flat_map(str::bytes)
         .filter(|byte| !byte.is_ascii_whitespace())
         .collect();
-    if digits.len() % 2 != 0 {
+    if !digits.len().is_multiple_of(2) {
         return Err("odd number of hex digits".into());
     }
     digits
@@ -106,7 +106,7 @@ impl SplitMix64 {
         (0..len)
             .map(|_| {
                 let value = self.next_u64();
-                if value % 4 == 0 {
+                if value.is_multiple_of(4) {
                     (value >> 8) as u8
                 } else {
                     ((value >> 8) % 12) as u8

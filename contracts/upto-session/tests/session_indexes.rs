@@ -8,20 +8,23 @@ use upto_session::{
     UptoSessionContract,
 };
 
-fn session(
-    env: &Env,
-    id_byte: u8,
-    seller: &Address,
-    status: SessionStatus,
-) -> Session {
+fn session(env: &Env, id_byte: u8, seller: &Address, status: SessionStatus) -> Session {
     Session {
         id: BytesN::from_array(env, &[id_byte; 32]),
         buyer: Address::generate(env),
         seller: seller.clone(),
         asset: Address::generate(env),
         max_amount: 100,
-        escrowed_amount: if status == SessionStatus::Open { 100 } else { 0 },
-        settled_amount: if status == SessionStatus::Settled { 100 } else { 0 },
+        escrowed_amount: if status == SessionStatus::Open {
+            100
+        } else {
+            0
+        },
+        settled_amount: if status == SessionStatus::Settled {
+            100
+        } else {
+            0
+        },
         expires_at_ledger: 100,
         resource_hash: BytesN::from_array(env, &[id_byte.wrapping_add(1); 32]),
         usage_hash: None,
@@ -49,7 +52,10 @@ fn counters_follow_model_transitions_without_double_counting() {
         let open = storage::read_session_state_counts(&env);
         assert_eq!(open.open, 2);
         assert_eq!(open.settled, 0);
-        assert_eq!(storage::read_seller_session_state_counts(&env, &seller), open);
+        assert_eq!(
+            storage::read_seller_session_state_counts(&env, &seller),
+            open
+        );
 
         first.status = SessionStatus::Settled;
         first.escrowed_amount = 0;
@@ -61,7 +67,10 @@ fn counters_follow_model_transitions_without_double_counting() {
         assert_eq!(counts.open, 1);
         assert_eq!(counts.settled, 1);
         assert_eq!(counts.cancelled, 0);
-        assert_eq!(storage::read_seller_session_state_counts(&env, &seller), counts);
+        assert_eq!(
+            storage::read_seller_session_state_counts(&env, &seller),
+            counts
+        );
     });
 }
 
@@ -118,35 +127,20 @@ fn commitment_index_is_kind_separated_deterministic_and_bounded() {
     env.as_contract(&contract, || {
         for byte in 0..storage::MAX_COMMITMENT_INDEX_SESSIONS {
             let id = BytesN::from_array(&env, &[byte as u8; 32]);
-            storage::index_session_commitment(
-                &env,
-                &CommitmentKind::Resource,
-                &commitment,
-                &id,
-            )
-            .unwrap();
+            storage::index_session_commitment(&env, &CommitmentKind::Resource, &commitment, &id)
+                .unwrap();
         }
         let first = BytesN::from_array(&env, &[0; 32]);
-        storage::index_session_commitment(
-            &env,
-            &CommitmentKind::Resource,
-            &commitment,
-            &first,
-        )
-        .unwrap();
-        let resource = storage::read_sessions_by_commitment(
-            &env,
-            &CommitmentKind::Resource,
-            &commitment,
-        );
+        storage::index_session_commitment(&env, &CommitmentKind::Resource, &commitment, &first)
+            .unwrap();
+        let resource =
+            storage::read_sessions_by_commitment(&env, &CommitmentKind::Resource, &commitment);
         assert_eq!(resource.len(), storage::MAX_COMMITMENT_INDEX_SESSIONS);
         assert_eq!(resource.get(0), Some(first));
-        assert!(storage::read_sessions_by_commitment(
-            &env,
-            &CommitmentKind::Usage,
-            &commitment,
-        )
-        .is_empty());
+        assert!(
+            storage::read_sessions_by_commitment(&env, &CommitmentKind::Usage, &commitment,)
+                .is_empty()
+        );
 
         let overflow = BytesN::from_array(&env, &[99; 32]);
         assert_eq!(

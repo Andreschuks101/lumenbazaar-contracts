@@ -283,6 +283,7 @@ fn production_escrow_funds_and_settles_with_exact_authorization_trees() {
         }])
         .initialize(&identities.admin, &asset_policies);
 
+    let idempotency_key = BytesN::from_array(&env, &[43; 32]);
     let session_id = client
         .mock_auths(&[MockAuth {
             address: &identities.buyer,
@@ -296,6 +297,7 @@ fn production_escrow_funds_and_settles_with_exact_authorization_trees() {
                     500_i128,
                     50_u32,
                     resource_hash.clone(),
+                    idempotency_key.clone(),
                 )
                     .into_val(&env),
                 sub_invokes: &[MockAuthInvoke {
@@ -318,6 +320,7 @@ fn production_escrow_funds_and_settles_with_exact_authorization_trees() {
             &500,
             &50,
             &resource_hash,
+            &idempotency_key,
         );
 
     client

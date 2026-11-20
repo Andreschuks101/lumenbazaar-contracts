@@ -51,6 +51,14 @@
 
 ### Fixed
 
+- Decrement per-buyer active exposure in `reduce_session_cap` alongside escrow liability and
+  per-seller exposure, and return `ContractError::SessionNotFound` when querying
+  `get_terminal_evidence` for an unknown session.
+  Compatibility: Preserve the public contract ABI, storage layout, and error variants; callers
+  reading `get_buyer_exposure` or handling missing sessions now observe consistent state and
+  `SessionNotFound` (`#5`).
+  Migration: No contract reinitialization or state migration is required.
+
 - Bind `idempotencyKey` in the TypeScript `deriveSessionId` helper so it matches the
   contract's v3 session ID preimage. Compatibility: `SessionIdInputV3` now requires
   `idempotencyKey`; IDs derived without it never matched the contract. Migration: pass the

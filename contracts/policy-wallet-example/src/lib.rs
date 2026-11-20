@@ -135,7 +135,9 @@ impl PolicyWalletExampleContract {
             example_only: true,
         };
         env.storage().instance().set(&DataKey::Config, &config);
-        env.storage().instance().extend_ttl(DEFAULT_TTL_THRESHOLD, TTL_EXTENSION_AMOUNT);
+        env.storage()
+            .instance()
+            .extend_ttl(DEFAULT_TTL_THRESHOLD, TTL_EXTENSION_AMOUNT);
 
         Ok(())
     }
@@ -181,7 +183,9 @@ impl PolicyWalletExampleContract {
         env.storage()
             .instance()
             .set(&DataKey::Policy(agent), &policy);
-        env.storage().instance().extend_ttl(DEFAULT_TTL_THRESHOLD, TTL_EXTENSION_AMOUNT);
+        env.storage()
+            .instance()
+            .extend_ttl(DEFAULT_TTL_THRESHOLD, TTL_EXTENSION_AMOUNT);
 
         Ok(())
     }
@@ -602,7 +606,6 @@ fn validate_payment(
 
     Ok(())
 }
-
 
 pub fn extend_instance_ttl(env: &Env) {
     env.storage()
