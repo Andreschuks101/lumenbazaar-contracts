@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "artifacts": [
+    {
+      "path": "fuzz/crashes/create/regression-minimal.hex",
+      "sha256": "347350ebbcdfd870c9851d44d649c5d3b3f762dbacebad134612d7bc8e1a99fc",
+      "target": "create",
+      "schema": "create-input-v1",
+      "purpose": "reviewed minimized short-input regression",
+      "expectedOutcome": "defined-contract-result-without-host-failure"
+    }
+  ]
+}

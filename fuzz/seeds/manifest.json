@@ -1,0 +1,626 @@
+{
+  "schemaVersion": 1,
+  "seeds": [
+    {
+      "path": "fuzz/seeds/create/00-valid-default.hex",
+      "sha256": "1ecfaca4210173c6f3eee769fb00f8e7744e815e43a8820c85ceb7b6d4ec7b96",
+      "target": "create",
+      "schema": "create-input-v1",
+      "purpose": "valid-default",
+      "expectedOutcome": "defined-contract-result-without-host-failure",
+      "generator": "reviewed-boundary-seed-v1"
+    },
+    {
+      "path": "fuzz/seeds/create/01-amount-zero.hex",
+      "sha256": "9b6f1915c98fbff790218962a8ae74afeffc78da0b67d24784e9f67b707c4425",
+      "target": "create",
+      "schema": "create-input-v1",
+      "purpose": "amount-zero",
+      "expectedOutcome": "defined-contract-result-without-host-failure",
+      "generator": "reviewed-boundary-seed-v1"
+    },
+    {
+      "path": "fuzz/seeds/create/02-amount-negative-one.hex",
+      "sha256": "f4c820f73bb65e27f4e31876568667ddafd2c782110ee1526ad7907a130b0d9c",
+      "target": "create",
+      "schema": "create-input-v1",
+      "purpose": "amount-negative-one",
+      "expectedOutcome": "defined-contract-result-without-host-failure",
+      "generator": "reviewed-boundary-seed-v1"
+    },
+    {
+      "path": "fuzz/seeds/create/03-amount-i128-min.hex",
+      "sha256": "8c0c2a99bad2ce3924b6283447f17a7b9f5060224f890b648bb2422702b7581f",
+      "target": "create",
+      "schema": "create-input-v1",
+      "purpose": "amount-i128-min",
+      "expectedOutcome": "defined-contract-result-without-host-failure",
+      "generator": "reviewed-boundary-seed-v1"
+    },
+    {
+      "path": "fuzz/seeds/create/04-amount-i128-max.hex",
+      "sha256": "75ff4283b27bbe0fd8a65d9069bc5b419b83daabe59a2c406c01bf9ae8bfc8d2",
+      "target": "create",
+      "schema": "create-input-v1",
+      "purpose": "amount-i128-max",
+      "expectedOutcome": "defined-contract-result-without-host-failure",
+      "generator": "reviewed-boundary-seed-v1"
+    },
+    {
+      "path": "fuzz/seeds/create/05-expiry-equals-ledger.hex",
+      "sha256": "74f9b59cd6caa1f2cc3a702c3cb06c977a958c2a4ae29262b04252d97f288445",
+      "target": "create",
+      "schema": "create-input-v1",
+      "purpose": "expiry-equals-ledger",
+      "expectedOutcome": "defined-contract-result-without-host-failure",
+      "generator": "reviewed-boundary-seed-v1"
+    },
+    {
+      "path": "fuzz/seeds/create/06-expiry-over-max-duration.hex",
+      "sha256": "86797433ecf645d1aa91817f702d414b40d8c0a9110801e94b40c69f1818d6e9",
+      "target": "create",
+      "schema": "create-input-v1",
+      "purpose": "expiry-over-max-duration",
+      "expectedOutcome": "defined-contract-result-without-host-failure",
+      "generator": "reviewed-boundary-seed-v1"
+    },
+    {
+      "path": "fuzz/seeds/create/07-expiry-at-max-duration.hex",
+      "sha256": "96235fad094845e7f34df7f22248a43aaa519e26545748aae4407c3cc86de183",
+      "target": "create",
+      "schema": "create-input-v1",
+      "purpose": "expiry-at-max-duration",
+      "expectedOutcome": "defined-contract-result-without-host-failure",
+      "generator": "reviewed-boundary-seed-v1"
+    },
+    {
+      "path": "fuzz/seeds/create/08-expiry-u32-max.hex",
+      "sha256": "f96b5a719a560d45a009d9dc118f3c3665fe79203a355c805202c5c49689f308",
+      "target": "create",
+      "schema": "create-input-v1",
+      "purpose": "expiry-u32-max",
+      "expectedOutcome": "defined-contract-result-without-host-failure",
+      "generator": "reviewed-boundary-seed-v1"
+    },
+    {
+      "path": "fuzz/seeds/create/09-ledger-zero-expiry-wraps.hex",
+      "sha256": "99e779d7a9f8e6d5c47bc598b46c68a6ffac5ed443b9c2cde6f32bb33a30f498",
+      "target": "create",
+      "schema": "create-input-v1",
+      "purpose": "ledger-zero-expiry-wraps",
+      "expectedOutcome": "defined-contract-result-without-host-failure",
+      "generator": "reviewed-boundary-seed-v1"
+    },
+    {
+      "path": "fuzz/seeds/create/10-resource-hash-all-zero.hex",
+      "sha256": "825acae192f8f6297e9455e7b05ac5acfd6bbd0cbc826925031626ae7bf6bc1e",
+      "target": "create",
+      "schema": "create-input-v1",
+      "purpose": "resource-hash-all-zero",
+      "expectedOutcome": "defined-contract-result-without-host-failure",
+      "generator": "reviewed-boundary-seed-v1"
+    },
+    {
+      "path": "fuzz/seeds/create/11-resource-hash-all-ff.hex",
+      "sha256": "01fe5ff6dc58d859615da8975016853c96014930deed723bfdc9bb3b87f8cb3a",
+      "target": "create",
+      "schema": "create-input-v1",
+      "purpose": "resource-hash-all-ff",
+      "expectedOutcome": "defined-contract-result-without-host-failure",
+      "generator": "reviewed-boundary-seed-v1"
+    },
+    {
+      "path": "fuzz/seeds/create/12-resource-hash-single-bit.hex",
+      "sha256": "eb8c8f259a60afb0d364e9ec7949a021b8dc02f85d41f106b583fddf0035a8d8",
+      "target": "create",
+      "schema": "create-input-v1",
+      "purpose": "resource-hash-single-bit",
+      "expectedOutcome": "defined-contract-result-without-host-failure",
+      "generator": "reviewed-boundary-seed-v1"
+    },
+    {
+      "path": "fuzz/seeds/create/13-buyer-equals-seller.hex",
+      "sha256": "ca4172bee1761000a3fd6968d6563d30c2bc3929035cd1a32a92537da549557d",
+      "target": "create",
+      "schema": "create-input-v1",
+      "purpose": "buyer-equals-seller",
+      "expectedOutcome": "defined-contract-result-without-host-failure",
+      "generator": "reviewed-boundary-seed-v1"
+    },
+    {
+      "path": "fuzz/seeds/create/14-asset-equals-buyer.hex",
+      "sha256": "15ac93961c5c8140319496108b43c00e3894f84fbf5fd0ed75a41cc5f04fed59",
+      "target": "create",
+      "schema": "create-input-v1",
+      "purpose": "asset-equals-buyer",
+      "expectedOutcome": "defined-contract-result-without-host-failure",
+      "generator": "reviewed-boundary-seed-v1"
+    },
+    {
+      "path": "fuzz/seeds/create/15-unsupported-random-contract-asset.hex",
+      "sha256": "a7c003a18d28cbeeb31c9e41dd0c223c80e443373e2ce2ef050ce7f53741ff36",
+      "target": "create",
+      "schema": "create-input-v1",
+      "purpose": "unsupported-random-contract-asset",
+      "expectedOutcome": "defined-contract-result-without-host-failure",
+      "generator": "reviewed-boundary-seed-v1"
+    },
+    {
+      "path": "fuzz/seeds/create/16-seller-random-account.hex",
+      "sha256": "d9207e6af6b6b5279594fba88f7d0b3769a7ef163f32d66a58c2747278894fec",
+      "target": "create",
+      "schema": "create-input-v1",
+      "purpose": "seller-random-account",
+      "expectedOutcome": "defined-contract-result-without-host-failure",
+      "generator": "reviewed-boundary-seed-v1"
+    },
+    {
+      "path": "fuzz/seeds/create/17-seller-is-escrow-contract.hex",
+      "sha256": "0c12e2e943adc533ba31f9946f5ff53bec2506a47539beb89238372255598e0a",
+      "target": "create",
+      "schema": "create-input-v1",
+      "purpose": "seller-is-escrow-contract",
+      "expectedOutcome": "defined-contract-result-without-host-failure",
+      "generator": "reviewed-boundary-seed-v1"
+    },
+    {
+      "path": "fuzz/seeds/create/18-resource-hash-wrong-length.hex",
+      "sha256": "b85bd20777aba4761c149a32669ecb6413184b05864189ec40420e996396dc97",
+      "target": "create",
+      "schema": "create-input-v1",
+      "purpose": "resource-hash-wrong-length",
+      "expectedOutcome": "defined-contract-result-without-host-failure",
+      "generator": "reviewed-boundary-seed-v1"
+    },
+    {
+      "path": "fuzz/seeds/create/19-resource-hash-empty.hex",
+      "sha256": "89c5df919b2e509443c1101250ff7ef430b4c325177a05dd51dd545309d8541e",
+      "target": "create",
+      "schema": "create-input-v1",
+      "purpose": "resource-hash-empty",
+      "expectedOutcome": "defined-contract-result-without-host-failure",
+      "generator": "reviewed-boundary-seed-v1"
+    },
+    {
+      "path": "fuzz/seeds/policy/00-valid-default.hex",
+      "sha256": "e7fbffd5a07551a67cb2806e27e092b2366f35a2fc076700f0d7fc1a179898aa",
+      "target": "policy",
+      "schema": "policy-input-v1",
+      "purpose": "valid-default",
+      "expectedOutcome": "defined-contract-result-without-host-failure",
+      "generator": "reviewed-boundary-seed-v1"
+    },
+    {
+      "path": "fuzz/seeds/policy/01-zero-payment-cap.hex",
+      "sha256": "ff6d6d4c8ef71116cc22e99bff7feff659acc6584c37a26ee9b285ad352cb9a3",
+      "target": "policy",
+      "schema": "policy-input-v1",
+      "purpose": "zero-payment-cap",
+      "expectedOutcome": "defined-contract-result-without-host-failure",
+      "generator": "reviewed-boundary-seed-v1"
+    },
+    {
+      "path": "fuzz/seeds/policy/02-negative-daily-cap.hex",
+      "sha256": "aaaf8d602bc261481b808521e6df3363e9df5c98068d922ea5c3d1e16716a182",
+      "target": "policy",
+      "schema": "policy-input-v1",
+      "purpose": "negative-daily-cap",
+      "expectedOutcome": "defined-contract-result-without-host-failure",
+      "generator": "reviewed-boundary-seed-v1"
+    },
+    {
+      "path": "fuzz/seeds/policy/03-i128-max-caps.hex",
+      "sha256": "020efa4318dafcf8a8c511b8540da2609752fb28af78a3c9c989a8c831d969df",
+      "target": "policy",
+      "schema": "policy-input-v1",
+      "purpose": "i128-max-caps",
+      "expectedOutcome": "defined-contract-result-without-host-failure",
+      "generator": "reviewed-boundary-seed-v1"
+    },
+    {
+      "path": "fuzz/seeds/policy/04-zero-authorizations.hex",
+      "sha256": "a4140dac0b1559f586c9007c96668600afdb7246028d5efd5ceb65f052e79911",
+      "target": "policy",
+      "schema": "policy-input-v1",
+      "purpose": "zero-authorizations",
+      "expectedOutcome": "defined-contract-result-without-host-failure",
+      "generator": "reviewed-boundary-seed-v1"
+    },
+    {
+      "path": "fuzz/seeds/policy/05-already-expired.hex",
+      "sha256": "5fc0ae3b063a897bbc08b92535273859a2bdc0d9ee3bce1562c17edc8e6f86df",
+      "target": "policy",
+      "schema": "policy-input-v1",
+      "purpose": "already-expired",
+      "expectedOutcome": "defined-contract-result-without-host-failure",
+      "generator": "reviewed-boundary-seed-v1"
+    },
+    {
+      "path": "fuzz/seeds/policy/06-inverted-window.hex",
+      "sha256": "a799dc35d3362e6a664fa0d321f202c6fc441f4bcb96bdc0ea2097647a53ebe7",
+      "target": "policy",
+      "schema": "policy-input-v1",
+      "purpose": "inverted-window",
+      "expectedOutcome": "defined-contract-result-without-host-failure",
+      "generator": "reviewed-boundary-seed-v1"
+    },
+    {
+      "path": "fuzz/seeds/policy/07-empty-seller-list.hex",
+      "sha256": "d9b320316d659653f1344b2465112f83445a100754288af93753c28e8a3b42c3",
+      "target": "policy",
+      "schema": "policy-input-v1",
+      "purpose": "empty-seller-list",
+      "expectedOutcome": "defined-contract-result-without-host-failure",
+      "generator": "reviewed-boundary-seed-v1"
+    },
+    {
+      "path": "fuzz/seeds/policy/08-limit-for-unlisted-seller.hex",
+      "sha256": "0ad0eea6fb35928be7d6e1aa2987915e9bbc4d071688f7f82f7af8adf7993dd3",
+      "target": "policy",
+      "schema": "policy-input-v1",
+      "purpose": "limit-for-unlisted-seller",
+      "expectedOutcome": "defined-contract-result-without-host-failure",
+      "generator": "reviewed-boundary-seed-v1"
+    },
+    {
+      "path": "fuzz/seeds/policy/09-swapped-resource-limit.hex",
+      "sha256": "08513badf3f61679cda33dbcc16d62eefd180ce1cbffe416f36118df67596cc3",
+      "target": "policy",
+      "schema": "policy-input-v1",
+      "purpose": "swapped-resource-limit",
+      "expectedOutcome": "defined-contract-result-without-host-failure",
+      "generator": "reviewed-boundary-seed-v1"
+    },
+    {
+      "path": "fuzz/seeds/policy/10-day-rollover.hex",
+      "sha256": "f55816fb2d45195cb905256b6c95b24584cf58e1f441dd30432f9695fd232981",
+      "target": "policy",
+      "schema": "policy-input-v1",
+      "purpose": "day-rollover",
+      "expectedOutcome": "defined-contract-result-without-host-failure",
+      "generator": "reviewed-boundary-seed-v1"
+    },
+    {
+      "path": "fuzz/seeds/policy/11-unknown-seller-asset-resource.hex",
+      "sha256": "05dd78ece27273e20aa38a3b6996bb17900b4723490b84bb5d9ac3bb93825560",
+      "target": "policy",
+      "schema": "policy-input-v1",
+      "purpose": "unknown-seller-asset-resource",
+      "expectedOutcome": "defined-contract-result-without-host-failure",
+      "generator": "reviewed-boundary-seed-v1"
+    },
+    {
+      "path": "fuzz/seeds/policy/12-extreme-amounts.hex",
+      "sha256": "f6985a6d9228fe23a4a71b59b23d53c089f67d54094783fbbd3f1b328f726381",
+      "target": "policy",
+      "schema": "policy-input-v1",
+      "purpose": "extreme-amounts",
+      "expectedOutcome": "defined-contract-result-without-host-failure",
+      "generator": "reviewed-boundary-seed-v1"
+    },
+    {
+      "path": "fuzz/seeds/policy/13-seller-and-resource-limits.hex",
+      "sha256": "a72e96502f9627c0d498e8d0749aaa0e3a5c8ea82878047109c81daeb3afadeb",
+      "target": "policy",
+      "schema": "policy-input-v1",
+      "purpose": "seller-and-resource-limits",
+      "expectedOutcome": "defined-contract-result-without-host-failure",
+      "generator": "reviewed-boundary-seed-v1"
+    },
+    {
+      "path": "fuzz/seeds/policy/14-check-only-steps.hex",
+      "sha256": "91a9f33d29ffa62ad0313f1ae96b0ce52b3606aa3d2dfa2d10984f96df34956d",
+      "target": "policy",
+      "schema": "policy-input-v1",
+      "purpose": "check-only-steps",
+      "expectedOutcome": "defined-contract-result-without-host-failure",
+      "generator": "reviewed-boundary-seed-v1"
+    },
+    {
+      "path": "fuzz/seeds/settle/00-valid-default.hex",
+      "sha256": "a1e2eb0489e25b0f3b1e2f7dcea5f31303457d93694e25ae011a36ee033b0842",
+      "target": "settle",
+      "schema": "settle-input-v1",
+      "purpose": "valid-default",
+      "expectedOutcome": "defined-contract-result-without-host-failure",
+      "generator": "reviewed-boundary-seed-v1"
+    },
+    {
+      "path": "fuzz/seeds/settle/01-amount-equals-cap-one.hex",
+      "sha256": "13d5981cdf795ae8ca313a3cacefdac0ebea081a40d6cb0ab0c3f8df81ac548b",
+      "target": "settle",
+      "schema": "settle-input-v1",
+      "purpose": "amount-equals-cap-one",
+      "expectedOutcome": "defined-contract-result-without-host-failure",
+      "generator": "reviewed-boundary-seed-v1"
+    },
+    {
+      "path": "fuzz/seeds/settle/02-amount-over-cap.hex",
+      "sha256": "42bea0ebae2883fc355dfe95bb641de3ea482e9140eabc8790b9acfdd412d3c9",
+      "target": "settle",
+      "schema": "settle-input-v1",
+      "purpose": "amount-over-cap",
+      "expectedOutcome": "defined-contract-result-without-host-failure",
+      "generator": "reviewed-boundary-seed-v1"
+    },
+    {
+      "path": "fuzz/seeds/settle/03-amount-zero.hex",
+      "sha256": "5545ca7d6b40f94a658f5deb6626af9c798bacb4e3c23c751402608b9efd27cb",
+      "target": "settle",
+      "schema": "settle-input-v1",
+      "purpose": "amount-zero",
+      "expectedOutcome": "defined-contract-result-without-host-failure",
+      "generator": "reviewed-boundary-seed-v1"
+    },
+    {
+      "path": "fuzz/seeds/settle/04-amount-i128-min.hex",
+      "sha256": "ba32103ed1948eef93cd20d932d3311e37edc20df11c35c4b4660f5fc350adef",
+      "target": "settle",
+      "schema": "settle-input-v1",
+      "purpose": "amount-i128-min",
+      "expectedOutcome": "defined-contract-result-without-host-failure",
+      "generator": "reviewed-boundary-seed-v1"
+    },
+    {
+      "path": "fuzz/seeds/settle/05-cap-i128-max-settle-max.hex",
+      "sha256": "3b94e18960293c1ca31505e1a3c9d323e8f7d3edc5fbcb18a7be3e7233003073",
+      "target": "settle",
+      "schema": "settle-input-v1",
+      "purpose": "cap-i128-max-settle-max",
+      "expectedOutcome": "defined-contract-result-without-host-failure",
+      "generator": "reviewed-boundary-seed-v1"
+    },
+    {
+      "path": "fuzz/seeds/settle/06-at-expiry.hex",
+      "sha256": "942d9dfbf52be6ec646696a97a239919b4dff6eb113b3cbfc5dfb775df78d6ef",
+      "target": "settle",
+      "schema": "settle-input-v1",
+      "purpose": "at-expiry",
+      "expectedOutcome": "defined-contract-result-without-host-failure",
+      "generator": "reviewed-boundary-seed-v1"
+    },
+    {
+      "path": "fuzz/seeds/settle/07-last-valid-ledger.hex",
+      "sha256": "0b6731e4c0299f302967a6af917c767986d0ef390f954bd1f18eebccbf92ca24",
+      "target": "settle",
+      "schema": "settle-input-v1",
+      "purpose": "last-valid-ledger",
+      "expectedOutcome": "defined-contract-result-without-host-failure",
+      "generator": "reviewed-boundary-seed-v1"
+    },
+    {
+      "path": "fuzz/seeds/settle/08-already-settled.hex",
+      "sha256": "bc4a7c6329abef3fd0958838fd7c001de59ab551d50406ca965dd298ffa500ec",
+      "target": "settle",
+      "schema": "settle-input-v1",
+      "purpose": "already-settled",
+      "expectedOutcome": "defined-contract-result-without-host-failure",
+      "generator": "reviewed-boundary-seed-v1"
+    },
+    {
+      "path": "fuzz/seeds/settle/09-cancelled.hex",
+      "sha256": "5e4a4f627eded474974c367fafce6a6e37abd44c1e23fe9a92029faeba209020",
+      "target": "settle",
+      "schema": "settle-input-v1",
+      "purpose": "cancelled",
+      "expectedOutcome": "defined-contract-result-without-host-failure",
+      "generator": "reviewed-boundary-seed-v1"
+    },
+    {
+      "path": "fuzz/seeds/settle/10-recovered.hex",
+      "sha256": "b0714421aaa6458a1f43bf86614e3c2d2d0bc0346d3ede27755ca53e8e6ae8d0",
+      "target": "settle",
+      "schema": "settle-input-v1",
+      "purpose": "recovered",
+      "expectedOutcome": "defined-contract-result-without-host-failure",
+      "generator": "reviewed-boundary-seed-v1"
+    },
+    {
+      "path": "fuzz/seeds/settle/11-session-missing.hex",
+      "sha256": "c788f9b330422badefac26d4da1637ff2c479022793c237f20eff381b8268346",
+      "target": "settle",
+      "schema": "settle-input-v1",
+      "purpose": "session-missing",
+      "expectedOutcome": "defined-contract-result-without-host-failure",
+      "generator": "reviewed-boundary-seed-v1"
+    },
+    {
+      "path": "fuzz/seeds/settle/12-id-all-zero.hex",
+      "sha256": "5f2753f368161438238c215e8b766500fed531a4798dca79df2b12e19fca36c5",
+      "target": "settle",
+      "schema": "settle-input-v1",
+      "purpose": "id-all-zero",
+      "expectedOutcome": "defined-contract-result-without-host-failure",
+      "generator": "reviewed-boundary-seed-v1"
+    },
+    {
+      "path": "fuzz/seeds/settle/13-id-all-ff.hex",
+      "sha256": "63fe3fa3df79b2264b08aebe0b37a1288471b44a34f9657740c24f32cde32f14",
+      "target": "settle",
+      "schema": "settle-input-v1",
+      "purpose": "id-all-ff",
+      "expectedOutcome": "defined-contract-result-without-host-failure",
+      "generator": "reviewed-boundary-seed-v1"
+    },
+    {
+      "path": "fuzz/seeds/settle/14-id-one-bit-off.hex",
+      "sha256": "92f3c0f5005b44d031f9e88fd2940c925096bab13c17063127da51d27e221282",
+      "target": "settle",
+      "schema": "settle-input-v1",
+      "purpose": "id-one-bit-off",
+      "expectedOutcome": "defined-contract-result-without-host-failure",
+      "generator": "reviewed-boundary-seed-v1"
+    },
+    {
+      "path": "fuzz/seeds/settle/15-usage-hash-zero.hex",
+      "sha256": "7fccc832118cfae4114d30cab6a3277dc639a70d158d3df886c7a246740c89b9",
+      "target": "settle",
+      "schema": "settle-input-v1",
+      "purpose": "usage-hash-zero",
+      "expectedOutcome": "defined-contract-result-without-host-failure",
+      "generator": "reviewed-boundary-seed-v1"
+    },
+    {
+      "path": "fuzz/seeds/settle/16-usage-hash-ff.hex",
+      "sha256": "bfea60a5e515a7be1c92e3647e1a1c8cce471aa35d0474bd0493650f78ede0b3",
+      "target": "settle",
+      "schema": "settle-input-v1",
+      "purpose": "usage-hash-ff",
+      "expectedOutcome": "defined-contract-result-without-host-failure",
+      "generator": "reviewed-boundary-seed-v1"
+    },
+    {
+      "path": "fuzz/seeds/settle/17-session-id-wrong-length.hex",
+      "sha256": "5d1b7643adab0353018745d7b2fcffd91f1e893fa79aec8423e9aaebcda2a26c",
+      "target": "settle",
+      "schema": "settle-input-v1",
+      "purpose": "session-id-wrong-length",
+      "expectedOutcome": "defined-contract-result-without-host-failure",
+      "generator": "reviewed-boundary-seed-v1"
+    },
+    {
+      "path": "fuzz/seeds/settle/18-usage-hash-wrong-length.hex",
+      "sha256": "c2fec91f28b153905b3f83d9b0cdecd606dde87a55734fbe1bedfd1f0e79f726",
+      "target": "settle",
+      "schema": "settle-input-v1",
+      "purpose": "usage-hash-wrong-length",
+      "expectedOutcome": "defined-contract-result-without-host-failure",
+      "generator": "reviewed-boundary-seed-v1"
+    },
+    {
+      "path": "fuzz/seeds/token_amount/00-asset-cap-default.hex",
+      "sha256": "b62cc6625fe10f67955cc8986c224217127920914b1ff1ffcfb9d09f90cd6e2d",
+      "target": "token_amount",
+      "schema": "token_amount-input-v1",
+      "purpose": "asset-cap-default",
+      "expectedOutcome": "defined-contract-result-without-host-failure",
+      "generator": "reviewed-boundary-seed-v1"
+    },
+    {
+      "path": "fuzz/seeds/token_amount/01-asset-cap-zero.hex",
+      "sha256": "55408a0ba8d32131cc633a5f49bd616f5a6a991a9959d0b524a60d6adc129401",
+      "target": "token_amount",
+      "schema": "token_amount-input-v1",
+      "purpose": "asset-cap-zero",
+      "expectedOutcome": "defined-contract-result-without-host-failure",
+      "generator": "reviewed-boundary-seed-v1"
+    },
+    {
+      "path": "fuzz/seeds/token_amount/02-asset-cap-i128-min.hex",
+      "sha256": "fa11c7f456a28f677d7cb9cdafa1851bfdaea76e76be0c133fca699ae5459286",
+      "target": "token_amount",
+      "schema": "token_amount-input-v1",
+      "purpose": "asset-cap-i128-min",
+      "expectedOutcome": "defined-contract-result-without-host-failure",
+      "generator": "reviewed-boundary-seed-v1"
+    },
+    {
+      "path": "fuzz/seeds/token_amount/03-policy-min-above-max.hex",
+      "sha256": "bea49db6649ae9f5275e10afaccc81fe226a3569bf9325a5db6a55a1543b783f",
+      "target": "token_amount",
+      "schema": "token_amount-input-v1",
+      "purpose": "policy-min-above-max",
+      "expectedOutcome": "defined-contract-result-without-host-failure",
+      "generator": "reviewed-boundary-seed-v1"
+    },
+    {
+      "path": "fuzz/seeds/token_amount/04-policy-equal.hex",
+      "sha256": "b1d7a4cae6aa228bf3aa36e7034d924bffa569aab0fbb737a761933d1a560c23",
+      "target": "token_amount",
+      "schema": "token_amount-input-v1",
+      "purpose": "policy-equal",
+      "expectedOutcome": "defined-contract-result-without-host-failure",
+      "generator": "reviewed-boundary-seed-v1"
+    },
+    {
+      "path": "fuzz/seeds/token_amount/05-settle-at-cap.hex",
+      "sha256": "ada532c5fa8e2c20d322af980f3266fb0058167353d07f490e7d0f35527321fe",
+      "target": "token_amount",
+      "schema": "token_amount-input-v1",
+      "purpose": "settle-at-cap",
+      "expectedOutcome": "defined-contract-result-without-host-failure",
+      "generator": "reviewed-boundary-seed-v1"
+    },
+    {
+      "path": "fuzz/seeds/token_amount/06-settle-over-cap.hex",
+      "sha256": "5e83e887f63ef7fafc7f29c817d3575336ef872e984336dfa0b668e79c55ca3a",
+      "target": "token_amount",
+      "schema": "token_amount-input-v1",
+      "purpose": "settle-over-cap",
+      "expectedOutcome": "defined-contract-result-without-host-failure",
+      "generator": "reviewed-boundary-seed-v1"
+    },
+    {
+      "path": "fuzz/seeds/token_amount/07-settle-at-expiry.hex",
+      "sha256": "6db2ffad5052399a2a4e75e92eab979ee9c3061cc8d4aba3fd8401a066b2b130",
+      "target": "token_amount",
+      "schema": "token_amount-input-v1",
+      "purpose": "settle-at-expiry",
+      "expectedOutcome": "defined-contract-result-without-host-failure",
+      "generator": "reviewed-boundary-seed-v1"
+    },
+    {
+      "path": "fuzz/seeds/token_amount/08-settle-ledger-u32-max.hex",
+      "sha256": "de1d6ff0dba074c08c80c8125ba28d7dc30f26db9138a5d152e8d0c014c8a4c8",
+      "target": "token_amount",
+      "schema": "token_amount-input-v1",
+      "purpose": "settle-ledger-u32-max",
+      "expectedOutcome": "defined-contract-result-without-host-failure",
+      "generator": "reviewed-boundary-seed-v1"
+    },
+    {
+      "path": "fuzz/seeds/token_amount/09-liability-overflow.hex",
+      "sha256": "98ceb0c678f0c812ef5da4b3dd1cfecdb77616007e268f16371cee174d3fc16d",
+      "target": "token_amount",
+      "schema": "token_amount-input-v1",
+      "purpose": "liability-overflow",
+      "expectedOutcome": "defined-contract-result-without-host-failure",
+      "generator": "reviewed-boundary-seed-v1"
+    },
+    {
+      "path": "fuzz/seeds/token_amount/10-liability-underflow.hex",
+      "sha256": "c87333737481c25daabab0b17f78e1a8b8e5b845bd2291399c2c2a3b05fa027c",
+      "target": "token_amount",
+      "schema": "token_amount-input-v1",
+      "purpose": "liability-underflow",
+      "expectedOutcome": "defined-contract-result-without-host-failure",
+      "generator": "reviewed-boundary-seed-v1"
+    },
+    {
+      "path": "fuzz/seeds/token_amount/11-liability-negative-add.hex",
+      "sha256": "ae22704126a2dd9043a8153e83b86f1dbe08fcb4d829996b1e1eca7dc59d45b3",
+      "target": "token_amount",
+      "schema": "token_amount-input-v1",
+      "purpose": "liability-negative-add",
+      "expectedOutcome": "defined-contract-result-without-host-failure",
+      "generator": "reviewed-boundary-seed-v1"
+    },
+    {
+      "path": "fuzz/seeds/token_amount/12-cap-increase-valid.hex",
+      "sha256": "e3fb1daab2b48a38acb85adcf549b3f8b8c9a07cf65b58289fcb687f5fb65c92",
+      "target": "token_amount",
+      "schema": "token_amount-input-v1",
+      "purpose": "cap-increase-valid",
+      "expectedOutcome": "defined-contract-result-without-host-failure",
+      "generator": "reviewed-boundary-seed-v1"
+    },
+    {
+      "path": "fuzz/seeds/token_amount/13-cap-increase-ledger-overflow.hex",
+      "sha256": "671a1de6ac62a3bc54706fb0f3a2f054e20409816c33d93d6473cda92ddf61d0",
+      "target": "token_amount",
+      "schema": "token_amount-input-v1",
+      "purpose": "cap-increase-ledger-overflow",
+      "expectedOutcome": "defined-contract-result-without-host-failure",
+      "generator": "reviewed-boundary-seed-v1"
+    },
+    {
+      "path": "fuzz/seeds/token_amount/14-cap-increase-not-higher.hex",
+      "sha256": "f4c763885b09a6f91904a598f7803df8f7fc59e753cad1f6b247e9249c7ce96e",
+      "target": "token_amount",
+      "schema": "token_amount-input-v1",
+      "purpose": "cap-increase-not-higher",
+      "expectedOutcome": "defined-contract-result-without-host-failure",
+      "generator": "reviewed-boundary-seed-v1"
+    }
+  ]
+}

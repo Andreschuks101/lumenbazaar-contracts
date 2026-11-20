@@ -53,6 +53,16 @@ Tests inject RPC fixtures, clock and sleep without making network transactions.
 
 Contract release and audit evidence must use the following exact toolchain:
 
+For credential-free local reproduction, build `Dockerfile.reproducible` and
+run it with no secret environment variables or credential mounts. Its default
+command performs two clean builds and compares both WASM hashes and generated
+contract specs:
+
+```bash
+docker build -f Dockerfile.reproducible -t lumenbazaar-repro .
+docker run --rm --network=none lumenbazaar-repro
+```
+
 | Component | Version | Enforcement |
 | --- | --- | --- |
 | Rust | 1.93.1 | `rust-toolchain.toml` and CI |

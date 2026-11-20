@@ -12,6 +12,8 @@
 // commit with its committed Cargo.lock (`--locked`), the recorded Rust
 // version (RUSTUP_TOOLCHAIN) and the recorded Stellar CLI version. Nothing is
 // written unless every artifact matches or has a reviewed explanation.
+// `Dockerfile.reproducible` wraps this pinned toolchain in a credential-free
+// image and compares two clean WASM/spec builds.
 import { execFileSync } from "node:child_process";
 import {
   copyFileSync,
