@@ -141,6 +141,18 @@ jobs:
       - name: Refuse to package test-token under a production label
         run: node scripts/check-test-token-guard.mjs --release-label testnet --artifacts-dir "$RUNNER_TEMP/release/wasm"
 
+      - name: Verify maintainer signatures offline
+        if: github.event_name == 'push'
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          node scripts/verify-release-signature.mjs \
+            --artifact "$RUNNER_TEMP/release/SHA256SUMS" \
+            --signature "release-signatures/$RELEASE_TAG/SHA256SUMS.sig.json"
+          node scripts/verify-release-signature.mjs \
+            --artifact "$RUNNER_TEMP/release/checksums.json" \
+            --signature "release-signatures/$RELEASE_TAG/checksums.json.sig.json"
+
       - name: Summarize
         run: cat "$RUNNER_TEMP/release/release-notes.md" >> "$GITHUB_STEP_SUMMARY"
 

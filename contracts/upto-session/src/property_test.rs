@@ -37,9 +37,14 @@ fn property_config() -> ProptestConfig {
         .ok()
         .and_then(|value| value.parse().ok())
         .unwrap_or(PROPERTY_CASES);
+    let seed = std::env::var("LUMENBAZAAR_PROPERTY_SEED")
+        .ok()
+        .and_then(|value| u64::from_str_radix(value.trim_start_matches("0x"), 16).ok())
+        .unwrap_or(PROPERTY_SEED);
+    std::println!("property campaign seed=0x{seed:016x} cases={cases}; replay: LUMENBAZAAR_PROPERTY_SEED=0x{seed:016x} LUMENBAZAAR_PROPERTY_CASES={cases} cargo test -p upto-session generated_sequences_preserve_value_caps_and_isolation -- --nocapture --test-threads=1");
     ProptestConfig {
         cases,
-        rng_seed: RngSeed::Fixed(PROPERTY_SEED),
+        rng_seed: RngSeed::Fixed(seed),
         max_shrink_iters: 10_000,
         ..ProptestConfig::default()
     }

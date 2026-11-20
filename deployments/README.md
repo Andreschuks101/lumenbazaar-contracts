@@ -18,6 +18,13 @@ Deployment manifests are written here by the repo scripts.
 
 For testnet:
 
+Deployment is fail closed. Set `LUMENBAZAAR_EXPECTED_WASM_HASHES` to a JSON
+map of contract names to reviewed lowercase SHA-256 values. Set
+`LUMENBAZAAR_TRUSTED_RPC_URL` to an independent HTTPS testnet RPC endpoint and
+optionally `LUMENBAZAAR_MAX_RPC_LEDGER_LAG` (default `2`). A `--dry-run` writes
+`testnet-plan.json` without signing or submitting. The canonical `planSha256`
+is copied into the final manifest so reviewers can compare plan and evidence.
+
 1. Copy `.env.testnet.example` to `.env.testnet` or export the same variables in your shell.
 2. Run `node scripts/testnet/deploy-testnet.mjs` (optionally `--contracts upto-session,test-token`).
 3. Run `node scripts/testnet/initialize-testnet.mjs`.

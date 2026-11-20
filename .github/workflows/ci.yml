@@ -111,6 +111,12 @@ jobs:
           LUMENBAZAAR_PROPERTY_CASES: "128"
         run: cargo test --workspace --all-features
 
+      - name: Verify and replay reviewed fuzz artifacts
+        run: |
+          node scripts/verify-fuzz-artifacts.mjs
+          ulimit -v 2097152
+          timeout 60s cargo test -p lumenbazaar-fuzz --test crash_replay -- --test-threads=1
+
       - name: Check resource and rent budgets
         run: |
           node scripts/report-resource-usage.mjs
@@ -171,6 +177,8 @@ jobs:
           npm --prefix bindings/upto-session ci
           npm --prefix bindings/upto-session audit --omit=dev
           npm --prefix bindings/upto-session run build
+          npm --prefix bindings/upto-session pack --dry-run
+          node scripts/test-binding-client-validation.mjs
           node scripts/smoke-upto-session-bindings.mjs
           node --test scripts/test-contract-errors.mjs
           node --test scripts/test-transaction-evidence.mjs

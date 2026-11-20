@@ -12,10 +12,11 @@ pub use errors::ContractError;
 pub use types::{
     AdminRotation, AssetLifecycle, AssetPolicy, AssetPolicyResponse, AssetSolvency,
     AssetSolvencySnapshot, AssetStatus, BatchRecoveryResult, BatchRecoveryStatus,
-    BatchSessionResult, BatchSessionStatus, CapIncreaseProposal, CommitmentDomainMetadata,
-    CommitmentKind, ContractConfiguration, OperationalState, RecoverabilityStatus, Session,
-    SessionRecoverability, SessionStateCounts, SessionStatus, SessionStatusResponse,
-    SettlementPreview, SettlementRejectionReason, SolvencyAssetState, SolvencyStatus,
+    BatchSessionResult, BatchSessionStatus, BuyerSessionCount, CapIncreaseProposal,
+    CommitmentDomainMetadata, CommitmentKind, ContractConfiguration, OperationalState,
+    RecoverabilityStatus, Session, SessionRecoverability, SessionStateCounts, SessionStatus,
+    SessionStatusResponse, SettlementPreview, SettlementRejectionReason, SolvencyAssetState,
+    SolvencyStatus, TerminalEvidence, TerminalEvidenceDigest,
 };
 
 use soroban_sdk::{contract, contractimpl, token, Address, BytesN, Env, Vec};
@@ -34,6 +35,8 @@ pub const MAX_RECOVERY_BATCH_SIZE: u32 = 8;
 pub const MAX_SOLVENCY_QUERY_ASSETS: u32 = 16;
 pub const SOLVENCY_RESPONSE_VERSION: u32 = 1;
 pub const MAX_SESSION_QUERY_BATCH_SIZE: u32 = 8;
+pub const TERMINAL_EVIDENCE_VERSION: u32 = 1;
+pub const BUYER_SESSION_COUNT_RESPONSE_VERSION: u32 = 1;
 
 #[contractimpl]
 #[allow(clippy::too_many_arguments)]
@@ -291,6 +294,20 @@ impl UptoSessionContract {
             return Err(ContractError::NotInitialized);
         }
         Ok(storage::read_buyer_open_sessions(&env, &buyer))
+    }
+
+    pub fn get_buyer_session_count(
+        env: Env,
+        buyer: Address,
+    ) -> Result<BuyerSessionCount, ContractError> {
+        if !storage::has_admin(&env) {
+            return Err(ContractError::NotInitialized);
+        }
+        Ok(BuyerSessionCount {
+            response_version: BUYER_SESSION_COUNT_RESPONSE_VERSION,
+            open: storage::read_buyer_open_sessions(&env, &buyer),
+            total: storage::read_buyer_total_sessions(&env, &buyer),
+        })
     }
 
     pub fn set_max_seller_open_sessions(env: Env, limit: u32) -> Result<(), ContractError> {
@@ -755,6 +772,7 @@ impl UptoSessionContract {
         let liability = storage::increase_liability(&env, &asset, max_amount)?;
         storage::increase_seller_exposure(&env, &seller, &asset, max_amount)?;
         storage::increment_buyer_open_sessions(&env, &buyer)?;
+        storage::increment_buyer_total_sessions(&env, &buyer)?;
         storage::increment_seller_open_sessions(&env, &seller)?;
         if escrow.balance(&contract) < liability {
             return Err(ContractError::EscrowUnderfunded);
@@ -1440,6 +1458,33 @@ impl UptoSessionContract {
 
     pub fn get_session(env: Env, session_id: BytesN<32>) -> Result<Session, ContractError> {
         storage::read_session(&env, &session_id).ok_or(ContractError::SessionNotFound)
+    }
+
+    pub fn get_terminal_evidence(
+        env: Env,
+        session_id: BytesN<32>,
+    ) -> Result<TerminalEvidence, ContractError> {
+        let session = storage::read_session(&env, &session_id)
+            .ok_or(ContractError::SessionNotFound)?;
+        if session.status == SessionStatus::Open {
+            return Ok(TerminalEvidence::Nonterminal);
+        }
+        let finalized_ledger = session.finalized_ledger
+            .ok_or(ContractError::InvalidStateTransition)?;
+        let digest = ids::terminal_evidence_digest(
+            &env,
+            &session.id,
+            &session.status,
+            finalized_ledger,
+            &session.usage_hash,
+        );
+        Ok(TerminalEvidence::Terminal(TerminalEvidenceDigest {
+            evidence_version: TERMINAL_EVIDENCE_VERSION,
+            status: session.status,
+            finalized_ledger,
+            usage_hash: session.usage_hash,
+            digest,
+        }))
     }
 
     pub fn get_session_batch(

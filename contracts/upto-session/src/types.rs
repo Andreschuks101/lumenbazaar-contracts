@@ -79,6 +79,14 @@ pub struct SessionStateCounts {
 
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct BuyerSessionCount {
+    pub response_version: u32,
+    pub open: u32,
+    pub total: u32,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CapIncreaseProposal {
     pub proposed_max_amount: i128,
     pub active_at_ledger: u32,
@@ -103,6 +111,23 @@ pub struct Session {
     pub finalized_ledger: Option<u32>,
     pub resource_scheme_version: u32,
     pub usage_scheme_version: Option<u32>,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum TerminalEvidence {
+    Nonterminal,
+    Terminal(TerminalEvidenceDigest),
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct TerminalEvidenceDigest {
+    pub evidence_version: u32,
+    pub status: SessionStatus,
+    pub finalized_ledger: u32,
+    pub usage_hash: Option<BytesN<32>>,
+    pub digest: BytesN<32>,
 }
 
 #[contracttype]
