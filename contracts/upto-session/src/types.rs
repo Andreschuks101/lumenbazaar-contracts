@@ -89,6 +89,23 @@ pub struct Session {
 
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub enum TerminalEvidence {
+    Nonterminal,
+    Terminal(TerminalEvidenceDigest),
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct TerminalEvidenceDigest {
+    pub evidence_version: u32,
+    pub status: SessionStatus,
+    pub finalized_ledger: u32,
+    pub usage_hash: Option<BytesN<32>>,
+    pub digest: BytesN<32>,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum OperationalState {
     Active,
     Paused,

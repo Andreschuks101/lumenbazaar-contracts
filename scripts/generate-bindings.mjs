@@ -65,6 +65,10 @@ copyFileSync(
   join(repoRoot, "scripts", "templates", "transactionEvidence.ts"),
   join(outputDir, "src", "transactionEvidence.ts"),
 );
+copyFileSync(
+  join(repoRoot, "scripts", "templates", "simulation.ts"),
+  join(outputDir, "src", "simulation.ts"),
+);
 
 const bindingPath = join(outputDir, "src", "index.ts");
 const binding = readFileSync(bindingPath, "utf8");
@@ -104,6 +108,10 @@ const transactionEvidenceExport = 'export * from "./transactionEvidence.js";';
 if (!canonicalBinding.includes(transactionEvidenceExport)) {
   canonicalBinding = `${canonicalBinding.trimEnd()}\n${transactionEvidenceExport}\n`;
 }
+const simulationExport = 'export * from "./simulation.js";';
+if (!canonicalBinding.includes(simulationExport)) {
+  canonicalBinding = `${canonicalBinding.trimEnd()}\n${simulationExport}\n`;
+}
 writeFileSync(bindingPath, canonicalBinding, "utf8");
 
 // The CLI rewrites README.md; re-append the hand-written helper documentation.
@@ -121,6 +129,7 @@ const packagePath = join(outputDir, "package.json");
 const packageJson = JSON.parse(readFileSync(packagePath, "utf8"));
 packageJson.version = "3.0.0";
 packageJson.dependencies["@stellar/stellar-sdk"] = "17.2.1";
+packageJson.scripts.prepack = "node ../../scripts/generate-binding-attestation.mjs && node ../../scripts/verify-binding-attestation.mjs";
 writeFileSync(packagePath, `${JSON.stringify(packageJson, null, 2)}\n`, "utf8");
 
 if (packageLock !== null) {

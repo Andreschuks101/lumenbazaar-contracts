@@ -171,6 +171,7 @@ jobs:
           npm --prefix bindings/upto-session ci
           npm --prefix bindings/upto-session audit --omit=dev
           npm --prefix bindings/upto-session run build
+          npm --prefix bindings/upto-session pack --dry-run
           node scripts/smoke-upto-session-bindings.mjs
           node --test scripts/test-contract-errors.mjs
           node --test scripts/test-transaction-evidence.mjs
