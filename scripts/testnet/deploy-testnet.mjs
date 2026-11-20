@@ -5,6 +5,13 @@ import { join } from "node:path";
 import { recordReceipt, requireTestnet } from "../lib/network-receipts.mjs";
 import { buildSimulateAndSubmit } from "../lib/soroban-transactions.mjs";
 import {
+  checkLedgerFreshness,
+  createDeploymentPlan,
+  expectedWasmHashes,
+  verifyExpectedArtifacts,
+  writeDeploymentPlan,
+} from "../lib/deployment-preflight.mjs";
+import {
   buildContracts,
   deployUploadedContract,
   hasFlag,
@@ -18,8 +25,8 @@ import {
 } from "../lib/stellar-cli.mjs";
 
 const dryRun = hasFlag("--dry-run");
-const source = sourceAccount("testnet-deployer");
 const manifestPath = join(repoRoot, "deployments", "testnet.json");
+const planPath = join(repoRoot, "deployments", "testnet-plan.json");
 
 const available = [
   {
@@ -39,6 +46,7 @@ const available = [
   },
 ];
 const selected = selectContracts();
+const reviewedHashes = expectedWasmHashes();
 
 if (!dryRun) {
   requireTestnet();
@@ -46,10 +54,38 @@ if (!dryRun) {
 }
 
 buildContracts({ dryRun });
+const plannedContracts = dryRun
+  ? selected.map((contract) => ({ ...contract, artifactSha256: reviewedHashes[contract.name], hashSource: "LUMENBAZAAR_EXPECTED_WASM_HASHES" }))
+  : verifyExpectedArtifacts(selected, reviewedHashes, repoRoot);
+for (const contract of plannedContracts) {
+  if (!contract.artifactSha256) throw new Error(`Missing reviewed WASM hash for ${contract.name}`);
+}
+const rpcUrl = process.env.LUMENBAZAAR_RPC_URL || "https://soroban-testnet.stellar.org";
+const ledgerGuard = dryRun ? {
+  primary: rpcUrl,
+  trusted: process.env.LUMENBAZAAR_TRUSTED_RPC_URL || "required-before-deployment",
+  maxLag: Number(process.env.LUMENBAZAAR_MAX_RPC_LEDGER_LAG || 2),
+} : await checkLedgerFreshness({
+  primaryUrl: rpcUrl,
+  trustedUrl: process.env.LUMENBAZAAR_TRUSTED_RPC_URL,
+  maxLag: Number(process.env.LUMENBAZAAR_MAX_RPC_LEDGER_LAG || 2),
+});
+const plan = createDeploymentPlan({
+  contracts: plannedContracts,
+  deployer: process.env.LUMENBAZAAR_DEPLOYER_PUBLIC_KEY || "testnet-deployer",
+  initialization: ["test-token", "upto-session", "policy-wallet-example"],
+  expectedWrites: ["deployments/testnet.json", "network transaction receipts"],
+  ledgerGuard,
+});
+writeDeploymentPlan(planPath, plan);
+console.log(`deployment plan ${plan.planSha256}: ${planPath}`);
+if (dryRun) process.exit(0);
+
+const source = sourceAccount("testnet-deployer");
 
 const contracts = {};
-for (const contract of selected) {
-  const artifactSha256 = dryRun ? "dry-run" : sha256(readFileSync(join(repoRoot, contract.wasm)));
+for (const contract of plannedContracts) {
+  const artifactSha256 = contract.artifactSha256;
   const interfaceJson = runStellar(
     ["contract", "info", "interface", "--wasm", contract.wasm, "--output", "json"],
     { capture: true, dryRun },
@@ -78,6 +114,8 @@ for (const contract of selected) {
     name: contract.name,
     alias: contract.alias,
     network: "testnet",
+    deploymentPlanSha256: plan.planSha256,
+    ledgerGuard,
     wasm: contract.wasm,
     contractId: deployed.contractId,
     artifactSha256,

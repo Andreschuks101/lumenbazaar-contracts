@@ -20,6 +20,7 @@ pub use types::{
     Session, SessionStatus, SessionStatusResponse,
     AssetSolvencySnapshot, SolvencyStatus,
     BatchSessionResult, BatchSessionStatus,
+    BuyerSessionCount,
 };
 
 use soroban_sdk::{contract, contractimpl, token, Address, BytesN, Env, Vec};
@@ -38,6 +39,7 @@ pub const MAX_RECOVERY_BATCH_SIZE: u32 = 8;
 pub const MAX_SOLVENCY_QUERY_ASSETS: u32 = 16;
 pub const SOLVENCY_RESPONSE_VERSION: u32 = 1;
 pub const MAX_SESSION_QUERY_BATCH_SIZE: u32 = 8;
+pub const BUYER_SESSION_COUNT_RESPONSE_VERSION: u32 = 1;
 
 #[contractimpl]
 #[allow(clippy::too_many_arguments)]
@@ -292,6 +294,20 @@ impl UptoSessionContract {
             return Err(ContractError::NotInitialized);
         }
         Ok(storage::read_buyer_open_sessions(&env, &buyer))
+    }
+
+    pub fn get_buyer_session_count(
+        env: Env,
+        buyer: Address,
+    ) -> Result<BuyerSessionCount, ContractError> {
+        if !storage::has_admin(&env) {
+            return Err(ContractError::NotInitialized);
+        }
+        Ok(BuyerSessionCount {
+            response_version: BUYER_SESSION_COUNT_RESPONSE_VERSION,
+            open: storage::read_buyer_open_sessions(&env, &buyer),
+            total: storage::read_buyer_total_sessions(&env, &buyer),
+        })
     }
 
     pub fn set_max_seller_open_sessions(env: Env, limit: u32) -> Result<(), ContractError> {
@@ -716,6 +732,7 @@ impl UptoSessionContract {
         let liability = storage::increase_liability(&env, &asset, max_amount)?;
         storage::increase_seller_exposure(&env, &seller, &asset, max_amount)?;
         storage::increment_buyer_open_sessions(&env, &buyer)?;
+        storage::increment_buyer_total_sessions(&env, &buyer)?;
         storage::increment_seller_open_sessions(&env, &seller)?;
         if escrow.balance(&contract) < liability {
             return Err(ContractError::EscrowUnderfunded);
