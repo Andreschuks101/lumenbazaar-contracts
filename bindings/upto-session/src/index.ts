@@ -846,3 +846,4 @@ export * from "./usageReceipt.js";
 export * from "./sessionId.js";
 export * from "./transactionEvidence.js";
 export * from "./simulation.js";
+export * from "./clientValidation.js";

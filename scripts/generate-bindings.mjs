@@ -69,6 +69,10 @@ copyFileSync(
   join(repoRoot, "scripts", "templates", "simulation.ts"),
   join(outputDir, "src", "simulation.ts"),
 );
+copyFileSync(
+  join(repoRoot, "scripts", "templates", "clientValidation.ts"),
+  join(outputDir, "src", "clientValidation.ts"),
+);
 
 const bindingPath = join(outputDir, "src", "index.ts");
 const binding = readFileSync(bindingPath, "utf8");
@@ -111,6 +115,10 @@ if (!canonicalBinding.includes(transactionEvidenceExport)) {
 const simulationExport = 'export * from "./simulation.js";';
 if (!canonicalBinding.includes(simulationExport)) {
   canonicalBinding = `${canonicalBinding.trimEnd()}\n${simulationExport}\n`;
+}
+const clientValidationExport = 'export * from "./clientValidation.js";';
+if (!canonicalBinding.includes(clientValidationExport)) {
+  canonicalBinding = `${canonicalBinding.trimEnd()}\n${clientValidationExport}\n`;
 }
 writeFileSync(bindingPath, canonicalBinding, "utf8");
 
