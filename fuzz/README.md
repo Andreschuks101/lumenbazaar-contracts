@@ -24,6 +24,12 @@ same functions, so the quick CI run and an extended libFuzzer run test the same 
 
 ## Quick seeded corpus (CI)
 
+`fuzz/seeds/manifest.json` records every committed seed exactly once with its
+SHA-256, target, input schema, purpose, generator, and expected fixed outcome.
+`node scripts/verify-fuzz-artifacts.mjs` fails on missing, duplicate, stale, or
+oversized entries. Reviewed minimized crashes live under `fuzz/crashes`; CI
+replays them with a 60-second wall-clock and 2 GiB virtual-memory bound.
+
 Runs on the pinned stable toolchain as part of `cargo test --workspace --all-features`:
 
 ```bash

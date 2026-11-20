@@ -65,6 +65,10 @@ copyFileSync(
   join(repoRoot, "scripts", "templates", "transactionEvidence.ts"),
   join(outputDir, "src", "transactionEvidence.ts"),
 );
+copyFileSync(
+  join(repoRoot, "scripts", "templates", "clientValidation.ts"),
+  join(outputDir, "src", "clientValidation.ts"),
+);
 
 const bindingPath = join(outputDir, "src", "index.ts");
 const binding = readFileSync(bindingPath, "utf8");
@@ -103,6 +107,10 @@ if (!canonicalBinding.includes(sessionIdExport)) {
 const transactionEvidenceExport = 'export * from "./transactionEvidence.js";';
 if (!canonicalBinding.includes(transactionEvidenceExport)) {
   canonicalBinding = `${canonicalBinding.trimEnd()}\n${transactionEvidenceExport}\n`;
+}
+const clientValidationExport = 'export * from "./clientValidation.js";';
+if (!canonicalBinding.includes(clientValidationExport)) {
+  canonicalBinding = `${canonicalBinding.trimEnd()}\n${clientValidationExport}\n`;
 }
 writeFileSync(bindingPath, canonicalBinding, "utf8");
 

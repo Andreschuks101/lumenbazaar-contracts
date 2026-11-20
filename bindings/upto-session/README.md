@@ -51,6 +51,11 @@ const contract = new Contract({
 contract.|
 ```
 
+Use `createValidatedClient(options, deploymentIdentity)` when constructing a
+client from deployment metadata. It rejects malformed or mismatched contract
+IDs and passphrases before RPC use. Custom networks must provide both a
+manifest SHA-256 and an explicit stable `networkId`.
+
 As long as your editor is configured to show JavaScript/TypeScript documentation, you can pause your typing at that `|` to get a list of all exports and inline-documentation for each. It exports a separate [async](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/async_function) function for each method in the smart contract, with documentation for each generated from the comments the contract's author included in the original source code.
 
 <!-- lumenbazaar:transaction-evidence (appended by scripts/generate-bindings.mjs; edit scripts/templates/README.transactionEvidence.md) -->
