@@ -1,5 +1,6 @@
 use crate::{
-    AdminRotation, AssetStatus, CapIncreaseProposal, ContractError, OperationalState, Session,
+    ids, AdminRotation, AssetStatus, CapIncreaseProposal, CommitmentKind, ContractError,
+    OperationalState, Session, SessionStateCounts, SessionStatus,
 };
 use soroban_sdk::{contracttype, Address, BytesN, Env, Vec};
 
@@ -39,6 +40,10 @@ pub enum DataKey {
     SupportedAssets,
     // Instance.
     OperationalState,
+    // Instance. Immutable digest captured during initialization.
+    InitConfigDigest,
+    // Instance. One bounded counter per lifecycle state.
+    SessionStateCount(SessionStatus),
     // Persistent aggregate per asset; extended only alongside a session of that asset.
     Liability(Address),
     // Instance, optional.
@@ -55,11 +60,18 @@ pub enum DataKey {
     MaxSellerOpenSessions,
     // Persistent aggregate per seller; extended only alongside that seller's session.
     SellerOpenSessions(Address),
+    // Persistent aggregate per (seller, lifecycle state).
+    SellerSessionStateCount(Address, SessionStatus),
     AssetExposureCeiling(Address),
     BuyerExposureCeiling(Address),
     BuyerExposure(Address, Address),
     Idempotency(Address, BytesN<32>),
+    // Persistent bounded list keyed by a versioned, domain-separated digest.
+    CommitmentIndex(BytesN<32>),
 }
+
+pub const MAX_COMMITMENT_INDEX_SESSIONS: u32 = 8;
+pub const SESSION_STATE_COUNTS_RESPONSE_VERSION: u32 = 1;
 
 pub fn write_storage_layout_version(env: &Env) {
     env.storage()
@@ -222,6 +234,115 @@ pub fn write_operational_state(env: &Env, state: &OperationalState) {
     env.storage()
         .instance()
         .set(&DataKey::OperationalState, state);
+}
+
+pub fn write_initialization_configuration_digest(env: &Env, digest: &BytesN<32>) {
+    env.storage()
+        .instance()
+        .set(&DataKey::InitConfigDigest, digest);
+}
+
+pub fn read_initialization_configuration_digest(env: &Env) -> Option<BytesN<32>> {
+    env.storage()
+        .instance()
+        .get(&DataKey::InitConfigDigest)
+}
+
+pub fn read_session_state_count(env: &Env, status: &SessionStatus) -> u64 {
+    env.storage()
+        .instance()
+        .get(&DataKey::SessionStateCount(status.clone()))
+        .unwrap_or(0)
+}
+
+pub fn read_seller_session_state_count(
+    env: &Env,
+    seller: &Address,
+    status: &SessionStatus,
+) -> u64 {
+    env.storage()
+        .persistent()
+        .get(&DataKey::SellerSessionStateCount(
+            seller.clone(),
+            status.clone(),
+        ))
+        .unwrap_or(0)
+}
+
+pub fn read_session_state_counts(env: &Env) -> SessionStateCounts {
+    counts_for(env, None)
+}
+
+pub fn read_seller_session_state_counts(env: &Env, seller: &Address) -> SessionStateCounts {
+    counts_for(env, Some(seller))
+}
+
+fn counts_for(env: &Env, seller: Option<&Address>) -> SessionStateCounts {
+    let read = |status: SessionStatus| match seller {
+        Some(address) => read_seller_session_state_count(env, address, &status),
+        None => read_session_state_count(env, &status),
+    };
+    SessionStateCounts {
+        response_version: SESSION_STATE_COUNTS_RESPONSE_VERSION,
+        open: read(SessionStatus::Open),
+        settled: read(SessionStatus::Settled),
+        cancelled: read(SessionStatus::Cancelled),
+        expired: read(SessionStatus::Expired),
+        rejected: read(SessionStatus::Rejected),
+    }
+}
+
+fn update_count(
+    env: &Env,
+    seller: Option<&Address>,
+    status: &SessionStatus,
+    increment: bool,
+) -> Result<(), ContractError> {
+    let current = match seller {
+        Some(address) => read_seller_session_state_count(env, address, status),
+        None => read_session_state_count(env, status),
+    };
+    let updated = if increment {
+        current.checked_add(1).ok_or(ContractError::CounterOverflow)?
+    } else {
+        current.checked_sub(1).ok_or(ContractError::CounterUnderflow)?
+    };
+    match seller {
+        Some(address) => {
+            let key = DataKey::SellerSessionStateCount(address.clone(), status.clone());
+            if updated == 0 {
+                env.storage().persistent().remove(&key);
+            } else {
+                env.storage().persistent().set(&key, &updated);
+                env.storage().persistent().extend_ttl(
+                    &key,
+                    DEFAULT_TTL_THRESHOLD,
+                    TTL_EXTENSION_AMOUNT,
+                );
+            }
+        }
+        None => env
+            .storage()
+            .instance()
+            .set(&DataKey::SessionStateCount(status.clone()), &updated),
+    }
+    Ok(())
+}
+
+fn transition_session_counts(
+    env: &Env,
+    previous: Option<&Session>,
+    next: &Session,
+) -> Result<(), ContractError> {
+    if let Some(prior) = previous {
+        if prior.status == next.status && prior.seller == next.seller {
+            return Ok(());
+        }
+        update_count(env, None, &prior.status, false)?;
+        update_count(env, Some(&prior.seller), &prior.status, false)?;
+    }
+    update_count(env, None, &next.status, true)?;
+    update_count(env, Some(&next.seller), &next.status, true)
 }
 
 pub fn read_operational_state(env: &Env) -> OperationalState {
@@ -545,11 +666,55 @@ pub fn has_idempotency_key(env: &Env, buyer: &Address, key: &BytesN<32>) -> bool
         .has(&DataKey::Idempotency(buyer.clone(), key.clone()))
 }
 
-pub fn write_session(env: &Env, session: &Session) {
+pub fn write_session(env: &Env, session: &Session) -> Result<(), ContractError> {
+    let previous = read_session(env, &session.id);
+    transition_session_counts(env, previous.as_ref(), session)?;
     env.storage()
         .persistent()
         .set(&DataKey::Session(session.id.clone()), session);
     extend_session_and_liability_ttl(env, session);
+    Ok(())
+}
+
+pub fn index_session_commitment(
+    env: &Env,
+    kind: &CommitmentKind,
+    commitment: &BytesN<32>,
+    session_id: &BytesN<32>,
+) -> Result<(), ContractError> {
+    let digest = ids::commitment_index_key(env, kind, commitment);
+    let key = DataKey::CommitmentIndex(digest);
+    let mut sessions: Vec<BytesN<32>> = env
+        .storage()
+        .persistent()
+        .get(&key)
+        .unwrap_or(Vec::new(env));
+    if sessions.iter().any(|existing| existing == *session_id) {
+        return Ok(());
+    }
+    if sessions.len() >= MAX_COMMITMENT_INDEX_SESSIONS {
+        return Err(ContractError::CommitmentIndexFull);
+    }
+    sessions.push_back(session_id.clone());
+    env.storage().persistent().set(&key, &sessions);
+    env.storage().persistent().extend_ttl(
+        &key,
+        DEFAULT_TTL_THRESHOLD,
+        TTL_EXTENSION_AMOUNT,
+    );
+    Ok(())
+}
+
+pub fn read_sessions_by_commitment(
+    env: &Env,
+    kind: &CommitmentKind,
+    commitment: &BytesN<32>,
+) -> Vec<BytesN<32>> {
+    let key = DataKey::CommitmentIndex(ids::commitment_index_key(env, kind, commitment));
+    env.storage()
+        .persistent()
+        .get(&key)
+        .unwrap_or(Vec::new(env))
 }
 
 pub fn extend_session_and_liability_ttl(env: &Env, session: &Session) {
@@ -603,6 +768,30 @@ pub fn extend_session_and_liability_ttl(env: &Env, session: &Session) {
             DEFAULT_TTL_THRESHOLD,
             TTL_EXTENSION_AMOUNT,
         );
+    }
+    let seller_state_key =
+        DataKey::SellerSessionStateCount(session.seller.clone(), session.status.clone());
+    if env.storage().persistent().has(&seller_state_key) {
+        env.storage().persistent().extend_ttl(
+            &seller_state_key,
+            DEFAULT_TTL_THRESHOLD,
+            TTL_EXTENSION_AMOUNT,
+        );
+    }
+    for (kind, commitment) in [
+        (CommitmentKind::Resource, Some(session.resource_hash.clone())),
+        (CommitmentKind::Usage, session.usage_hash.clone()),
+    ] {
+        if let Some(value) = commitment {
+            let key = DataKey::CommitmentIndex(ids::commitment_index_key(env, &kind, &value));
+            if env.storage().persistent().has(&key) {
+                env.storage().persistent().extend_ttl(
+                    &key,
+                    DEFAULT_TTL_THRESHOLD,
+                    TTL_EXTENSION_AMOUNT,
+                );
+            }
+        }
     }
 }
 
@@ -743,7 +932,7 @@ mod tests {
             let session = sample_session(&env);
 
             assert!(!has_session(&env, &session.id));
-            write_session(&env, &session);
+            write_session(&env, &session).unwrap();
 
             assert!(has_session(&env, &session.id));
             assert_eq!(read_session(&env, &session.id), Some(session));

@@ -1,7 +1,10 @@
-use soroban_sdk::{xdr::ToXdr, Address, Bytes, BytesN, Env};
+use crate::{AssetPolicy, CommitmentKind};
+use soroban_sdk::{xdr::ToXdr, Address, Bytes, BytesN, Env, Vec};
 
 pub const SESSION_ID_DOMAIN: &[u8] = b"lumenbazaar/session-id";
 pub const USAGE_COMMITMENT_DOMAIN: &[u8] = b"lumenbazaar/usage-commitment";
+pub const COMMITMENT_INDEX_DOMAIN: &[u8] = b"lumenbazaar/commitment-index";
+pub const INITIALIZATION_CONFIGURATION_DOMAIN: &[u8] = b"lumenbazaar/initialization-config";
 pub const TERMINAL_EVIDENCE_DOMAIN: &[u8] = b"lumenbazaar/terminal-evidence";
 
 pub struct SessionIdInput<'a> {
@@ -48,6 +51,32 @@ pub fn usage_commitment_domain_hash(env: &Env) -> BytesN<32> {
             USAGE_COMMITMENT_DOMAIN,
             crate::INTERFACE_VERSION,
         ))
+        .to_bytes()
+}
+
+pub fn commitment_index_key(
+    env: &Env,
+    kind: &CommitmentKind,
+    commitment: &BytesN<32>,
+) -> BytesN<32> {
+    let domain = domain_preimage(env, COMMITMENT_INDEX_DOMAIN, crate::INTERFACE_VERSION);
+    env.crypto()
+        .sha256(&(domain, kind.clone(), commitment.clone()).to_xdr(env))
+        .to_bytes()
+}
+
+pub fn initialization_configuration_digest(
+    env: &Env,
+    admin: &Address,
+    asset_policies: &Vec<AssetPolicy>,
+) -> BytesN<32> {
+    let domain = domain_preimage(
+        env,
+        INITIALIZATION_CONFIGURATION_DOMAIN,
+        crate::INTERFACE_VERSION,
+    );
+    env.crypto()
+        .sha256(&(domain, admin.clone(), asset_policies.clone()).to_xdr(env))
         .to_bytes()
 }
 
