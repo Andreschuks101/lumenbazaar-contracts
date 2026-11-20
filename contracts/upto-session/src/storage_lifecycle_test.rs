@@ -27,6 +27,7 @@ struct Lifecycle {
     buyer: Address,
     seller: Address,
     asset: Address,
+    next_idempotency: core::cell::Cell<u8>,
 }
 
 impl Lifecycle {
@@ -59,11 +60,18 @@ impl Lifecycle {
             buyer,
             seller,
             asset,
+            next_idempotency: core::cell::Cell::new(1),
         }
     }
 
     fn client(&self) -> UptoSessionContractClient<'_> {
         UptoSessionContractClient::new(&self.env, &self.contract_id)
+    }
+
+    fn next_key(&self) -> BytesN<32> {
+        let n = self.next_idempotency.get();
+        self.next_idempotency.set(n.wrapping_add(1).max(1));
+        BytesN::from_array(&self.env, &[n; 32])
     }
 
     fn create(&self, expires_at_ledger: u32) -> BytesN<32> {
@@ -74,6 +82,7 @@ impl Lifecycle {
             &CAP,
             &expires_at_ledger,
             &BytesN::from_array(&self.env, &[7; 32]),
+            &self.next_key(),
         )
     }
 
@@ -463,6 +472,7 @@ fn sr9_missing_instance_config_blocks_creation_and_admin_but_not_exits() {
             &CAP,
             &EXPIRY,
             &BytesN::from_array(&h.env, &[7; 32]),
+            &h.next_key(),
         ),
         Err(Ok(ContractError::NotInitialized))
     );
@@ -482,7 +492,13 @@ fn sr9_missing_instance_config_blocks_creation_and_admin_but_not_exits() {
     // Existing escrow can still leave through the session's own record.
     client.cancel(&cancelled);
     client.settle(&settled, &CAP, &h.usage_hash());
-    assert_eq!(client.get_escrow_liability(&h.asset), 0);
+    h.env.as_contract(&h.contract_id, || {
+        assert_eq!(storage::read_liability(&h.env, &h.asset), 0);
+    });
+    assert_eq!(
+        client.try_get_escrow_liability(&h.asset),
+        Err(Ok(ContractError::NotInitialized))
+    );
 }
 
 #[test]

@@ -4,6 +4,22 @@
 
 ### Added
 
+- Add read-only deployment account and network preflight command (`scripts/testnet/preflight-testnet.mjs`) reporting configuration, network, funding, and artifact readiness before build or deployment.
+  Compatibility: additive deployment tooling; deployed contracts unchanged.
+  Migration: none.
+
+- Snapshot exact root and nested authorization trees for all public mutations in `artifacts/interface/authorization-trees.json` with test coverage asserting unauthorized calls produce zero state change.
+  Compatibility: test fixtures only; contract interfaces unchanged.
+  Migration: none.
+
+- Add panic-free regression test harness exercising every Result-returning public entrypoint with boundary, malformed, and wrong-state inputs.
+  Compatibility: test suites and security documentation only.
+  Migration: none.
+
+- Forbid unwrap and expect calls in production contract modules via clippy deny lints and repository source gate (`scripts/check-no-production-unwrap.mjs`).
+  Compatibility: internal implementation refactoring; contract interfaces unchanged.
+  Migration: none.
+
 - Add typed transaction evidence helpers to the TypeScript binding
   (`createSessionWithEvidence`, `settleWithEvidence`, `cancelWithEvidence`,
   `extendTtlWithEvidence`) that sign through an injected signer, confirm through RPC and

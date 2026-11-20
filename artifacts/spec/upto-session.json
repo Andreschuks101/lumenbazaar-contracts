@@ -175,6 +175,55 @@
       "data_format": "map",
       "doc": "",
       "lib": "",
+      "name": "AssetExposureCeilingUpdated",
+      "params": [
+        {
+          "doc": "",
+          "location": "topic_list",
+          "name": "asset",
+          "type": "address"
+        },
+        {
+          "doc": "",
+          "location": "data",
+          "name": "admin",
+          "type": "address"
+        },
+        {
+          "doc": "",
+          "location": "data",
+          "name": "previous_ceiling",
+          "type": "i128"
+        },
+        {
+          "doc": "",
+          "location": "data",
+          "name": "new_ceiling",
+          "type": "i128"
+        },
+        {
+          "doc": "",
+          "location": "data",
+          "name": "current_liability",
+          "type": "i128"
+        },
+        {
+          "doc": "",
+          "location": "data",
+          "name": "event_version",
+          "type": "u32"
+        }
+      ],
+      "prefix_topics": [
+        "asset_exposure_ceiling_updated"
+      ]
+    }
+  },
+  {
+    "event_v0": {
+      "data_format": "map",
+      "doc": "",
+      "lib": "",
       "name": "AssetRemoved",
       "params": [
         {
@@ -251,6 +300,49 @@
       ],
       "prefix_topics": [
         "asset_session_cap_updated"
+      ]
+    }
+  },
+  {
+    "event_v0": {
+      "data_format": "map",
+      "doc": "",
+      "lib": "",
+      "name": "BuyerExposureCeilingUpdated",
+      "params": [
+        {
+          "doc": "",
+          "location": "topic_list",
+          "name": "asset",
+          "type": "address"
+        },
+        {
+          "doc": "",
+          "location": "data",
+          "name": "admin",
+          "type": "address"
+        },
+        {
+          "doc": "",
+          "location": "data",
+          "name": "previous_ceiling",
+          "type": "i128"
+        },
+        {
+          "doc": "",
+          "location": "data",
+          "name": "new_ceiling",
+          "type": "i128"
+        },
+        {
+          "doc": "",
+          "location": "data",
+          "name": "event_version",
+          "type": "u32"
+        }
+      ],
+      "prefix_topics": [
+        "buyer_exposure_ceiling_updated"
       ]
     }
   },
@@ -693,6 +785,59 @@
       "data_format": "map",
       "doc": "",
       "lib": "",
+      "name": "SessionExpiryExtended",
+      "params": [
+        {
+          "doc": "",
+          "location": "topic_list",
+          "name": "session_id",
+          "type": {
+            "bytes_n": {
+              "n": 32
+            }
+          }
+        },
+        {
+          "doc": "",
+          "location": "data",
+          "name": "buyer",
+          "type": "address"
+        },
+        {
+          "doc": "",
+          "location": "data",
+          "name": "seller",
+          "type": "address"
+        },
+        {
+          "doc": "",
+          "location": "data",
+          "name": "previous_expires_at_ledger",
+          "type": "u32"
+        },
+        {
+          "doc": "",
+          "location": "data",
+          "name": "new_expires_at_ledger",
+          "type": "u32"
+        },
+        {
+          "doc": "",
+          "location": "data",
+          "name": "event_version",
+          "type": "u32"
+        }
+      ],
+      "prefix_topics": [
+        "session_expiry_extended"
+      ]
+    }
+  },
+  {
+    "event_v0": {
+      "data_format": "map",
+      "doc": "",
+      "lib": "",
       "name": "SessionRecovered",
       "params": [
         {
@@ -864,6 +1009,43 @@
     }
   },
   {
+    "event_v0": {
+      "data_format": "map",
+      "doc": "",
+      "lib": "",
+      "name": "SurplusRecovered",
+      "params": [
+        {
+          "doc": "",
+          "location": "topic_list",
+          "name": "asset",
+          "type": "address"
+        },
+        {
+          "doc": "",
+          "location": "data",
+          "name": "recipient",
+          "type": "address"
+        },
+        {
+          "doc": "",
+          "location": "data",
+          "name": "amount",
+          "type": "i128"
+        },
+        {
+          "doc": "",
+          "location": "data",
+          "name": "event_version",
+          "type": "u32"
+        }
+      ],
+      "prefix_topics": [
+        "surplus_recovered"
+      ]
+    }
+  },
+  {
     "function_v0": {
       "doc": "",
       "inputs": [],
@@ -893,6 +1075,35 @@
         }
       ],
       "name": "accept_asset_cap_increase",
+      "outputs": [
+        {
+          "result": {
+            "error_type": {
+              "udt": {
+                "name": "ContractError"
+              }
+            },
+            "ok_type": "void"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "function_v0": {
+      "doc": "",
+      "inputs": [
+        {
+          "doc": "",
+          "name": "policy",
+          "type": {
+            "udt": {
+              "name": "AssetPolicy"
+            }
+          }
+        }
+      ],
+      "name": "activate_asset",
       "outputs": [
         {
           "result": {
@@ -1017,6 +1228,15 @@
               "n": 32
             }
           }
+        },
+        {
+          "doc": "",
+          "name": "idempotency_key",
+          "type": {
+            "bytes_n": {
+              "n": 32
+            }
+          }
         }
       ],
       "name": "create_session",
@@ -1058,6 +1278,40 @@
         }
       ],
       "name": "deprecate_asset",
+      "outputs": [
+        {
+          "result": {
+            "error_type": {
+              "udt": {
+                "name": "ContractError"
+              }
+            },
+            "ok_type": "void"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "function_v0": {
+      "doc": "",
+      "inputs": [
+        {
+          "doc": "",
+          "name": "session_id",
+          "type": {
+            "bytes_n": {
+              "n": 32
+            }
+          }
+        },
+        {
+          "doc": "",
+          "name": "new_expires_at_ledger",
+          "type": "u32"
+        }
+      ],
+      "name": "extend_session_expiry",
       "outputs": [
         {
           "result": {
@@ -1172,6 +1426,31 @@
           "type": "address"
         }
       ],
+      "name": "get_asset_exposure_ceiling",
+      "outputs": [
+        {
+          "result": {
+            "error_type": {
+              "udt": {
+                "name": "ContractError"
+              }
+            },
+            "ok_type": "i128"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "function_v0": {
+      "doc": "",
+      "inputs": [
+        {
+          "doc": "",
+          "name": "asset",
+          "type": "address"
+        }
+      ],
       "name": "get_asset_max_session_amount",
       "outputs": [
         {
@@ -1218,6 +1497,119 @@
       "inputs": [
         {
           "doc": "",
+          "name": "asset",
+          "type": "address"
+        }
+      ],
+      "name": "get_asset_policy",
+      "outputs": [
+        {
+          "result": {
+            "error_type": {
+              "udt": {
+                "name": "ContractError"
+              }
+            },
+            "ok_type": {
+              "udt": {
+                "name": "AssetPolicyResponse"
+              }
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "function_v0": {
+      "doc": "Read-only, authorization-free solvency view for an active or\\ndeprecated asset. It never writes state or extends TTLs.",
+      "inputs": [
+        {
+          "doc": "",
+          "name": "asset",
+          "type": "address"
+        }
+      ],
+      "name": "get_asset_solvency",
+      "outputs": [
+        {
+          "result": {
+            "error_type": {
+              "udt": {
+                "name": "ContractError"
+              }
+            },
+            "ok_type": {
+              "udt": {
+                "name": "AssetSolvencySnapshot"
+              }
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "function_v0": {
+      "doc": "Open escrow currently held by `buyer` for `asset`.",
+      "inputs": [
+        {
+          "doc": "",
+          "name": "buyer",
+          "type": "address"
+        },
+        {
+          "doc": "",
+          "name": "asset",
+          "type": "address"
+        }
+      ],
+      "name": "get_buyer_exposure",
+      "outputs": [
+        {
+          "result": {
+            "error_type": {
+              "udt": {
+                "name": "ContractError"
+              }
+            },
+            "ok_type": "i128"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "function_v0": {
+      "doc": "",
+      "inputs": [
+        {
+          "doc": "",
+          "name": "asset",
+          "type": "address"
+        }
+      ],
+      "name": "get_buyer_exposure_ceiling",
+      "outputs": [
+        {
+          "result": {
+            "error_type": {
+              "udt": {
+                "name": "ContractError"
+              }
+            },
+            "ok_type": "i128"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "function_v0": {
+      "doc": "",
+      "inputs": [
+        {
+          "doc": "",
           "name": "buyer",
           "type": "address"
         }
@@ -1232,6 +1624,35 @@
               }
             },
             "ok_type": "u32"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "function_v0": {
+      "doc": "",
+      "inputs": [
+        {
+          "doc": "",
+          "name": "buyer",
+          "type": "address"
+        }
+      ],
+      "name": "get_buyer_session_count",
+      "outputs": [
+        {
+          "result": {
+            "error_type": {
+              "udt": {
+                "name": "ContractError"
+              }
+            },
+            "ok_type": {
+              "udt": {
+                "name": "BuyerSessionCount"
+              }
+            }
           }
         }
       ]
@@ -1303,6 +1724,29 @@
     "function_v0": {
       "doc": "",
       "inputs": [],
+      "name": "get_initialization_digest",
+      "outputs": [
+        {
+          "result": {
+            "error_type": {
+              "udt": {
+                "name": "ContractError"
+              }
+            },
+            "ok_type": {
+              "bytes_n": {
+                "n": 32
+              }
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "function_v0": {
+      "doc": "",
+      "inputs": [],
       "name": "get_max_buyer_open_sessions",
       "outputs": [
         {
@@ -1322,6 +1766,30 @@
         {
           "option": {
             "value_type": "u32"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "function_v0": {
+      "doc": "",
+      "inputs": [
+        {
+          "doc": "",
+          "name": "session_id",
+          "type": {
+            "bytes_n": {
+              "n": 32
+            }
+          }
+        }
+      ],
+      "name": "get_recoverability",
+      "outputs": [
+        {
+          "udt": {
+            "name": "SessionRecoverability"
           }
         }
       ]
@@ -1413,19 +1881,24 @@
       "inputs": [
         {
           "doc": "",
-          "name": "session_id",
-          "type": {
-            "bytes_n": {
-              "n": 32
-            }
-          }
+          "name": "seller",
+          "type": "address"
         }
       ],
-      "name": "get_recoverability",
+      "name": "get_seller_session_counts",
       "outputs": [
         {
-          "udt": {
-            "name": "SessionRecoverability"
+          "result": {
+            "error_type": {
+              "udt": {
+                "name": "ContractError"
+              }
+            },
+            "ok_type": {
+              "udt": {
+                "name": "SessionStateCounts"
+              }
+            }
           }
         }
       ]
@@ -1457,43 +1930,6 @@
             "ok_type": {
               "udt": {
                 "name": "Session"
-              }
-            }
-          }
-        }
-      ]
-    }
-  },
-  {
-    "function_v0": {
-      "doc": "Read-only solvency snapshot for a caller-supplied list of one to\\n`MAX_SOLVENCY_QUERY_ASSETS` assets. Results preserve input order.\\nDuplicates are evaluated independently and returned once per\\noccurrence. Assets unknown to this deployment are reported as\\n`Unknown` with zero values and are never called, so arbitrary\\ncontracts cannot be invoked. `surplus` is `balance - liability`\\n(negative when underfunded).",
-      "inputs": [
-        {
-          "doc": "",
-          "name": "assets",
-          "type": {
-            "vec": {
-              "element_type": "address"
-            }
-          }
-        }
-      ],
-      "name": "get_solvency",
-      "outputs": [
-        {
-          "result": {
-            "error_type": {
-              "udt": {
-                "name": "ContractError"
-              }
-            },
-            "ok_type": {
-              "vec": {
-                "element_type": {
-                  "udt": {
-                    "name": "AssetSolvency"
-                  }
-                }
               }
             }
           }
@@ -1545,6 +1981,29 @@
   {
     "function_v0": {
       "doc": "",
+      "inputs": [],
+      "name": "get_session_state_counts",
+      "outputs": [
+        {
+          "result": {
+            "error_type": {
+              "udt": {
+                "name": "ContractError"
+              }
+            },
+            "ok_type": {
+              "udt": {
+                "name": "SessionStateCounts"
+              }
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "function_v0": {
+      "doc": "",
       "inputs": [
         {
           "doc": "",
@@ -1568,6 +2027,122 @@
             "ok_type": {
               "udt": {
                 "name": "SessionStatusResponse"
+              }
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "function_v0": {
+      "doc": "",
+      "inputs": [
+        {
+          "doc": "",
+          "name": "kind",
+          "type": {
+            "udt": {
+              "name": "CommitmentKind"
+            }
+          }
+        },
+        {
+          "doc": "",
+          "name": "commitment",
+          "type": {
+            "bytes_n": {
+              "n": 32
+            }
+          }
+        }
+      ],
+      "name": "get_sessions_by_commitment",
+      "outputs": [
+        {
+          "result": {
+            "error_type": {
+              "udt": {
+                "name": "ContractError"
+              }
+            },
+            "ok_type": {
+              "vec": {
+                "element_type": {
+                  "bytes_n": {
+                    "n": 32
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "function_v0": {
+      "doc": "Read-only solvency snapshot for a caller-supplied list of one to\\n`MAX_SOLVENCY_QUERY_ASSETS` assets. Results preserve input order.\\nDuplicates are evaluated independently and returned once per\\noccurrence. Assets unknown to this deployment are reported as\\n`Unknown` with zero values and are never called, so arbitrary\\ncontracts cannot be invoked. `surplus` is `balance - liability`\\n(negative when underfunded).",
+      "inputs": [
+        {
+          "doc": "",
+          "name": "assets",
+          "type": {
+            "vec": {
+              "element_type": "address"
+            }
+          }
+        }
+      ],
+      "name": "get_solvency",
+      "outputs": [
+        {
+          "result": {
+            "error_type": {
+              "udt": {
+                "name": "ContractError"
+              }
+            },
+            "ok_type": {
+              "vec": {
+                "element_type": {
+                  "udt": {
+                    "name": "AssetSolvency"
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "function_v0": {
+      "doc": "",
+      "inputs": [
+        {
+          "doc": "",
+          "name": "session_id",
+          "type": {
+            "bytes_n": {
+              "n": 32
+            }
+          }
+        }
+      ],
+      "name": "get_terminal_evidence",
+      "outputs": [
+        {
+          "result": {
+            "error_type": {
+              "udt": {
+                "name": "ContractError"
+              }
+            },
+            "ok_type": {
+              "udt": {
+                "name": "TerminalEvidence"
               }
             }
           }
@@ -1618,6 +2193,16 @@
       "doc": "",
       "inputs": [],
       "name": "interface_version",
+      "outputs": [
+        "u32"
+      ]
+    }
+  },
+  {
+    "function_v0": {
+      "doc": "",
+      "inputs": [],
+      "name": "max_session_duration_ledgers",
       "outputs": [
         "u32"
       ]
@@ -1817,15 +2402,21 @@
       "inputs": [
         {
           "doc": "",
-          "name": "session_id",
-          "type": {
-            "bytes_n": {
-              "n": 32
-            }
-          }
+          "name": "asset",
+          "type": "address"
+        },
+        {
+          "doc": "",
+          "name": "recipient",
+          "type": "address"
+        },
+        {
+          "doc": "",
+          "name": "amount",
+          "type": "i128"
         }
       ],
-      "name": "reject",
+      "name": "recover_surplus",
       "outputs": [
         {
           "result": {
@@ -1846,12 +2437,7 @@
       "inputs": [
         {
           "doc": "",
-          "name": "asset",
-          "type": "address"
-        },
-        {
-          "doc": "",
-          "name": "reason_commitment",
+          "name": "session_id",
           "type": {
             "bytes_n": {
               "n": 32
@@ -1865,6 +2451,35 @@
         }
       ],
       "name": "reduce_session_cap",
+      "outputs": [
+        {
+          "result": {
+            "error_type": {
+              "udt": {
+                "name": "ContractError"
+              }
+            },
+            "ok_type": "void"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "function_v0": {
+      "doc": "",
+      "inputs": [
+        {
+          "doc": "",
+          "name": "session_id",
+          "type": {
+            "bytes_n": {
+              "n": 32
+            }
+          }
+        }
+      ],
+      "name": "reject",
       "outputs": [
         {
           "result": {
@@ -1934,6 +2549,36 @@
   },
   {
     "function_v0": {
+      "doc": "Admin-only: sets the ceiling on aggregate open escrow for `asset`.\\nLowering it below the current liability is allowed; existing sessions\\nare unaffected and new sessions are rejected until capacity returns.",
+      "inputs": [
+        {
+          "doc": "",
+          "name": "asset",
+          "type": "address"
+        },
+        {
+          "doc": "",
+          "name": "ceiling",
+          "type": "i128"
+        }
+      ],
+      "name": "set_asset_exposure_ceiling",
+      "outputs": [
+        {
+          "result": {
+            "error_type": {
+              "udt": {
+                "name": "ContractError"
+              }
+            },
+            "ok_type": "void"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "function_v0": {
       "doc": "",
       "inputs": [
         {
@@ -1948,6 +2593,36 @@
         }
       ],
       "name": "set_asset_max_session_amount",
+      "outputs": [
+        {
+          "result": {
+            "error_type": {
+              "udt": {
+                "name": "ContractError"
+              }
+            },
+            "ok_type": "void"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "function_v0": {
+      "doc": "Admin-only: sets the ceiling on open escrow any single buyer may hold\\nfor `asset`. Each buyer has an independent counter.",
+      "inputs": [
+        {
+          "doc": "",
+          "name": "asset",
+          "type": "address"
+        },
+        {
+          "doc": "",
+          "name": "ceiling",
+          "type": "i128"
+        }
+      ],
+      "name": "set_buyer_exposure_ceiling",
       "outputs": [
         {
           "result": {
@@ -2265,68 +2940,6 @@
         },
         {
           "doc": "",
-          "name": "SessionRejected",
-          "value": 36
-          "name": "CapIncreasePending",
-          "value": 38
-        },
-        {
-          "doc": "",
-          "name": "CapIncreaseNotReady",
-          "value": 39
-        },
-        {
-          "doc": "",
-          "name": "CapIncreaseNotFound",
-          "value": 40
-        },
-        {
-          "doc": "",
-          "name": "CapIncreaseExpired",
-          "value": 41
-        },
-        {
-          "doc": "",
-          "name": "InvalidCapIncreaseDelay",
-          "value": 42
-        },
-        {
-          "doc": "",
-          "name": "UnsupportedCommitmentScheme",
-          "value": 43
-        },
-        {
-          "doc": "",
-          "name": "SellerExposureCeilingExceeded",
-          "value": 44
-        },
-        {
-          "doc": "",
-          "name": "SellerExposureCeilingNotConfigured",
-          "value": 45
-        },
-        {
-          "doc": "",
-          "name": "BuyerOpenSessionsExceeded",
-          "value": 46
-        },
-        {
-          "doc": "",
-          "name": "InvalidSessionCountLimit",
-          "value": 47
-        },
-        {
-          "doc": "",
-          "name": "SellerOpenSessionsExceeded",
-          "value": 48
-        },
-        {
-          "doc": "",
-          "name": "InvalidCapReduction",
-          "value": 49
-        },
-        {
-          "doc": "",
           "name": "CreationPaused",
           "value": 36
         },
@@ -2334,6 +2947,141 @@
           "doc": "",
           "name": "OperationalStateUnchanged",
           "value": 37
+        },
+        {
+          "doc": "",
+          "name": "AssetAlreadyActive",
+          "value": 38
+        },
+        {
+          "doc": "",
+          "name": "AssetDeprecated",
+          "value": 39
+        },
+        {
+          "doc": "",
+          "name": "AssetLimitReached",
+          "value": 40
+        },
+        {
+          "doc": "",
+          "name": "AssetExposureCeilingExceeded",
+          "value": 41
+        },
+        {
+          "doc": "",
+          "name": "InvalidExposureCeiling",
+          "value": 42
+        },
+        {
+          "doc": "",
+          "name": "ExposureCeilingNotConfigured",
+          "value": 43
+        },
+        {
+          "doc": "",
+          "name": "BuyerExposureCeilingExceeded",
+          "value": 44
+        },
+        {
+          "doc": "",
+          "name": "BuyerExposureUnderflow",
+          "value": 45
+        },
+        {
+          "doc": "",
+          "name": "SequenceExhausted",
+          "value": 46
+        },
+        {
+          "doc": "",
+          "name": "IdempotencyConflict",
+          "value": 47
+        },
+        {
+          "doc": "",
+          "name": "SellerExposureCeilingExceeded",
+          "value": 48
+        },
+        {
+          "doc": "",
+          "name": "SellerExposureCeilingNotConfigured",
+          "value": 49
+        },
+        {
+          "doc": "",
+          "name": "BuyerOpenSessionsExceeded",
+          "value": 50
+        },
+        {
+          "doc": "",
+          "name": "InvalidSessionCountLimit",
+          "value": 51
+        },
+        {
+          "doc": "",
+          "name": "SellerOpenSessionsExceeded",
+          "value": 52
+        },
+        {
+          "doc": "",
+          "name": "InvalidCapReduction",
+          "value": 53
+        },
+        {
+          "doc": "",
+          "name": "SessionRejected",
+          "value": 54
+        },
+        {
+          "doc": "",
+          "name": "CapIncreasePending",
+          "value": 55
+        },
+        {
+          "doc": "",
+          "name": "CapIncreaseNotReady",
+          "value": 56
+        },
+        {
+          "doc": "",
+          "name": "CapIncreaseNotFound",
+          "value": 57
+        },
+        {
+          "doc": "",
+          "name": "CapIncreaseExpired",
+          "value": 58
+        },
+        {
+          "doc": "",
+          "name": "InvalidCapIncreaseDelay",
+          "value": 59
+        },
+        {
+          "doc": "",
+          "name": "UnsupportedCommitmentScheme",
+          "value": 60
+        },
+        {
+          "doc": "",
+          "name": "CounterOverflow",
+          "value": 61
+        },
+        {
+          "doc": "",
+          "name": "CounterUnderflow",
+          "value": 62
+        },
+        {
+          "doc": "",
+          "name": "CommitmentIndexFull",
+          "value": 63
+        },
+        {
+          "doc": "",
+          "name": "InvalidStateTransition",
+          "value": 64
         }
       ],
       "doc": "",
@@ -2370,6 +3118,16 @@
           "type": "address"
         },
         {
+          "doc": "Ceiling on the sum of open escrow for this asset across all sessions.",
+          "name": "max_asset_exposure",
+          "type": "i128"
+        },
+        {
+          "doc": "Ceiling on the sum of open escrow for this asset held by any one buyer.",
+          "name": "max_buyer_exposure",
+          "type": "i128"
+        },
+        {
           "doc": "",
           "name": "max_session_amount",
           "type": "i128"
@@ -2382,6 +3140,48 @@
       ],
       "lib": "",
       "name": "AssetPolicy"
+    }
+  },
+  {
+    "udt_struct_v0": {
+      "doc": "",
+      "fields": [
+        {
+          "doc": "",
+          "name": "accepts_new_sessions",
+          "type": "bool"
+        },
+        {
+          "doc": "",
+          "name": "asset",
+          "type": "address"
+        },
+        {
+          "doc": "",
+          "name": "lifecycle",
+          "type": {
+            "udt": {
+              "name": "AssetLifecycle"
+            }
+          }
+        },
+        {
+          "doc": "",
+          "name": "max_session_amount",
+          "type": {
+            "option": {
+              "value_type": "i128"
+            }
+          }
+        },
+        {
+          "doc": "",
+          "name": "response_version",
+          "type": "u32"
+        }
+      ],
+      "lib": "",
+      "name": "AssetPolicyResponse"
     }
   },
   {
@@ -2420,6 +3220,67 @@
       ],
       "lib": "",
       "name": "AssetSolvency"
+    }
+  },
+  {
+    "udt_struct_v0": {
+      "doc": "",
+      "fields": [
+        {
+          "doc": "",
+          "name": "asset",
+          "type": "address"
+        },
+        {
+          "doc": "",
+          "name": "asset_status",
+          "type": {
+            "udt": {
+              "name": "AssetStatus"
+            }
+          }
+        },
+        {
+          "doc": "`liability - token_balance` when positive, otherwise `0`.",
+          "name": "deficit",
+          "type": "i128"
+        },
+        {
+          "doc": "",
+          "name": "liability",
+          "type": "i128"
+        },
+        {
+          "doc": "",
+          "name": "response_version",
+          "type": "u32"
+        },
+        {
+          "doc": "",
+          "name": "status",
+          "type": {
+            "udt": {
+              "name": "SolvencyStatus"
+            }
+          }
+        },
+        {
+          "doc": "`token_balance - liability` when positive, otherwise `0`.",
+          "name": "surplus",
+          "type": "i128"
+        },
+        {
+          "doc": "Balance reported by the token for this contract, or `None` when the\\nbalance call failed.",
+          "name": "token_balance",
+          "type": {
+            "option": {
+              "value_type": "i128"
+            }
+          }
+        }
+      ],
+      "lib": "",
+      "name": "AssetSolvencySnapshot"
     }
   },
   {
@@ -2479,6 +3340,30 @@
       ],
       "lib": "",
       "name": "BatchSessionResult"
+    }
+  },
+  {
+    "udt_struct_v0": {
+      "doc": "",
+      "fields": [
+        {
+          "doc": "",
+          "name": "open",
+          "type": "u32"
+        },
+        {
+          "doc": "",
+          "name": "response_version",
+          "type": "u32"
+        },
+        {
+          "doc": "",
+          "name": "total",
+          "type": "u32"
+        }
+      ],
+      "lib": "",
+      "name": "BuyerSessionCount"
     }
   },
   {
@@ -2569,6 +3454,11 @@
         {
           "doc": "",
           "name": "interface_version",
+          "type": "u32"
+        },
+        {
+          "doc": "",
+          "name": "max_session_duration_ledgers",
           "type": "u32"
         },
         {
@@ -2738,8 +3628,6 @@
           "doc": "",
           "name": "current_ledger",
           "type": "u32"
-          "name": "exists",
-          "type": "bool"
         },
         {
           "doc": "",
@@ -2771,6 +3659,69 @@
           "type": {
             "udt": {
               "name": "RecoverabilityStatus"
+            }
+          }
+        }
+      ],
+      "lib": "",
+      "name": "SessionRecoverability"
+    }
+  },
+  {
+    "udt_struct_v0": {
+      "doc": "",
+      "fields": [
+        {
+          "doc": "",
+          "name": "cancelled",
+          "type": "u64"
+        },
+        {
+          "doc": "",
+          "name": "expired",
+          "type": "u64"
+        },
+        {
+          "doc": "",
+          "name": "open",
+          "type": "u64"
+        },
+        {
+          "doc": "",
+          "name": "rejected",
+          "type": "u64"
+        },
+        {
+          "doc": "",
+          "name": "response_version",
+          "type": "u32"
+        },
+        {
+          "doc": "",
+          "name": "settled",
+          "type": "u64"
+        }
+      ],
+      "lib": "",
+      "name": "SessionStateCounts"
+    }
+  },
+  {
+    "udt_struct_v0": {
+      "doc": "",
+      "fields": [
+        {
+          "doc": "",
+          "name": "exists",
+          "type": "bool"
+        },
+        {
+          "doc": "",
+          "name": "expires_at_ledger",
+          "type": "u32"
+        },
+        {
+          "doc": "",
           "name": "status",
           "type": {
             "udt": {
@@ -2780,7 +3731,6 @@
         }
       ],
       "lib": "",
-      "name": "SessionRecoverability"
       "name": "SessionStatusResponse"
     }
   },
@@ -2825,25 +3775,48 @@
       ],
       "lib": "",
       "name": "SettlementPreview"
-      "doc": "Value of contract node in InvokerContractAuthEntry tree.",
+    }
+  },
+  {
+    "udt_struct_v0": {
+      "doc": "",
       "fields": [
         {
           "doc": "",
-          "name": "context",
+          "name": "digest",
           "type": {
-            "udt": {
-              "name": "ContractContext"
+            "bytes_n": {
+              "n": 32
             }
           }
         },
         {
           "doc": "",
-          "name": "sub_invocations",
+          "name": "evidence_version",
+          "type": "u32"
+        },
+        {
+          "doc": "",
+          "name": "finalized_ledger",
+          "type": "u32"
+        },
+        {
+          "doc": "",
+          "name": "status",
           "type": {
-            "vec": {
-              "element_type": {
-                "udt": {
-                  "name": "InvokerContractAuthEntry"
+            "udt": {
+              "name": "SessionStatus"
+            }
+          }
+        },
+        {
+          "doc": "",
+          "name": "usage_hash",
+          "type": {
+            "option": {
+              "value_type": {
+                "bytes_n": {
+                  "n": 32
                 }
               }
             }
@@ -2851,7 +3824,34 @@
         }
       ],
       "lib": "",
-      "name": "SubContractInvocation"
+      "name": "TerminalEvidenceDigest"
+    }
+  },
+  {
+    "udt_union_v0": {
+      "cases": [
+        {
+          "void_v0": {
+            "doc": "",
+            "name": "Active"
+          }
+        },
+        {
+          "void_v0": {
+            "doc": "",
+            "name": "Deprecated"
+          }
+        },
+        {
+          "void_v0": {
+            "doc": "",
+            "name": "NotConfigured"
+          }
+        }
+      ],
+      "doc": "",
+      "lib": "",
+      "name": "AssetLifecycle"
     }
   },
   {
@@ -2964,6 +3964,27 @@
       "doc": "",
       "lib": "",
       "name": "BatchSessionStatus"
+    }
+  },
+  {
+    "udt_union_v0": {
+      "cases": [
+        {
+          "void_v0": {
+            "doc": "",
+            "name": "Resource"
+          }
+        },
+        {
+          "void_v0": {
+            "doc": "",
+            "name": "Usage"
+          }
+        }
+      ],
+      "doc": "",
+      "lib": "",
+      "name": "CommitmentKind"
     }
   },
   {
@@ -3177,6 +4198,67 @@
       "doc": "",
       "lib": "",
       "name": "SolvencyAssetState"
+    }
+  },
+  {
+    "udt_union_v0": {
+      "cases": [
+        {
+          "void_v0": {
+            "doc": "Token balance equals tracked liability.",
+            "name": "Collateralized"
+          }
+        },
+        {
+          "void_v0": {
+            "doc": "Token balance exceeds tracked liability; `surplus` is positive.",
+            "name": "Surplus"
+          }
+        },
+        {
+          "void_v0": {
+            "doc": "Token balance is below tracked liability; `deficit` is positive.",
+            "name": "Underfunded"
+          }
+        },
+        {
+          "void_v0": {
+            "doc": "The token balance call failed or returned a value that cannot be a\\nbalance. Never healthy.",
+            "name": "BalanceUnavailable"
+          }
+        }
+      ],
+      "doc": "",
+      "lib": "",
+      "name": "SolvencyStatus"
+    }
+  },
+  {
+    "udt_union_v0": {
+      "cases": [
+        {
+          "void_v0": {
+            "doc": "",
+            "name": "Nonterminal"
+          }
+        },
+        {
+          "tuple_v0": {
+            "doc": "",
+            "name": "Terminal",
+            "type": [
+              {
+                "udt": {
+                  "name": "TerminalEvidenceDigest"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "doc": "",
+      "lib": "",
+      "name": "TerminalEvidence"
     }
   }
 ]

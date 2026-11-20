@@ -18,7 +18,10 @@ fn reviewed_crash_artifacts_replay_with_fixed_outcomes() {
         for path in files {
             let text = fs::read_to_string(&path).expect("reviewed artifact is UTF-8");
             let bytes = parse_hex_seed(&text).expect("reviewed artifact is valid hex");
-            assert!(bytes.len() <= 4096, "reviewed crash input exceeds replay memory bound");
+            assert!(
+                bytes.len() <= 4096,
+                "reviewed crash input exceeds replay memory bound"
+            );
             run_reporting(name, *target, &bytes);
         }
     }

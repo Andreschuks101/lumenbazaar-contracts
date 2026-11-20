@@ -22,6 +22,13 @@ This checklist records the contract controls that are ready for audit review.
 | Generated state-machine invariants | Complete | `generated_sequences_preserve_value_caps_and_isolation`, `docs/property-testing.md` | Fixed-seed generated actions assert value conservation, caps, terminal immutability, wrong-signer rejection, and cross-session/cross-asset isolation. |
 | Adversarial token behavior | Complete | `adversarial_create_failures_roll_back_funds_liability_and_sequence`, `adversarial_terminal_failures_leave_the_session_open_and_funded`, `nested_token_callback_cannot_reenter_a_terminal_transition` | Failed, under-reporting, partial, and nested token behavior cannot partially commit escrow state; exact balance deltas are checked around transfers. |
 
+## Expected Host Traps vs Contract Errors
+
+Genuine host-level failures are expected host traps that fail closed at the Soroban environment boundary and are deliberately not intercepted or converted into misleading contract errors:
+- **Host meter/budget exhaustion**: Exceeding CPU instruction or memory limits traps immediately at the VM level, preventing any state writes and aborting the transaction cleanly.
+- **Missing contract executable code**: Invocations targeting uninstalled WASM or nonexistent contract addresses trap at the host level before contract code executes.
+- **Authentication framework errors**: Missing or invalid authorization checks returning `HostError(Auth, InvalidAction)` fail closed at the Soroban host boundary. The contract relies on host-enforced authorization invariants rather than catching or masking auth failures into misleading application error codes.
+
 ## Remaining Review Notes
 
 - `policy-wallet-example` is not audited wallet infrastructure.

@@ -31,6 +31,7 @@ struct Harness {
     buyer: Address,
     seller: Address,
     asset: Address,
+    next_idempotency: core::cell::Cell<u8>,
 }
 
 impl Harness {
@@ -49,11 +50,18 @@ impl Harness {
             buyer,
             seller,
             asset,
+            next_idempotency: core::cell::Cell::new(1),
         }
     }
 
     fn client(&self) -> UptoSessionContractClient<'_> {
         UptoSessionContractClient::new(&self.env, &self.contract_id)
+    }
+
+    fn next_key(&self) -> BytesN<32> {
+        let n = self.next_idempotency.get();
+        self.next_idempotency.set(n.wrapping_add(1).max(1));
+        BytesN::from_array(&self.env, &[n; 32])
     }
 
     fn create(&self, expires_at_ledger: u32) -> BytesN<32> {
@@ -64,6 +72,7 @@ impl Harness {
             &CAP,
             &expires_at_ledger,
             &BytesN::from_array(&self.env, &[7; 32]),
+            &self.next_key(),
         )
     }
 
@@ -177,11 +186,11 @@ fn instance_ttl_extension_boundary_is_exact_for_config_changes() {
     // Exactly at the threshold: the same call extends to the full amount.
     harness.ledger(AT_THRESHOLD);
     assert_eq!(harness.instance_ttl(), DEFAULT_TTL_THRESHOLD);
-    client.set_asset_max_session_amount(&harness.asset, &(CAP * 3));
+    client.set_asset_max_session_amount(&harness.asset, &CAP);
     assert_eq!(harness.instance_ttl(), TTL_EXTENSION_AMOUNT);
     assert_eq!(
         client.get_asset_max_session_amount(&harness.asset),
-        CAP * 3
+        CAP
     );
 }
 
@@ -499,6 +508,7 @@ fn lapsed_instance_config_fails_closed_for_admin_and_new_sessions_only() {
             &CAP,
             &SESSION_EXPIRY,
             &BytesN::from_array(&harness.env, &[9; 32]),
+            &harness.next_key(),
         ),
         Err(Ok(ContractError::NotInitialized))
     );
@@ -563,6 +573,7 @@ fn creation_and_rotation_expiry_windows_have_exact_bounds() {
             &1,
             &expires_at_ledger,
             &hash,
+            &harness.next_key(),
         )
     };
 

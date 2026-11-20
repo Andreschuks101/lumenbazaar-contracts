@@ -243,9 +243,7 @@ pub fn write_initialization_configuration_digest(env: &Env, digest: &BytesN<32>)
 }
 
 pub fn read_initialization_configuration_digest(env: &Env) -> Option<BytesN<32>> {
-    env.storage()
-        .instance()
-        .get(&DataKey::InitConfigDigest)
+    env.storage().instance().get(&DataKey::InitConfigDigest)
 }
 
 pub fn read_session_state_count(env: &Env, status: &SessionStatus) -> u64 {
@@ -255,11 +253,7 @@ pub fn read_session_state_count(env: &Env, status: &SessionStatus) -> u64 {
         .unwrap_or(0)
 }
 
-pub fn read_seller_session_state_count(
-    env: &Env,
-    seller: &Address,
-    status: &SessionStatus,
-) -> u64 {
+pub fn read_seller_session_state_count(env: &Env, seller: &Address, status: &SessionStatus) -> u64 {
     env.storage()
         .persistent()
         .get(&DataKey::SellerSessionStateCount(
@@ -303,9 +297,13 @@ fn update_count(
         None => read_session_state_count(env, status),
     };
     let updated = if increment {
-        current.checked_add(1).ok_or(ContractError::CounterOverflow)?
+        current
+            .checked_add(1)
+            .ok_or(ContractError::CounterOverflow)?
     } else {
-        current.checked_sub(1).ok_or(ContractError::CounterUnderflow)?
+        current
+            .checked_sub(1)
+            .ok_or(ContractError::CounterUnderflow)?
     };
     match seller {
         Some(address) => {
@@ -697,11 +695,9 @@ pub fn index_session_commitment(
     }
     sessions.push_back(session_id.clone());
     env.storage().persistent().set(&key, &sessions);
-    env.storage().persistent().extend_ttl(
-        &key,
-        DEFAULT_TTL_THRESHOLD,
-        TTL_EXTENSION_AMOUNT,
-    );
+    env.storage()
+        .persistent()
+        .extend_ttl(&key, DEFAULT_TTL_THRESHOLD, TTL_EXTENSION_AMOUNT);
     Ok(())
 }
 
@@ -736,8 +732,7 @@ pub fn extend_session_and_liability_ttl(env: &Env, session: &Session) {
             TTL_EXTENSION_AMOUNT,
         );
     }
-    let buyer_exposure_key =
-        DataKey::BuyerExposure(session.buyer.clone(), session.asset.clone());
+    let buyer_exposure_key = DataKey::BuyerExposure(session.buyer.clone(), session.asset.clone());
     if env.storage().persistent().has(&buyer_exposure_key) {
         env.storage().persistent().extend_ttl(
             &buyer_exposure_key,
@@ -779,7 +774,10 @@ pub fn extend_session_and_liability_ttl(env: &Env, session: &Session) {
         );
     }
     for (kind, commitment) in [
-        (CommitmentKind::Resource, Some(session.resource_hash.clone())),
+        (
+            CommitmentKind::Resource,
+            Some(session.resource_hash.clone()),
+        ),
         (CommitmentKind::Usage, session.usage_hash.clone()),
     ] {
         if let Some(value) = commitment {

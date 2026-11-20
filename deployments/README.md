@@ -268,3 +268,16 @@ GitHub account, so that GitHub reports it as verified. Lightweight, unsigned or 
 release before anything is built. Never move or re-create a release tag. Protecting `testnet-wasm-*`
 tags with a repository ruleset (no updates or deletions) is recommended as well. The workflow cannot
 read rulesets with `GITHUB_TOKEN`, so the signature check is the enforced control.
+
+## Deployment preflight
+
+Run `node scripts/testnet/preflight-testnet.mjs` (optionally `--dry-run`, `--contracts <list>`, `--json`) before deploying. It is read-only: it never submits transactions or funds accounts. `deploy-testnet.mjs` runs the same checks first and exits 1 on failure. Output is redacted.
+
+| Category | Checks |
+| --- | --- |
+| `[CONFIGURATION]` | `STELLAR_NETWORK=testnet`, source account (`LUMENBAZAAR_SOURCE_ACCOUNT` or `STELLAR_ACCOUNT`), `LUMENBAZAAR_EXPECTED_WASM_HASHES` (lowercase SHA-256 per contract), HTTPS `LUMENBAZAAR_TRUSTED_RPC_URL` distinct from the primary RPC, optional `LUMENBAZAAR_MIN_SOURCE_BALANCE_XLM` (default 10) |
+| `[NETWORK]` | Primary RPC reachable, testnet passphrase, ledger lag against the trusted RPC within `LUMENBAZAAR_MAX_RPC_LEDGER_LAG` |
+| `[FUNDING]` | Source account exists on testnet and holds at least the minimum XLM |
+| `[ARTIFACTS]` | Each WASM in `target/wasm32v1-none/release/` exists and matches the reviewed SHA-256 |
+
+`--dry-run` reports synthetic network, funding and artifact results and needs no network or built artifacts.

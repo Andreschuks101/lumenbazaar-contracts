@@ -118,6 +118,10 @@ fn open_session(env: &Env, cap: i128, expires: u32) -> Session {
         resource_hash: BytesN::from_array(env, &[2; 32]),
         usage_hash: None,
         status: SessionStatus::Open,
+        creation_ledger: 0,
+        finalized_ledger: None,
+        resource_scheme_version: 1,
+        usage_scheme_version: None,
     }
 }
 
@@ -139,6 +143,7 @@ fn run_settlements(cap: i128, amounts: &[i128]) {
         &cap,
         &EXPIRES_AT,
         &BytesN::from_array(&env, &[31; 32]),
+        &BytesN::from_array(&env, &[30; 32]),
     );
     let usage_hash = BytesN::from_array(&env, &[32; 32]);
     let mut finalized = false;
@@ -274,6 +279,7 @@ proptest! {
             &amount,
             &EXPIRES_AT,
             &BytesN::from_array(&env, &[33; 32]),
+            &BytesN::from_array(&env, &[34; 32]),
         );
         let events = contract_event_count(&env, &contract_id);
 
@@ -315,12 +321,15 @@ proptest! {
         client.initialize(&admin, &soroban_sdk::vec![&env, asset_policy(&asset, initial)]);
 
         let result = client.try_set_asset_max_session_amount(&asset, &update);
-        if update > 0 {
-            prop_assert!(result.is_ok());
-            prop_assert_eq!(client.get_asset_max_session_amount(&asset), update);
-        } else {
+        if update <= 0 {
             prop_assert_eq!(result.map(|_| ()), Err(Ok(ContractError::InvalidAssetCap)));
             prop_assert_eq!(client.get_asset_max_session_amount(&asset), initial);
+        } else if update > initial {
+            prop_assert_eq!(result.map(|_| ()), Err(Ok(ContractError::CapIncreasePending)));
+            prop_assert_eq!(client.get_asset_max_session_amount(&asset), initial);
+        } else {
+            prop_assert!(result.is_ok());
+            prop_assert_eq!(client.get_asset_max_session_amount(&asset), update);
         }
     }
 }
@@ -397,14 +406,38 @@ fn overflow_adjacent_escrow_totals_fail_without_state_change() {
     initialize_for_asset(&env, &client, &first_buyer, &asset);
     let hash = BytesN::from_array(&env, &[34; 32]);
 
-    client.create_session(&first_buyer, &seller, &asset, &(i128::MAX - 5), &EXPIRES_AT, &hash);
+    client.create_session(
+        &first_buyer,
+        &seller,
+        &asset,
+        &(i128::MAX - 5),
+        &EXPIRES_AT,
+        &hash,
+        &BytesN::from_array(&env, &[35; 32]),
+    );
     // Exactly reaching i128::MAX of aggregate liability is still valid.
-    client.create_session(&second_buyer, &seller, &asset, &5, &EXPIRES_AT, &hash);
+    client.create_session(
+        &second_buyer,
+        &seller,
+        &asset,
+        &5,
+        &EXPIRES_AT,
+        &hash,
+        &BytesN::from_array(&env, &[36; 32]),
+    );
     assert_eq!(client.get_escrow_liability(&asset), i128::MAX);
     assert_eq!(token.balance(&contract_id), i128::MAX);
 
     // One more unit would overflow the aggregate; it must fail with no side effect.
-    let result = client.try_create_session(&third_buyer, &seller, &asset, &1, &EXPIRES_AT, &hash);
+    let result = client.try_create_session(
+        &third_buyer,
+        &seller,
+        &asset,
+        &1,
+        &EXPIRES_AT,
+        &hash,
+        &BytesN::from_array(&env, &[37; 32]),
+    );
     assert!(result.is_err());
     assert_eq!(client.get_escrow_liability(&asset), i128::MAX);
     assert_eq!(token.balance(&third_buyer), 1);

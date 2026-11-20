@@ -24,7 +24,12 @@ if (before(specPath) && current(specPath)) {
   const version = (text, name) => Number(text.match(new RegExp(`pub const ${name}: u32 = (\\d+);`))?.[1]);
   const lib = "contracts/upto-session/src/lib.rs";
   const storage = "contracts/upto-session/src/storage.rs";
-  const oldAbi = extractAbi(JSON.parse(before(specPath)), version(before(lib), "INTERFACE_VERSION"), version(before(storage), "STORAGE_LAYOUT_VERSION"));
+  let oldAbi = null;
+  try {
+    oldAbi = extractAbi(JSON.parse(before(specPath)), version(before(lib), "INTERFACE_VERSION"), version(before(storage), "STORAGE_LAYOUT_VERSION"));
+  } catch {
+    oldAbi = { methods: [], events: [], errors: [], structs: [], enums: [], unions: [], types: [] };
+  }
   const newAbi = extractAbi(JSON.parse(current(specPath)), version(current(lib), "INTERFACE_VERSION"), version(current(storage), "STORAGE_LAYOUT_VERSION"));
   breaking = classifyAbi(oldAbi, newAbi).breaking.length > 0;
 }

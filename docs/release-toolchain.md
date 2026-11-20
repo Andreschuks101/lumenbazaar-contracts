@@ -78,6 +78,22 @@ Historical deployments keep the toolchain they recorded. The testnet WASM releas
 and Stellar CLI versions in that manifest, from archives pinned in `scripts/lib/wasm-release.mjs`.
 See "Testnet WASM releases" in `deployments/README.md`.
 
+## Forbidden production unwrap and expect
+
+Production contract code must not call `.unwrap()` or `.expect(...)`. A failed assumption in a
+contract should surface as a typed contract error (or an explicit `match` / `ok_or`), never as an
+opaque panic. Each production contract crate root carries
+`#![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]`, and CI runs
+`node --test scripts/lib/unwrap-gate.test.mjs` and `node scripts/check-no-production-unwrap.mjs`,
+which scan `contracts/**/*.rs` and report violations as `file:line:col: forbidden [unwrap|expect] call`.
+
+The gate ignores:
+
+- comments (`//`, `/* ... */`) and string literals;
+- code inside `#[cfg(test)]` items (such as `mod tests { ... }`) and `#[test]` functions;
+- test files: `*_test.rs`, `test.rs`, and anything under `tests/`, `benches/` or `fuzz/`.
+
+`.unwrap_or()`, `.unwrap_or_default()` and `.unwrap_or_else()` are allowed.
 ## Dependency Audit Policy
 
 CI runs `cargo audit --deny warnings` and `npm audit --omit=dev`. A Rust advisory may be ignored only when it has a matching record in `audits/dependency-exceptions.json` with an owner, dependency path, risk statement, planned resolution, and future expiry date. The exception checker fails on expired, duplicate, malformed, or incomplete records.

@@ -1,5 +1,55 @@
 [
   {
+    "event_v0": {
+      "data_format": "map",
+      "doc": "Emitted once when the owner revokes an agent's policy.",
+      "lib": "",
+      "name": "AgentPolicyRevoked",
+      "params": [
+        {
+          "doc": "",
+          "location": "topic_list",
+          "name": "agent",
+          "type": "address"
+        },
+        {
+          "doc": "",
+          "location": "data",
+          "name": "owner",
+          "type": "address"
+        },
+        {
+          "doc": "",
+          "location": "data",
+          "name": "revoked_at_ledger",
+          "type": "u32"
+        }
+      ],
+      "prefix_topics": [
+        "agent_policy_revoked"
+      ]
+    }
+  },
+  {
+    "function_v0": {
+      "doc": "",
+      "inputs": [],
+      "name": "accept_owner",
+      "outputs": [
+        {
+          "result": {
+            "error_type": {
+              "udt": {
+                "name": "PolicyWalletError"
+              }
+            },
+            "ok_type": "void"
+          }
+        }
+      ]
+    }
+  },
+  {
     "function_v0": {
       "doc": "",
       "inputs": [
@@ -67,6 +117,25 @@
   {
     "function_v0": {
       "doc": "",
+      "inputs": [],
+      "name": "cancel_owner_rotation",
+      "outputs": [
+        {
+          "result": {
+            "error_type": {
+              "udt": {
+                "name": "PolicyWalletError"
+              }
+            },
+            "ok_type": "void"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "function_v0": {
+      "doc": "",
       "inputs": [
         {
           "doc": "",
@@ -99,6 +168,35 @@
         }
       ],
       "name": "check_payment",
+      "outputs": [
+        {
+          "result": {
+            "error_type": {
+              "udt": {
+                "name": "PolicyWalletError"
+              }
+            },
+            "ok_type": "void"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "function_v0": {
+      "doc": "",
+      "inputs": [
+        {
+          "doc": "",
+          "name": "policy",
+          "type": {
+            "udt": {
+              "name": "SpendingPolicy"
+            }
+          }
+        }
+      ],
+      "name": "create_policy",
       "outputs": [
         {
           "result": {
@@ -149,6 +247,43 @@
   {
     "function_v0": {
       "doc": "",
+      "inputs": [],
+      "name": "get_owner",
+      "outputs": [
+        {
+          "result": {
+            "error_type": {
+              "udt": {
+                "name": "PolicyWalletError"
+              }
+            },
+            "ok_type": "address"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "function_v0": {
+      "doc": "",
+      "inputs": [],
+      "name": "get_owner_rotation",
+      "outputs": [
+        {
+          "option": {
+            "value_type": {
+              "udt": {
+                "name": "OwnerRotation"
+              }
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "function_v0": {
+      "doc": "",
       "inputs": [
         {
           "doc": "",
@@ -170,6 +305,51 @@
                 "name": "SpendingPolicy"
               }
             }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "function_v0": {
+      "doc": "",
+      "inputs": [
+        {
+          "doc": "",
+          "name": "agent",
+          "type": "address"
+        }
+      ],
+      "name": "get_policy_revision",
+      "outputs": [
+        {
+          "result": {
+            "error_type": {
+              "udt": {
+                "name": "PolicyWalletError"
+              }
+            },
+            "ok_type": "u32"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "function_v0": {
+      "doc": "Ledger at which the agent's policy was revoked, if it is revoked.",
+      "inputs": [
+        {
+          "doc": "",
+          "name": "agent",
+          "type": "address"
+        }
+      ],
+      "name": "get_policy_revocation",
+      "outputs": [
+        {
+          "option": {
+            "value_type": "u32"
           }
         }
       ]
@@ -208,8 +388,63 @@
   {
     "function_v0": {
       "doc": "",
+      "inputs": [
+        {
+          "doc": "",
+          "name": "pending_owner",
+          "type": "address"
+        },
+        {
+          "doc": "",
+          "name": "expires_at_ledger",
+          "type": "u32"
+        }
+      ],
+      "name": "propose_owner",
+      "outputs": [
+        {
+          "result": {
+            "error_type": {
+              "udt": {
+                "name": "PolicyWalletError"
+              }
+            },
+            "ok_type": "void"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "function_v0": {
+      "doc": "",
       "inputs": [],
       "name": "require_owner",
+      "outputs": [
+        {
+          "result": {
+            "error_type": {
+              "udt": {
+                "name": "PolicyWalletError"
+              }
+            },
+            "ok_type": "void"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "function_v0": {
+      "doc": "Owner-only: removes the agent's policy so every later check and\\nauthorization fails with `PolicyRevoked`. Revoking an agent that never\\nhad a policy fails with `PolicyNotFound`; revoking twice fails with\\n`PolicyRevoked`. Daily-spend records and other agents are untouched.",
+      "inputs": [
+        {
+          "doc": "",
+          "name": "agent",
+          "type": "address"
+        }
+      ],
+      "name": "revoke_policy",
       "outputs": [
         {
           "result": {
@@ -236,6 +471,11 @@
               "name": "SpendingPolicy"
             }
           }
+        },
+        {
+          "doc": "",
+          "name": "expected_revision",
+          "type": "u32"
         }
       ],
       "name": "set_policy",
@@ -382,11 +622,70 @@
           "doc": "",
           "name": "AuthorizationLimitExceeded",
           "value": 13
+        },
+        {
+          "doc": "",
+          "name": "PolicyRevoked",
+          "value": 14
+        },
+        {
+          "doc": "",
+          "name": "InvalidOwner",
+          "value": 15
+        },
+        {
+          "doc": "",
+          "name": "InvalidOwnerRotationExpiry",
+          "value": 16
+        },
+        {
+          "doc": "",
+          "name": "OwnerRotationPending",
+          "value": 17
+        },
+        {
+          "doc": "",
+          "name": "OwnerRotationNotFound",
+          "value": 18
+        },
+        {
+          "doc": "",
+          "name": "OwnerRotationExpired",
+          "value": 19
+        },
+        {
+          "doc": "",
+          "name": "StaleRevision",
+          "value": 20
+        },
+        {
+          "doc": "",
+          "name": "RevisionOverflow",
+          "value": 21
         }
       ],
       "doc": "",
       "lib": "",
       "name": "PolicyWalletError"
+    }
+  },
+  {
+    "udt_struct_v0": {
+      "doc": "",
+      "fields": [
+        {
+          "doc": "",
+          "name": "expires_at_ledger",
+          "type": "u32"
+        },
+        {
+          "doc": "",
+          "name": "pending_owner",
+          "type": "address"
+        }
+      ],
+      "lib": "",
+      "name": "OwnerRotation"
     }
   },
   {
@@ -508,6 +807,11 @@
               }
             }
           }
+        },
+        {
+          "doc": "",
+          "name": "revision",
+          "type": "u32"
         },
         {
           "doc": "",

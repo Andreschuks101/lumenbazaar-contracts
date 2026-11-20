@@ -7,6 +7,8 @@ import { buildSimulateAndSubmit } from "../lib/soroban-transactions.mjs";
 import {
   checkLedgerFreshness,
   createDeploymentPlan,
+  formatPreflightReport,
+  runPreflight,
   expectedWasmHashes,
   verifyExpectedArtifacts,
   writeDeploymentPlan,
@@ -46,6 +48,13 @@ const available = [
   },
 ];
 const selected = selectContracts();
+
+// Fail early, before any build or deployment work, with a category-specific report.
+const preflight = await runPreflight({ dryRun, contracts: selected });
+if (!preflight.success) {
+  console.error(formatPreflightReport(preflight));
+  process.exit(1);
+}
 const reviewedHashes = expectedWasmHashes();
 
 if (!dryRun) {

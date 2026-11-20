@@ -229,3 +229,107 @@ fn ceiling_checks_use_checked_supply_accounting() {
     assert_eq!(client.total_supply(), i128::MAX);
     assert_eq!(client.balance(&buyer), i128::MAX);
 }
+
+#[test]
+fn zero_and_boundary_token_amounts_regression() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let contract_id = env.register(TestTokenContract, ());
+    let client = TestTokenContractClient::new(&env, &contract_id);
+    let admin = Address::generate(&env);
+    let user1 = Address::generate(&env);
+    let user2 = Address::generate(&env);
+
+    // 1. Uninitialized mint
+    assert_eq!(
+        client.try_mint(&user1, &100),
+        Err(Ok(TokenError::NotInitialized))
+    );
+
+    // 2. Boundary ceiling values in initialize_with_ceiling
+    assert_eq!(
+        client.try_initialize_with_ceiling(&admin, &0),
+        Err(Ok(TokenError::InvalidAmount))
+    );
+    assert_eq!(
+        client.try_initialize_with_ceiling(&admin, &-1),
+        Err(Ok(TokenError::InvalidAmount))
+    );
+    assert_eq!(
+        client.try_initialize_with_ceiling(&admin, &i128::MIN),
+        Err(Ok(TokenError::InvalidAmount))
+    );
+
+    // Initialize with valid ceiling
+    client.initialize_with_ceiling(&admin, &1_000);
+    assert_eq!(client.mint_ceiling(), 1_000);
+    assert_eq!(client.total_supply(), 0);
+
+    // 3. Double initialize fails
+    assert_eq!(
+        client.try_initialize(&admin),
+        Err(Ok(TokenError::AlreadyInitialized))
+    );
+    assert_eq!(
+        client.try_initialize_with_ceiling(&admin, &500),
+        Err(Ok(TokenError::AlreadyInitialized))
+    );
+
+    // 4. Zero and negative mint amounts
+    assert_eq!(
+        client.try_mint(&user1, &0),
+        Err(Ok(TokenError::InvalidAmount))
+    );
+    assert_eq!(
+        client.try_mint(&user1, &-1),
+        Err(Ok(TokenError::InvalidAmount))
+    );
+    assert_eq!(
+        client.try_mint(&user1, &i128::MIN),
+        Err(Ok(TokenError::InvalidAmount))
+    );
+    assert_eq!(client.total_supply(), 0);
+    assert_eq!(client.balance(&user1), 0);
+
+    // Mint valid amount
+    client.mint(&user1, &500);
+    assert_eq!(client.total_supply(), 500);
+    assert_eq!(client.balance(&user1), 500);
+
+    // 5. Zero and negative transfer amounts
+    assert_eq!(
+        client.try_transfer(&user1, &user2, &0),
+        Err(Ok(TokenError::InvalidAmount))
+    );
+    assert_eq!(
+        client.try_transfer(&user1, &user2, &-1),
+        Err(Ok(TokenError::InvalidAmount))
+    );
+    assert_eq!(
+        client.try_transfer(&user1, &user2, &i128::MIN),
+        Err(Ok(TokenError::InvalidAmount))
+    );
+    assert_eq!(client.balance(&user1), 500);
+    assert_eq!(client.balance(&user2), 0);
+
+    // 6. Insufficient balance transfer
+    assert_eq!(
+        client.try_transfer(&user1, &user2, &501),
+        Err(Ok(TokenError::InsufficientBalance))
+    );
+    assert_eq!(client.balance(&user1), 500);
+    assert_eq!(client.balance(&user2), 0);
+
+    // 7. Querying balance for fresh address returns 0 without panic
+    let unused = Address::generate(&env);
+    assert_eq!(client.balance(&unused), 0);
+
+    // 8. Public read-only methods run without panic
+    assert_eq!(client.decimals(), 7);
+    assert_eq!(client.symbol(), String::from_str(&env, "LBT"));
+    assert_eq!(
+        client.name(),
+        String::from_str(&env, "LumenBazaar Test Token")
+    );
+    assert!(client.utility_only());
+}

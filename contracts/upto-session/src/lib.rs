@@ -1,3 +1,4 @@
+#![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 #![no_std]
 #![allow(clippy::too_many_arguments)]
 
@@ -604,8 +605,7 @@ impl UptoSessionContract {
         if !storage::has_admin(&env) {
             return Err(ContractError::NotInitialized);
         }
-        storage::read_initialization_configuration_digest(&env)
-            .ok_or(ContractError::NotInitialized)
+        storage::read_initialization_configuration_digest(&env).ok_or(ContractError::NotInitialized)
     }
 
     pub fn get_session_state_counts(env: Env) -> Result<SessionStateCounts, ContractError> {
@@ -1004,12 +1004,7 @@ impl UptoSessionContract {
         session.finalized_ledger = Some(env.ledger().sequence());
         session.usage_scheme_version = Some(validation::SUPPORTED_USAGE_SCHEME_VERSION);
         storage::write_session(&env, &session)?;
-        storage::index_session_commitment(
-            &env,
-            &CommitmentKind::Usage,
-            &usage_hash,
-            &session_id,
-        )?;
+        storage::index_session_commitment(&env, &CommitmentKind::Usage, &usage_hash, &session_id)?;
         events::publish_session_settled(
             &env,
             &session_id,
@@ -1464,12 +1459,13 @@ impl UptoSessionContract {
         env: Env,
         session_id: BytesN<32>,
     ) -> Result<TerminalEvidence, ContractError> {
-        let session = storage::read_session(&env, &session_id)
-            .ok_or(ContractError::SessionNotFound)?;
+        let session =
+            storage::read_session(&env, &session_id).ok_or(ContractError::SessionNotFound)?;
         if session.status == SessionStatus::Open {
             return Ok(TerminalEvidence::Nonterminal);
         }
-        let finalized_ledger = session.finalized_ledger
+        let finalized_ledger = session
+            .finalized_ledger
             .ok_or(ContractError::InvalidStateTransition)?;
         let digest = ids::terminal_evidence_digest(
             &env,

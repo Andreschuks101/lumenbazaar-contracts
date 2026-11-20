@@ -1,3 +1,4 @@
+#![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 #![no_std]
 use soroban_sdk::{contract, contractimpl, contracttype, Address, Env, Symbol, Val, Vec};
 
@@ -74,7 +75,10 @@ impl LumenBazaarContract {
     }
 
     pub fn update_config(env: Env, new_config: Config) {
-        let admin: Address = env.storage().instance().get(&DataKey::Admin).unwrap();
+        let admin: Address = match env.storage().instance().get(&DataKey::Admin) {
+            Some(a) => a,
+            None => panic!("Not initialized"),
+        };
         admin.require_auth();
 
         Self::validate_config(&new_config);

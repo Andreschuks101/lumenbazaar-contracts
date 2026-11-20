@@ -64,6 +64,11 @@ jobs:
           RELEASE_TAG: ${{ github.ref_name }}
         run: node scripts/check-release-versions.mjs --tag "$RELEASE_TAG"
 
+      - name: Check deployment preflight
+        run: |
+          node --test scripts/lib/deployment-preflight.test.mjs
+          node scripts/testnet/preflight-testnet.mjs --dry-run
+
       - name: Check deployment log redaction
         run: node --test scripts/lib/deployment-logging.test.mjs
 
@@ -74,6 +79,11 @@ jobs:
         run: |
           node --test scripts/lib/test-token-guard.test.mjs
           node scripts/check-test-token-guard.mjs
+
+      - name: Check forbidden unwrap and expect in production contracts
+        run: |
+          node --test scripts/lib/unwrap-gate.test.mjs
+          node scripts/check-no-production-unwrap.mjs
 
       - name: Check testnet WASM release verification
         run: node --test scripts/lib/wasm-release.test.mjs

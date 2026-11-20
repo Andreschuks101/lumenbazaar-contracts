@@ -67,6 +67,7 @@ pub enum ContractError {
     CounterOverflow = 61,
     CounterUnderflow = 62,
     CommitmentIndexFull = 63,
+    InvalidStateTransition = 64,
 }
 
 #[cfg(test)]
@@ -138,5 +139,6 @@ mod tests {
         assert_eq!(ContractError::CounterOverflow as u32, 61);
         assert_eq!(ContractError::CounterUnderflow as u32, 62);
         assert_eq!(ContractError::CommitmentIndexFull as u32, 63);
+        assert_eq!(ContractError::InvalidStateTransition as u32, 64);
     }
 }

@@ -1,0 +1,683 @@
+{
+  "schema_version": 1,
+  "description": "Golden authorization trees for every public state-changing mutation. Roles are logical; asset.transfer is the SEP-41 token contract. Unauthorized callers must fail closed with zero state, balance, liability and event change.",
+  "mutations": [
+    {
+      "contract": "upto-session",
+      "method": "initialize",
+      "required_signers": [
+        "admin"
+      ],
+      "tree": {
+        "root": {
+          "contract": "upto-session",
+          "function": "initialize",
+          "args": [
+            "admin",
+            "asset_policies"
+          ]
+        },
+        "sub_invocations": []
+      },
+      "unauthorized_behavior": "fails_closed_zero_state_change"
+    },
+    {
+      "contract": "upto-session",
+      "method": "propose_admin",
+      "required_signers": [
+        "admin"
+      ],
+      "tree": {
+        "root": {
+          "contract": "upto-session",
+          "function": "propose_admin",
+          "args": [
+            "pending_admin",
+            "expires_at_ledger"
+          ]
+        },
+        "sub_invocations": []
+      },
+      "unauthorized_behavior": "fails_closed_zero_state_change"
+    },
+    {
+      "contract": "upto-session",
+      "method": "accept_admin",
+      "required_signers": [
+        "pending_admin"
+      ],
+      "tree": {
+        "root": {
+          "contract": "upto-session",
+          "function": "accept_admin",
+          "args": []
+        },
+        "sub_invocations": []
+      },
+      "unauthorized_behavior": "fails_closed_zero_state_change"
+    },
+    {
+      "contract": "upto-session",
+      "method": "cancel_admin_rotation",
+      "required_signers": [
+        "admin"
+      ],
+      "tree": {
+        "root": {
+          "contract": "upto-session",
+          "function": "cancel_admin_rotation",
+          "args": []
+        },
+        "sub_invocations": []
+      },
+      "unauthorized_behavior": "fails_closed_zero_state_change"
+    },
+    {
+      "contract": "upto-session",
+      "method": "pause_creation",
+      "required_signers": [
+        "admin"
+      ],
+      "tree": {
+        "root": {
+          "contract": "upto-session",
+          "function": "pause_creation",
+          "args": []
+        },
+        "sub_invocations": []
+      },
+      "unauthorized_behavior": "fails_closed_zero_state_change"
+    },
+    {
+      "contract": "upto-session",
+      "method": "resume_creation",
+      "required_signers": [
+        "admin"
+      ],
+      "tree": {
+        "root": {
+          "contract": "upto-session",
+          "function": "resume_creation",
+          "args": []
+        },
+        "sub_invocations": []
+      },
+      "unauthorized_behavior": "fails_closed_zero_state_change"
+    },
+    {
+      "contract": "upto-session",
+      "method": "activate_asset",
+      "required_signers": [
+        "admin"
+      ],
+      "tree": {
+        "root": {
+          "contract": "upto-session",
+          "function": "activate_asset",
+          "args": [
+            "policy"
+          ]
+        },
+        "sub_invocations": []
+      },
+      "unauthorized_behavior": "fails_closed_zero_state_change"
+    },
+    {
+      "contract": "upto-session",
+      "method": "deprecate_asset",
+      "required_signers": [
+        "admin"
+      ],
+      "tree": {
+        "root": {
+          "contract": "upto-session",
+          "function": "deprecate_asset",
+          "args": [
+            "asset",
+            "reason_commitment"
+          ]
+        },
+        "sub_invocations": []
+      },
+      "unauthorized_behavior": "fails_closed_zero_state_change"
+    },
+    {
+      "contract": "upto-session",
+      "method": "remove_asset",
+      "required_signers": [
+        "admin"
+      ],
+      "tree": {
+        "root": {
+          "contract": "upto-session",
+          "function": "remove_asset",
+          "args": [
+            "asset",
+            "reason_commitment"
+          ]
+        },
+        "sub_invocations": []
+      },
+      "unauthorized_behavior": "fails_closed_zero_state_change"
+    },
+    {
+      "contract": "upto-session",
+      "method": "set_asset_max_session_amount",
+      "required_signers": [
+        "admin"
+      ],
+      "tree": {
+        "root": {
+          "contract": "upto-session",
+          "function": "set_asset_max_session_amount",
+          "args": [
+            "asset",
+            "max_session_amount"
+          ]
+        },
+        "sub_invocations": []
+      },
+      "unauthorized_behavior": "fails_closed_zero_state_change"
+    },
+    {
+      "contract": "upto-session",
+      "method": "set_asset_exposure_ceiling",
+      "required_signers": [
+        "admin"
+      ],
+      "tree": {
+        "root": {
+          "contract": "upto-session",
+          "function": "set_asset_exposure_ceiling",
+          "args": [
+            "asset",
+            "ceiling"
+          ]
+        },
+        "sub_invocations": []
+      },
+      "unauthorized_behavior": "fails_closed_zero_state_change"
+    },
+    {
+      "contract": "upto-session",
+      "method": "set_buyer_exposure_ceiling",
+      "required_signers": [
+        "admin"
+      ],
+      "tree": {
+        "root": {
+          "contract": "upto-session",
+          "function": "set_buyer_exposure_ceiling",
+          "args": [
+            "asset",
+            "ceiling"
+          ]
+        },
+        "sub_invocations": []
+      },
+      "unauthorized_behavior": "fails_closed_zero_state_change"
+    },
+    {
+      "contract": "upto-session",
+      "method": "set_seller_exposure_ceiling",
+      "required_signers": [
+        "admin"
+      ],
+      "tree": {
+        "root": {
+          "contract": "upto-session",
+          "function": "set_seller_exposure_ceiling",
+          "args": [
+            "asset",
+            "ceiling"
+          ]
+        },
+        "sub_invocations": []
+      },
+      "unauthorized_behavior": "fails_closed_zero_state_change"
+    },
+    {
+      "contract": "upto-session",
+      "method": "set_max_buyer_open_sessions",
+      "required_signers": [
+        "admin"
+      ],
+      "tree": {
+        "root": {
+          "contract": "upto-session",
+          "function": "set_max_buyer_open_sessions",
+          "args": [
+            "limit"
+          ]
+        },
+        "sub_invocations": []
+      },
+      "unauthorized_behavior": "fails_closed_zero_state_change"
+    },
+    {
+      "contract": "upto-session",
+      "method": "set_max_seller_open_sessions",
+      "required_signers": [
+        "admin"
+      ],
+      "tree": {
+        "root": {
+          "contract": "upto-session",
+          "function": "set_max_seller_open_sessions",
+          "args": [
+            "limit"
+          ]
+        },
+        "sub_invocations": []
+      },
+      "unauthorized_behavior": "fails_closed_zero_state_change"
+    },
+    {
+      "contract": "upto-session",
+      "method": "propose_asset_cap_increase",
+      "required_signers": [
+        "admin"
+      ],
+      "tree": {
+        "root": {
+          "contract": "upto-session",
+          "function": "propose_asset_cap_increase",
+          "args": [
+            "asset",
+            "proposed_max_amount",
+            "active_at_ledger",
+            "expires_at_ledger"
+          ]
+        },
+        "sub_invocations": []
+      },
+      "unauthorized_behavior": "fails_closed_zero_state_change"
+    },
+    {
+      "contract": "upto-session",
+      "method": "accept_asset_cap_increase",
+      "required_signers": [
+        "admin"
+      ],
+      "tree": {
+        "root": {
+          "contract": "upto-session",
+          "function": "accept_asset_cap_increase",
+          "args": [
+            "asset"
+          ]
+        },
+        "sub_invocations": []
+      },
+      "unauthorized_behavior": "fails_closed_zero_state_change"
+    },
+    {
+      "contract": "upto-session",
+      "method": "cancel_asset_cap_increase",
+      "required_signers": [
+        "admin"
+      ],
+      "tree": {
+        "root": {
+          "contract": "upto-session",
+          "function": "cancel_asset_cap_increase",
+          "args": [
+            "asset"
+          ]
+        },
+        "sub_invocations": []
+      },
+      "unauthorized_behavior": "fails_closed_zero_state_change"
+    },
+    {
+      "contract": "upto-session",
+      "method": "recover_surplus",
+      "required_signers": [
+        "admin"
+      ],
+      "tree": {
+        "root": {
+          "contract": "upto-session",
+          "function": "recover_surplus",
+          "args": [
+            "asset",
+            "recipient",
+            "amount"
+          ]
+        },
+        "sub_invocations": []
+      },
+      "unauthorized_behavior": "fails_closed_zero_state_change"
+    },
+    {
+      "contract": "upto-session",
+      "method": "create_session",
+      "required_signers": [
+        "buyer"
+      ],
+      "tree": {
+        "root": {
+          "contract": "upto-session",
+          "function": "create_session",
+          "args": [
+            "buyer",
+            "seller",
+            "asset",
+            "max_amount",
+            "expires_at_ledger",
+            "resource_hash",
+            "idempotency_key"
+          ]
+        },
+        "sub_invocations": [
+          {
+            "contract": "asset",
+            "function": "transfer",
+            "args": [
+              "buyer",
+              "upto-session",
+              "max_amount"
+            ]
+          }
+        ]
+      },
+      "unauthorized_behavior": "fails_closed_zero_state_change"
+    },
+    {
+      "contract": "upto-session",
+      "method": "settle",
+      "required_signers": [
+        "seller"
+      ],
+      "tree": {
+        "root": {
+          "contract": "upto-session",
+          "function": "settle",
+          "args": [
+            "session_id",
+            "actual_amount",
+            "usage_hash"
+          ]
+        },
+        "sub_invocations": []
+      },
+      "unauthorized_behavior": "fails_closed_zero_state_change"
+    },
+    {
+      "contract": "upto-session",
+      "method": "cancel",
+      "required_signers": [
+        "buyer"
+      ],
+      "tree": {
+        "root": {
+          "contract": "upto-session",
+          "function": "cancel",
+          "args": [
+            "session_id"
+          ]
+        },
+        "sub_invocations": []
+      },
+      "unauthorized_behavior": "fails_closed_zero_state_change"
+    },
+    {
+      "contract": "upto-session",
+      "method": "reduce_session_cap",
+      "required_signers": [
+        "buyer"
+      ],
+      "tree": {
+        "root": {
+          "contract": "upto-session",
+          "function": "reduce_session_cap",
+          "args": [
+            "session_id",
+            "new_max_amount"
+          ]
+        },
+        "sub_invocations": []
+      },
+      "unauthorized_behavior": "fails_closed_zero_state_change"
+    },
+    {
+      "contract": "upto-session",
+      "method": "reject",
+      "required_signers": [
+        "seller"
+      ],
+      "tree": {
+        "root": {
+          "contract": "upto-session",
+          "function": "reject",
+          "args": [
+            "session_id"
+          ]
+        },
+        "sub_invocations": []
+      },
+      "unauthorized_behavior": "fails_closed_zero_state_change"
+    },
+    {
+      "contract": "upto-session",
+      "method": "extend_session_expiry",
+      "required_signers": [
+        "buyer",
+        "seller"
+      ],
+      "tree": {
+        "root": {
+          "contract": "upto-session",
+          "function": "extend_session_expiry",
+          "args": [
+            "session_id",
+            "new_expires_at_ledger"
+          ]
+        },
+        "sub_invocations": []
+      },
+      "unauthorized_behavior": "fails_closed_zero_state_change"
+    },
+    {
+      "contract": "upto-session",
+      "method": "recover_expired",
+      "required_signers": [
+        "permissionless"
+      ],
+      "tree": {
+        "root": {
+          "contract": "upto-session",
+          "function": "recover_expired",
+          "args": [
+            "session_id"
+          ]
+        },
+        "sub_invocations": []
+      },
+      "unauthorized_behavior": "fails_closed_zero_state_change"
+    },
+    {
+      "contract": "upto-session",
+      "method": "recover_expired_batch",
+      "required_signers": [
+        "permissionless"
+      ],
+      "tree": {
+        "root": {
+          "contract": "upto-session",
+          "function": "recover_expired_batch",
+          "args": [
+            "session_ids"
+          ]
+        },
+        "sub_invocations": []
+      },
+      "unauthorized_behavior": "fails_closed_zero_state_change"
+    },
+    {
+      "contract": "upto-session",
+      "method": "extend_ttl",
+      "required_signers": [
+        "permissionless"
+      ],
+      "tree": {
+        "root": {
+          "contract": "upto-session",
+          "function": "extend_ttl",
+          "args": [
+            "session_id"
+          ]
+        },
+        "sub_invocations": []
+      },
+      "unauthorized_behavior": "fails_closed_zero_state_change"
+    },
+    {
+      "contract": "policy-wallet-example",
+      "method": "initialize",
+      "required_signers": [
+        "owner"
+      ],
+      "tree": {
+        "root": {
+          "contract": "policy-wallet-example",
+          "function": "initialize",
+          "args": [
+            "owner",
+            "upto_session_contract"
+          ]
+        },
+        "sub_invocations": []
+      },
+      "unauthorized_behavior": "fails_closed_zero_state_change"
+    },
+    {
+      "contract": "policy-wallet-example",
+      "method": "set_policy",
+      "required_signers": [
+        "owner"
+      ],
+      "tree": {
+        "root": {
+          "contract": "policy-wallet-example",
+          "function": "set_policy",
+          "args": [
+            "policy",
+            "expected_revision"
+          ]
+        },
+        "sub_invocations": []
+      },
+      "unauthorized_behavior": "fails_closed_zero_state_change"
+    },
+    {
+      "contract": "policy-wallet-example",
+      "method": "create_policy",
+      "required_signers": [
+        "owner"
+      ],
+      "tree": {
+        "root": {
+          "contract": "policy-wallet-example",
+          "function": "create_policy",
+          "args": [
+            "policy"
+          ]
+        },
+        "sub_invocations": []
+      },
+      "unauthorized_behavior": "fails_closed_zero_state_change"
+    },
+    {
+      "contract": "policy-wallet-example",
+      "method": "revoke_policy",
+      "required_signers": [
+        "owner"
+      ],
+      "tree": {
+        "root": {
+          "contract": "policy-wallet-example",
+          "function": "revoke_policy",
+          "args": [
+            "agent"
+          ]
+        },
+        "sub_invocations": []
+      },
+      "unauthorized_behavior": "fails_closed_zero_state_change"
+    },
+    {
+      "contract": "policy-wallet-example",
+      "method": "propose_owner",
+      "required_signers": [
+        "owner"
+      ],
+      "tree": {
+        "root": {
+          "contract": "policy-wallet-example",
+          "function": "propose_owner",
+          "args": [
+            "pending_owner",
+            "expires_at_ledger"
+          ]
+        },
+        "sub_invocations": []
+      },
+      "unauthorized_behavior": "fails_closed_zero_state_change"
+    },
+    {
+      "contract": "policy-wallet-example",
+      "method": "accept_owner",
+      "required_signers": [
+        "pending_owner"
+      ],
+      "tree": {
+        "root": {
+          "contract": "policy-wallet-example",
+          "function": "accept_owner",
+          "args": []
+        },
+        "sub_invocations": []
+      },
+      "unauthorized_behavior": "fails_closed_zero_state_change"
+    },
+    {
+      "contract": "policy-wallet-example",
+      "method": "cancel_owner_rotation",
+      "required_signers": [
+        "owner"
+      ],
+      "tree": {
+        "root": {
+          "contract": "policy-wallet-example",
+          "function": "cancel_owner_rotation",
+          "args": []
+        },
+        "sub_invocations": []
+      },
+      "unauthorized_behavior": "fails_closed_zero_state_change"
+    },
+    {
+      "contract": "policy-wallet-example",
+      "method": "authorize_payment",
+      "required_signers": [
+        "agent"
+      ],
+      "tree": {
+        "root": {
+          "contract": "policy-wallet-example",
+          "function": "authorize_payment",
+          "args": [
+            "agent",
+            "seller",
+            "asset",
+            "amount",
+            "resource_hash"
+          ]
+        },
+        "sub_invocations": []
+      },
+      "unauthorized_behavior": "fails_closed_zero_state_change"
+    }
+  ]
+}
