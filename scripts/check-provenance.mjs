@@ -8,6 +8,7 @@ import {
   sha256Hex,
   verifyProvenance,
 } from "./lib/provenance.mjs";
+import { verifyReleaseSignature } from "./lib/release-signature.mjs";
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const wasmDir = join(repoRoot, argumentValue("--wasm-dir") ?? join("target", "wasm32v1-none", "release"));
@@ -54,6 +55,16 @@ if (failures.length > 0) {
   }
   process.exitCode = 1;
 } else {
+  const provenanceSignature = argumentValue("--provenance-signature");
+  const sbomSignature = argumentValue("--sbom-signature");
+  if (provenanceSignature || sbomSignature) {
+    if (!provenanceSignature || !sbomSignature) {
+      throw new Error("Both provenance and SBOM detached signatures are required");
+    }
+    const signersPath = join(repoRoot, "release-signers.json");
+    verifyReleaseSignature({ artifactPath: provenancePath, signaturePath: join(repoRoot, provenanceSignature), signersPath });
+    verifyReleaseSignature({ artifactPath: sbomPath, signaturePath: join(repoRoot, sbomSignature), signersPath });
+  }
   console.log(
     `provenance and SBOM verified for ${artifacts.length} WASM artifact(s) and ${lockfile.packages.length} crate(s)`,
   );

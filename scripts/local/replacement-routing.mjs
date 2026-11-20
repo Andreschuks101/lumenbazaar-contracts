@@ -84,6 +84,34 @@ export function validateMigrationState(state) {
   return state;
 }
 
+export function createRollbackManifest(state, hashes) {
+  validateMigrationState(state);
+  const manifest = {
+    schemaVersion: 1,
+    restoreActiveRole: state.activeRole,
+    routing: {
+      old: state.deployments.old.contractId,
+      replacement: state.deployments.replacement.contractId,
+      sessionRoutes: { ...state.sessionRoutes },
+    },
+    wasmHashes: { old: hashes?.old, replacement: hashes?.replacement },
+  };
+  validateRollbackManifest(manifest);
+  return manifest;
+}
+
+export function validateRollbackManifest(manifest) {
+  const hash = /^[0-9a-f]{64}$/;
+  if (manifest?.schemaVersion !== 1 || !["old", "replacement"].includes(manifest.restoreActiveRole)) {
+    throw new Error("Rollback manifest has no valid restore route");
+  }
+  if (!manifest.routing?.old || !manifest.routing?.replacement ||
+      !hash.test(manifest.wasmHashes?.old || "") || !hash.test(manifest.wasmHashes?.replacement || "")) {
+    throw new Error("Rollback manifest is missing contract routes or WASM hashes");
+  }
+  return manifest;
+}
+
 function deploymentForRole(state, role) {
   const deployment = state.deployments?.[role];
   if (!deployment) {
