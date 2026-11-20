@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "signers": [
+    {
+      "keyId": "lumenroute-release-2026",
+      "identity": "LumenRoute release maintainers",
+      "algorithm": "ed25519",
+      "validFrom": "2026-01-01T00:00:00Z",
+      "expiresAt": "2030-01-01T00:00:00Z",
+      "revoked": false,
+      "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEA11qYAYKxCrfVS/7TyWQHOg7hcvPapiMlrwIaaPcHURo=\n-----END PUBLIC KEY-----\n"
+    }
+  ]
+}

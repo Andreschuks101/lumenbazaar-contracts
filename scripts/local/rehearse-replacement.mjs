@@ -1,4 +1,5 @@
-import { mkdirSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   buildContracts,
@@ -10,6 +11,7 @@ import {
 } from "../lib/stellar-cli.mjs";
 import {
   createMigrationState,
+  createRollbackManifest,
   deprecateDeployment,
   recordSessionRoute,
   routeExistingSession,
@@ -91,6 +93,19 @@ async function run() {
     "old-session-dry-run",
   );
   recordSessionRoute(state, oldSession, oldContract.contractId);
+
+  // Persist a complete, unsigned rollback route before public routing changes.
+  const rollback = createRollbackManifest(state, {
+    old: dryRun ? "0".repeat(64) : wasmHash(oldWasm),
+    replacement: dryRun ? "1".repeat(64) : wasmHash(replacementWasm),
+  });
+  const rollbackPath = join(repoRoot, "target", "rehearsals", "rollback.json");
+  if (dryRun) {
+    console.log("REPLACEMENT_ROLLBACK_JSON " + JSON.stringify(rollback));
+  } else {
+    mkdirSync(join(repoRoot, "target", "rehearsals"), { recursive: true });
+    writeFileSync(rollbackPath, `${JSON.stringify(rollback, null, 2)}\n`, "utf8");
+  }
 
   switchActiveDeployment(state, "replacement");
   const replacementSession = createSession(
@@ -245,4 +260,8 @@ function requiredValue(name, dryRunDefault) {
   if (value) return value;
   if (dryRun) return dryRunDefault;
   throw new Error(`Set ${name} for the live local rehearsal.`);
+}
+
+function wasmHash(path) {
+  return createHash("sha256").update(readFileSync(join(repoRoot, path))).digest("hex");
 }

@@ -109,6 +109,17 @@ build, and uploads `artifacts/provenance` for reviewers. Provenance is supply-ch
 evidence that a released artifact matches a reviewed source and toolchain; it does not
 replace code review or an external security audit.
 
+## Offline release signatures
+
+Release checksum and provenance metadata are accepted only with Ed25519
+signatures from active identities in `release-signers.json`. The registry pins
+public keys, validity windows, and revocation state; unknown, expired, or
+revoked keys fail closed. Tag workflows verify committed detached signature
+metadata under `release-signatures/<tag>/` without contacting a key server.
+Private keys are never stored or passed to CI. Maintainers sign the exact file
+bytes offline, recording `keyId`, `algorithm`, `artifactSha256`, and a base64
+signature in the detached JSON file.
+
 ## Resource and Rent Regression Guardrails
 
 `node scripts/report-resource-usage.mjs` runs one native invocation of each lifecycle method
