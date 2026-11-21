@@ -777,3 +777,122 @@ fn policy_active_window_status_matches_authorization_and_revocation() {
         assert_eq!(check, Err(PolicyWalletError::PolicyRevoked));
     }
 }
+
+/// Helper strategy for generating 3 agent policies with distinct limits.
+fn three_agent_policies_strategy() -> impl Strategy<Value = [PolicySpec; 3]> {
+    (policy_strategy(), policy_strategy(), policy_strategy())
+        .prop_map(|(p1, p2, p3)| [p1, p2, p3])
+}
+
+/// Helper strategy for multi-agent interleaved action steps.
+fn multi_agent_steps_strategy() -> impl Strategy<Value = std::vec::Vec<(u8, Step)>> {
+    collection::vec((0_u8..3, (
+        0_u8..6,
+        1_u32..50,
+        0_u8..=(SELLERS as u8),
+        0_u8..=(ASSETS as u8),
+        0_u8..=(RESOURCES as u8),
+        0_u8..10,
+        any::<i128>(),
+        any::<bool>(),
+    ).prop_map(|(agent, (advance, advance_by, seller, asset, resource, amount, raw_amount, authorize))| {
+        (agent, Step { advance, advance_by, seller, asset, resource, amount, raw_amount, authorize })
+    })), 3..30)
+}
+
+proptest! {
+    #![proptest_config(property_config(POLICY_CASES))]
+
+    /// P8: Cross-agent policy isolation.
+    /// Interleaving 3 distinct agents with individual policies, tracking each agent's
+    /// isolated spend and authorization counters against separate reference models,
+    /// proving that activity by one agent never leaks into or consumes another agent's allowances.
+    #[test]
+    fn p8_cross_agent_policy_isolation_holds_across_interleaved_sequences(
+        specs in three_agent_policies_strategy(),
+        steps in multi_agent_steps_strategy(),
+    ) {
+        let env = Env::default();
+        env.mock_all_auths();
+        env.ledger().set_sequence_number(START_LEDGER);
+
+        let wallet = env.register(PolicyWalletExampleContract, ());
+        let client = PolicyWalletExampleContractClient::new(&env, &wallet);
+        client.initialize(&Address::generate(&env), &Address::generate(&env));
+
+        let shared_sellers: std::vec::Vec<Address> = (0..=SELLERS).map(|_| Address::generate(&env)).collect();
+        let shared_assets: std::vec::Vec<Address> = (0..=ASSETS).map(|_| Address::generate(&env)).collect();
+        let shared_resources: std::vec::Vec<BytesN<32>> = (0..=RESOURCES)
+            .map(|i| BytesN::from_array(&env, &[0x50 + i as u8; 32]))
+            .collect();
+
+        let agents = [
+            Address::generate(&env),
+            Address::generate(&env),
+            Address::generate(&env),
+        ];
+
+        let mut models = [Model::default(), Model::default(), Model::default()];
+
+        // Configure all 3 policies
+        for i in 0..3 {
+            let actors = Actors {
+                agent: agents[i].clone(),
+                sellers: shared_sellers.clone(),
+                assets: shared_assets.clone(),
+                resources: shared_resources.clone(),
+            };
+            let policy = build_policy(&env, &actors, &specs[i]);
+            client.set_policy(&policy);
+        }
+
+        for (agent_idx, step) in steps {
+            let idx = (agent_idx % 3) as usize;
+            advance(&env, &step);
+            let ledger = env.ledger().sequence();
+            let day = ledger / LEDGERS_PER_DAY;
+
+            let (seller, asset, resource) = (
+                step.seller as usize,
+                step.asset as usize,
+                step.resource as usize,
+            );
+            let amount = amount_for(&step, &specs[idx], &models[idx], ledger);
+            let expected = models[idx].expected(&specs[idx], ledger, seller, asset, resource, amount);
+
+            let args = (
+                &agents[idx],
+                &shared_sellers[seller],
+                &shared_assets[asset],
+                &amount,
+                &shared_resources[resource],
+            );
+
+            let before_storage = snapshot(&env, &wallet);
+            let checked = defined(client.try_check_payment(args.0, args.1, args.2, args.3, args.4));
+            prop_assert_eq!(checked, expected);
+            prop_assert_eq!(snapshot(&env, &wallet), before_storage);
+
+            if step.authorize {
+                let authorized = defined(client.try_authorize_payment(args.0, args.1, args.2, args.3, args.4));
+                prop_assert_eq!(authorized, checked);
+                if authorized.is_ok() {
+                    models[idx].record(ledger, seller, resource, amount);
+                } else {
+                    prop_assert_eq!(snapshot(&env, &wallet), before_storage);
+                }
+            }
+
+            // Assert isolation across all three agents: each agent's contract spend
+            // must match its own independent model and must NEVER be affected by other agents.
+            for j in 0..3 {
+                let spent = client.spent_today(&agents[j]);
+                let count = client.authorized_count_today(&agents[j]);
+                prop_assert_eq!(spent, models[j].spent.get(&day).copied().unwrap_or(0));
+                prop_assert_eq!(count, models[j].authorizations.get(&day).copied().unwrap_or(0));
+                prop_assert!(spent <= specs[j].per_day);
+                prop_assert!(count <= specs[j].max_authorizations);
+            }
+        }
+    }
+}
