@@ -4,6 +4,10 @@
 
 ### Added
 
+- Add seller exposure headroom query (#242).
+  Compatibility: additive method and result type; existing seller exposure ceiling and exposure queries are unchanged.
+  Migration: none.
+
 - Add buyer exposure headroom query (#241).
   Compatibility: additive method and result type; existing buyer exposure ceiling and exposure queries are unchanged.
   Migration: none.

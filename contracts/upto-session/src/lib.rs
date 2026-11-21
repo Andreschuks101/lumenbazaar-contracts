@@ -14,9 +14,10 @@ pub use types::{
     AssetSolvency, AssetSolvencySnapshot, AssetStatus, BatchRecoveryResult, BatchRecoveryStatus,
     BatchSessionResult, BatchSessionStatus, BuyerExposureHeadroom, BuyerSessionCount,
     CapIncreaseProposal, CommitmentDomainMetadata, CommitmentKind, ContractConfiguration,
-    OperationalState, RecoverabilityStatus, Session, SessionRecoverability, SessionStateCounts,
-    SessionStatus, SessionStatusResponse, SettlementPreview, SettlementRejectionReason,
-    SolvencyAssetState, SolvencyStatus, TerminalEvidence, TerminalEvidenceDigest,
+    OperationalState, RecoverabilityStatus, SellerExposureHeadroom, Session, SessionRecoverability,
+    SessionStateCounts, SessionStatus, SessionStatusResponse, SettlementPreview,
+    SettlementRejectionReason, SolvencyAssetState, SolvencyStatus, TerminalEvidence,
+    TerminalEvidenceDigest,
 };
 
 use soroban_sdk::{contract, contractimpl, token, Address, BytesN, Env, Vec};
@@ -269,6 +270,27 @@ impl UptoSessionContract {
             return Err(ContractError::UnsupportedAsset);
         }
         Ok(storage::read_seller_exposure(&env, &seller, &asset))
+    }
+
+    pub fn get_seller_exposure_headroom(
+        env: Env,
+        seller: Address,
+        asset: Address,
+    ) -> Result<SellerExposureHeadroom, ContractError> {
+        if !storage::has_admin(&env) {
+            return Err(ContractError::NotInitialized);
+        }
+        if !storage::is_supported_asset(&env, &asset) {
+            return Err(ContractError::UnsupportedAsset);
+        }
+        let exposure = storage::read_seller_exposure(&env, &seller, &asset);
+        let ceiling = storage::read_seller_exposure_ceiling(&env, &asset);
+        let headroom = ceiling.map(|c| c.saturating_sub(exposure));
+        Ok(SellerExposureHeadroom {
+            ceiling,
+            exposure,
+            headroom,
+        })
     }
 
     pub fn set_max_buyer_open_sessions(env: Env, limit: u32) -> Result<(), ContractError> {
