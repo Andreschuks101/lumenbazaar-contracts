@@ -87,6 +87,25 @@ pub struct BuyerSessionCount {
 
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub enum CapIncreaseStatus {
+    Missing,
+    Waiting,
+    Ready,
+    Expired,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CapIncreaseStatusResponse {
+    pub status: CapIncreaseStatus,
+    pub proposed_max_amount: Option<i128>,
+    pub active_at_ledger: Option<u32>,
+    pub expires_at_ledger: Option<u32>,
+    pub is_ready: bool,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CapIncreaseProposal {
     pub proposed_max_amount: i128,
     pub active_at_ledger: u32,

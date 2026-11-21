@@ -1249,6 +1249,15 @@ fn admin_cap_updates_emit_events_and_do_not_rewrite_existing_sessions() {
 
     // Proposal before activation ledger cannot be accepted
     client.propose_asset_cap_increase(&asset, &150, &active_at, &expires_at);
+
+    // Verify status is Waiting
+    let status_waiting = client.get_asset_cap_increase_status(&asset);
+    assert_eq!(status_waiting.status, CapIncreaseStatus::Waiting);
+    assert_eq!(status_waiting.is_ready, false);
+    assert_eq!(status_waiting.proposed_max_amount, Some(150));
+    assert_eq!(status_waiting.active_at_ledger, Some(active_at));
+    assert_eq!(status_waiting.expires_at_ledger, Some(expires_at));
+
     assert_eq!(
         client.try_accept_asset_cap_increase(&asset),
         Err(Ok(ContractError::CapIncreaseNotReady))
@@ -1262,6 +1271,11 @@ fn admin_cap_updates_emit_events_and_do_not_rewrite_existing_sessions() {
 
     // Cancel proposal
     client.cancel_asset_cap_increase(&asset);
+    let status_missing = client.get_asset_cap_increase_status(&asset);
+    assert_eq!(status_missing.status, CapIncreaseStatus::Missing);
+    assert_eq!(status_missing.is_ready, false);
+    assert_eq!(status_missing.proposed_max_amount, None);
+
     assert_eq!(
         client.try_accept_asset_cap_increase(&asset),
         Err(Ok(ContractError::CapIncreaseNotFound))
@@ -1270,16 +1284,37 @@ fn admin_cap_updates_emit_events_and_do_not_rewrite_existing_sessions() {
     // Re-propose and advance sequence past active_at
     client.propose_asset_cap_increase(&asset, &150, &active_at, &expires_at);
     env.ledger().set_sequence_number(active_at);
+
+    // Verify status is Ready
+    let status_ready = client.get_asset_cap_increase_status(&asset);
+    assert_eq!(status_ready.status, CapIncreaseStatus::Ready);
+    assert_eq!(status_ready.is_ready, true);
+
     client.accept_asset_cap_increase(&asset);
     assert_eq!(client.get_asset_max_session_amount(&asset), 150);
 
     // Expired proposals cannot be accepted
     client.propose_asset_cap_increase(&asset, &200, &(active_at + 200), &(active_at + 300));
     env.ledger().set_sequence_number(active_at + 300);
+
+    // Verify status is Expired
+    let status_expired = client.get_asset_cap_increase_status(&asset);
+    assert_eq!(status_expired.status, CapIncreaseStatus::Expired);
+    assert_eq!(status_expired.is_ready, false);
+
     assert_eq!(
         client.try_accept_asset_cap_increase(&asset),
         Err(Ok(ContractError::CapIncreaseExpired))
     );
+
+    // Deprecated asset cannot report ready state
+    client.cancel_asset_cap_increase(&asset);
+    client.propose_asset_cap_increase(&asset, &300, &(active_at + 400), &(active_at + 500));
+    client.deprecate_asset(&asset, &BytesN::from_array(&env, &[99; 32]));
+    env.ledger().set_sequence_number(active_at + 400);
+    let status_deprecated = client.get_asset_cap_increase_status(&asset);
+    assert_eq!(status_deprecated.status, CapIncreaseStatus::Waiting);
+    assert_eq!(status_deprecated.is_ready, false);
 }
 
 #[test]

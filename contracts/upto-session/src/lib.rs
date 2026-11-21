@@ -13,6 +13,7 @@ pub use types::{
     AdminRotation, AssetLifecycle, AssetPolicy, AssetPolicyResponse, AssetSolvency,
     AssetSolvencySnapshot, AssetStatus, BatchRecoveryResult, BatchRecoveryStatus,
     BatchSessionResult, BatchSessionStatus, BuyerSessionCount, CapIncreaseProposal,
+    CapIncreaseStatus, CapIncreaseStatusResponse,
     CommitmentDomainMetadata, CommitmentKind, ContractConfiguration, OperationalState,
     RecoverabilityStatus, Session, SessionRecoverability, SessionStateCounts, SessionStatus,
     SessionStatusResponse, SettlementPreview, SettlementRejectionReason, SolvencyAssetState,
@@ -247,6 +248,51 @@ impl UptoSessionContract {
 
     pub fn get_asset_cap_increase(env: Env, asset: Address) -> Option<CapIncreaseProposal> {
         storage::read_cap_increase_proposal(&env, &asset)
+    }
+
+    pub fn get_asset_cap_increase_status(
+        env: Env,
+        asset: Address,
+    ) -> Result<CapIncreaseStatusResponse, ContractError> {
+        if !storage::has_admin(&env) {
+            return Err(ContractError::NotInitialized);
+        }
+        let proposal_opt = storage::read_cap_increase_proposal(&env, &asset);
+        let proposal = match proposal_opt {
+            Some(p) => p,
+            None => {
+                return Ok(CapIncreaseStatusResponse {
+                    status: CapIncreaseStatus::Missing,
+                    proposed_max_amount: None,
+                    active_at_ledger: None,
+                    expires_at_ledger: None,
+                    is_ready: false,
+                });
+            }
+        };
+
+        let current_ledger = env.ledger().sequence();
+        let is_deprecated = storage::read_asset_status(&env, &asset) == Some(AssetStatus::Deprecated);
+
+        let status = if current_ledger < proposal.active_at_ledger {
+            CapIncreaseStatus::Waiting
+        } else if current_ledger >= proposal.expires_at_ledger {
+            CapIncreaseStatus::Expired
+        } else if is_deprecated {
+            CapIncreaseStatus::Waiting
+        } else {
+            CapIncreaseStatus::Ready
+        };
+
+        let is_ready = status == CapIncreaseStatus::Ready;
+
+        Ok(CapIncreaseStatusResponse {
+            status,
+            proposed_max_amount: Some(proposal.proposed_max_amount),
+            active_at_ledger: Some(proposal.active_at_ledger),
+            expires_at_ledger: Some(proposal.expires_at_ledger),
+            is_ready,
+        })
     }
 
     pub fn get_seller_exposure_ceiling(env: Env, asset: Address) -> Result<i128, ContractError> {
