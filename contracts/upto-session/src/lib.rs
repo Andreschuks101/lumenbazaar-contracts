@@ -12,11 +12,12 @@ pub use errors::ContractError;
 pub use types::{
     AdminRotation, AssetLifecycle, AssetPolicy, AssetPolicyResponse, AssetSolvency,
     AssetSolvencySnapshot, AssetStatus, BatchRecoveryResult, BatchRecoveryStatus,
-    BatchSessionResult, BatchSessionStatus, BuyerSessionCount, CapIncreaseProposal,
-    CommitmentDomainMetadata, CommitmentKind, ContractConfiguration, OperationalState,
-    RecoverabilityStatus, Session, SessionRecoverability, SessionStateCounts, SessionStatus,
-    SessionStatusResponse, SettlementPreview, SettlementRejectionReason, SolvencyAssetState,
-    SolvencyStatus, TerminalEvidence, TerminalEvidenceDigest,
+    BatchSessionResult, BatchSessionStatus, BuyerSessionCount, CancellationPreview,
+    CancellationRejectionReason, CapIncreaseProposal, CommitmentDomainMetadata, CommitmentKind,
+    ContractConfiguration, OperationalState, RecoverabilityStatus, Session, SessionRecoverability,
+    SessionStateCounts, SessionStatus, SessionStatusResponse, SettlementPreview,
+    SettlementRejectionReason, SolvencyAssetState, SolvencyStatus, TerminalEvidence,
+    TerminalEvidenceDigest,
 };
 
 use soroban_sdk::{contract, contractimpl, token, Address, BytesN, Env, Vec};
@@ -1087,6 +1088,61 @@ impl UptoSessionContract {
             actual_amount,
             seller_payout,
             buyer_refund,
+            is_expired,
+            rejection_reason,
+        }
+    }
+
+    pub fn preview_cancel(
+        env: Env,
+        session_id: BytesN<32>,
+    ) -> CancellationPreview {
+        let session = match storage::read_session(&env, &session_id) {
+            Some(s) => s,
+            None => {
+                return CancellationPreview {
+                    eligible: false,
+                    refundable_amount: 0,
+                    is_expired: false,
+                    rejection_reason: CancellationRejectionReason::NotFound,
+                };
+            }
+        };
+
+        let is_expired = env.ledger().sequence() >= session.expires_at_ledger;
+
+        let rejection_reason = match &session.status {
+            SessionStatus::Settled => CancellationRejectionReason::AlreadySettled,
+            SessionStatus::Cancelled => CancellationRejectionReason::AlreadyCancelled,
+            SessionStatus::Expired => CancellationRejectionReason::AlreadyExpired,
+            SessionStatus::Rejected => CancellationRejectionReason::AlreadyRejected,
+            SessionStatus::Open => {
+                if is_expired {
+                    CancellationRejectionReason::Expired
+                } else {
+                    let contract = env.current_contract_address();
+                    let asset = token::Client::new(&env, &session.asset);
+                    if session.escrowed_amount != session.max_amount
+                        || asset.balance(&contract) < storage::read_liability(&env, &session.asset)
+                    {
+                        CancellationRejectionReason::EscrowUnderfunded
+                    } else {
+                        CancellationRejectionReason::None
+                    }
+                }
+            }
+        };
+
+        let eligible = rejection_reason == CancellationRejectionReason::None;
+        let refundable_amount = if eligible {
+            session.escrowed_amount
+        } else {
+            0
+        };
+
+        CancellationPreview {
+            eligible,
+            refundable_amount,
             is_expired,
             rejection_reason,
         }

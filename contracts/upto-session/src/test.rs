@@ -3771,6 +3771,74 @@ fn preview_settle_scheme_and_boundary_checks() {
 }
 
 #[test]
+fn preview_cancel_reports_accurate_eligibility_and_reasons() {
+    let env = Env::default();
+    env.mock_all_auths_allowing_non_root_auth();
+    let contract_id = env.register(UptoSessionContract, ());
+    let client = UptoSessionContractClient::new(&env, &contract_id);
+    let buyer = Address::generate(&env);
+    let seller = Address::generate(&env);
+    let asset = create_test_asset(&env, &buyer, 1_000);
+    let resource_hash = BytesN::from_array(&env, &[95; 32]);
+    let usage_hash = BytesN::from_array(&env, &[96; 32]);
+    initialize_for_asset(&env, &client, &buyer, &asset);
+
+    // 1. Missing session
+    let missing_id = BytesN::from_array(&env, &[97; 32]);
+    assert_eq!(
+        client.preview_cancel(&missing_id).rejection_reason,
+        CancellationRejectionReason::NotFound
+    );
+
+    // 2. Open session before expiry
+    let session_id = client.create_session(&buyer, &seller, &asset, &500, &50, &resource_hash);
+    let preview = client.preview_cancel(&session_id);
+    assert!(preview.eligible);
+    assert_eq!(preview.refundable_amount, 500);
+    assert!(!preview.is_expired);
+    assert_eq!(preview.rejection_reason, CancellationRejectionReason::None);
+
+    // 3. Expired session boundary: sequence == expires_at
+    env.ledger().set_sequence_number(50);
+    let expired_preview = client.preview_cancel(&session_id);
+    assert!(!expired_preview.eligible);
+    assert_eq!(expired_preview.refundable_amount, 0);
+    assert!(expired_preview.is_expired);
+    assert_eq!(expired_preview.rejection_reason, CancellationRejectionReason::Expired);
+
+    // 4. Terminal states
+    env.ledger().set_sequence_number(1);
+    let s_id = client.create_session(&buyer, &seller, &asset, &200, &60, &resource_hash);
+    client.settle(&s_id, &100, &usage_hash);
+    assert_eq!(
+        client.preview_cancel(&s_id).rejection_reason,
+        CancellationRejectionReason::AlreadySettled
+    );
+
+    let c_id = client.create_session(&buyer, &seller, &asset, &200, &60, &resource_hash);
+    client.cancel(&c_id);
+    assert_eq!(
+        client.preview_cancel(&c_id).rejection_reason,
+        CancellationRejectionReason::AlreadyCancelled
+    );
+
+    let r_id = client.create_session(&buyer, &seller, &asset, &200, &60, &resource_hash);
+    client.reject(&r_id);
+    assert_eq!(
+        client.preview_cancel(&r_id).rejection_reason,
+        CancellationRejectionReason::AlreadyRejected
+    );
+
+    let exp_id = client.create_session(&buyer, &seller, &asset, &200, &40, &resource_hash);
+    env.ledger().set_sequence_number(40);
+    client.recover_expired(&exp_id);
+    assert_eq!(
+        client.preview_cancel(&exp_id).rejection_reason,
+        CancellationRejectionReason::AlreadyExpired
+    );
+}
+
+#[test]
 fn extend_ttl_succeeds_for_open_sessions() {
     let env = Env::default();
     env.mock_all_auths();

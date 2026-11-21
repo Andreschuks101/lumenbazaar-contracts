@@ -235,6 +235,28 @@ pub struct SettlementPreview {
 
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub enum CancellationRejectionReason {
+    None,
+    NotFound,
+    AlreadySettled,
+    AlreadyCancelled,
+    AlreadyExpired,
+    AlreadyRejected,
+    Expired,
+    EscrowUnderfunded,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CancellationPreview {
+    pub eligible: bool,
+    pub refundable_amount: i128,
+    pub is_expired: bool,
+    pub rejection_reason: CancellationRejectionReason,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum RecoverabilityStatus {
     NotFound,
     NotExpired,
