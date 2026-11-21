@@ -315,3 +315,12 @@ pub struct AssetExposureHeadroom {
     pub headroom: i128,
 }
 
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct BuyerExposureHeadroom {
+    pub ceiling: i128,
+    pub exposure: i128,
+    pub headroom: i128,
+}
+
+

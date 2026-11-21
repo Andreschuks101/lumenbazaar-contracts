@@ -12,11 +12,11 @@ pub use errors::ContractError;
 pub use types::{
     AdminRotation, AssetExposureHeadroom, AssetLifecycle, AssetPolicy, AssetPolicyResponse,
     AssetSolvency, AssetSolvencySnapshot, AssetStatus, BatchRecoveryResult, BatchRecoveryStatus,
-    BatchSessionResult, BatchSessionStatus, BuyerSessionCount, CapIncreaseProposal,
-    CommitmentDomainMetadata, CommitmentKind, ContractConfiguration, OperationalState,
-    RecoverabilityStatus, Session, SessionRecoverability, SessionStateCounts, SessionStatus,
-    SessionStatusResponse, SettlementPreview, SettlementRejectionReason, SolvencyAssetState,
-    SolvencyStatus, TerminalEvidence, TerminalEvidenceDigest,
+    BatchSessionResult, BatchSessionStatus, BuyerExposureHeadroom, BuyerSessionCount,
+    CapIncreaseProposal, CommitmentDomainMetadata, CommitmentKind, ContractConfiguration,
+    OperationalState, RecoverabilityStatus, Session, SessionRecoverability, SessionStateCounts,
+    SessionStatus, SessionStatusResponse, SettlementPreview, SettlementRejectionReason,
+    SolvencyAssetState, SolvencyStatus, TerminalEvidence, TerminalEvidenceDigest,
 };
 
 use soroban_sdk::{contract, contractimpl, token, Address, BytesN, Env, Vec};
@@ -522,6 +522,28 @@ impl UptoSessionContract {
             }
             None => Err(ContractError::UnsupportedAsset),
         }
+    }
+
+    pub fn get_buyer_exposure_headroom(
+        env: Env,
+        buyer: Address,
+        asset: Address,
+    ) -> Result<BuyerExposureHeadroom, ContractError> {
+        if !storage::has_admin(&env) {
+            return Err(ContractError::NotInitialized);
+        }
+        if !storage::is_supported_asset(&env, &asset) {
+            return Err(ContractError::UnsupportedAsset);
+        }
+        let ceiling = storage::read_buyer_exposure_ceiling(&env, &asset)
+            .ok_or(ContractError::ExposureCeilingNotConfigured)?;
+        let exposure = storage::read_buyer_exposure(&env, &buyer, &asset);
+        let headroom = ceiling.saturating_sub(exposure);
+        Ok(BuyerExposureHeadroom {
+            ceiling,
+            exposure,
+            headroom,
+        })
     }
 
     pub fn propose_admin(
