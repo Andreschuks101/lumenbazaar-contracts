@@ -8,6 +8,7 @@ pub const LEDGERS_PER_DAY: u32 = 17_280;
 pub const MAX_ALLOWED_SELLERS: u32 = 16;
 pub const MAX_ALLOWED_ASSETS: u32 = 16;
 pub const MAX_ALLOWED_RESOURCE_HASHES: u32 = 16;
+pub const AUTHORIZATION_NONCE_TTL_LEDGERS: u32 = 17_280 * 30; // 30 days retention
 
 // TTL management constants for instance storage keys
 pub const DEFAULT_TTL_THRESHOLD: u32 = 100_000;
@@ -25,6 +26,7 @@ pub enum DataKey {
     /// Ledger at which the owner revoked the agent's policy.
     RevokedPolicy(Address),
     OwnerRotation,
+    AuthorizationNonce(Address, BytesN<32>),
 }
 
 #[contracttype]
@@ -100,6 +102,21 @@ pub struct SpendingPolicy {
     pub revision: u32,
 }
 
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AuthorizationRecord {
+    pub request_hash: BytesN<32>,
+    pub authorized_at_ledger: u32,
+    pub amount: i128,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PaymentAuthorizationOutcome {
+    pub replayed: bool,
+    pub authorized_at_ledger: u32,
+}
+
 #[contracterror]
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[repr(u32)]
@@ -125,6 +142,7 @@ pub enum PolicyWalletError {
     OwnerRotationExpired = 19,
     StaleRevision = 20,
     RevisionOverflow = 21,
+    ReplayConflict = 22,
 }
 
 /// Emitted once when the owner revokes an agent's policy.
@@ -334,45 +352,75 @@ impl PolicyWalletExampleContract {
         validate_payment(&env, &agent, &seller, &asset, amount, &resource_hash)?;
 
         let ledger_day = current_ledger_day(&env);
-        let auth_count = read_daily_auth_count(&env, &agent, ledger_day);
-        let next_auth_count = auth_count
-            .checked_add(1)
-            .ok_or(PolicyWalletError::AuthorizationLimitExceeded)?;
-        env.storage().instance().set(
-            &DataKey::DailyAuthCount(agent.clone(), ledger_day),
-            &next_auth_count,
-        );
-
-        let spent = read_daily_spend(&env, &agent, ledger_day);
-        let next_spent = spent
-            .checked_add(amount)
-            .ok_or(PolicyWalletError::AmountExceedsDailyCap)?;
-        env.storage()
-            .instance()
-            .set(&DataKey::DailySpend(agent.clone(), ledger_day), &next_spent);
-
-        let seller_spent = read_daily_seller_spend(&env, &agent, &seller, ledger_day);
-        let next_seller_spent = seller_spent
-            .checked_add(amount)
-            .ok_or(PolicyWalletError::AmountExceedsDailyCap)?;
-        env.storage().instance().set(
-            &DataKey::DailySellerSpend(agent.clone(), seller, ledger_day),
-            &next_seller_spent,
-        );
-
-        let resource_spent = read_daily_resource_spend(&env, &agent, &resource_hash, ledger_day);
-        let next_resource_spent = resource_spent
-            .checked_add(amount)
-            .ok_or(PolicyWalletError::AmountExceedsDailyCap)?;
-        env.storage().instance().set(
-            &DataKey::DailyResourceSpend(agent, resource_hash, ledger_day),
-            &next_resource_spent,
-        );
-        env.storage()
-            .instance()
-            .extend_ttl(DEFAULT_TTL_THRESHOLD, TTL_EXTENSION_AMOUNT);
+        record_payment_spend(&env, &agent, &seller, &resource_hash, amount, ledger_day)?;
+        extend_instance_ttl(&env);
 
         Ok(())
+    }
+
+    /// Authorizes a payment while binding a caller-provided nonce to prevent replay attacks
+    /// or duplicate consumption.
+    ///
+    /// - If the nonce was not previously seen for this agent, validates and consumes policy allowances,
+    ///   recording the authorization under the nonce. Returns `PaymentAuthorizationOutcome { replayed: false, ... }`.
+    /// - If the exact same request is resubmitted with the same nonce, returns `PaymentAuthorizationOutcome { replayed: true, ... }`
+    ///   deterministically without re-deducting spend or authorization counts.
+    /// - If the nonce is reused for a distinct request (different seller, asset, amount, or resource hash),
+    ///   fails with `PolicyWalletError::ReplayConflict`.
+    pub fn authorize_payment_with_nonce(
+        env: Env,
+        agent: Address,
+        seller: Address,
+        asset: Address,
+        amount: i128,
+        resource_hash: BytesN<32>,
+        nonce: BytesN<32>,
+    ) -> Result<PaymentAuthorizationOutcome, PolicyWalletError> {
+        agent.require_auth();
+
+        let request_hash = compute_request_hash(&env, &seller, &asset, amount, &resource_hash);
+        let nonce_key = DataKey::AuthorizationNonce(agent.clone(), nonce);
+
+        if let Some(record) = env.storage().instance().get::<_, AuthorizationRecord>(&nonce_key) {
+            if record.request_hash != request_hash {
+                return Err(PolicyWalletError::ReplayConflict);
+            }
+            extend_instance_ttl(&env);
+            return Ok(PaymentAuthorizationOutcome {
+                replayed: true,
+                authorized_at_ledger: record.authorized_at_ledger,
+            });
+        }
+
+        validate_payment(&env, &agent, &seller, &asset, amount, &resource_hash)?;
+
+        let ledger_day = current_ledger_day(&env);
+        record_payment_spend(&env, &agent, &seller, &resource_hash, amount, ledger_day)?;
+
+        let current_ledger = env.ledger().sequence();
+        let record = AuthorizationRecord {
+            request_hash,
+            authorized_at_ledger: current_ledger,
+            amount,
+        };
+        env.storage().instance().set(&nonce_key, &record);
+        extend_instance_ttl(&env);
+
+        Ok(PaymentAuthorizationOutcome {
+            replayed: false,
+            authorized_at_ledger: current_ledger,
+        })
+    }
+
+    /// Queries the recorded replay outcome for a given agent and authorization nonce.
+    pub fn get_authorization_nonce(
+        env: Env,
+        agent: Address,
+        nonce: BytesN<32>,
+    ) -> Option<AuthorizationRecord> {
+        env.storage()
+            .instance()
+            .get(&DataKey::AuthorizationNonce(agent, nonce))
     }
 
     pub fn spent_today(env: Env, agent: Address) -> i128 {
@@ -673,6 +721,73 @@ fn validate_payment(
             break;
         }
     }
+
+    Ok(())
+}
+
+pub const POLICY_AUTHORIZATION_DOMAIN: &[u8] = b"lumenbazaar/policy-authorization";
+
+fn compute_request_hash(
+    env: &Env,
+    seller: &Address,
+    asset: &Address,
+    amount: i128,
+    resource_hash: &BytesN<32>,
+) -> BytesN<32> {
+    use soroban_sdk::xdr::ToXdr;
+    use soroban_sdk::Bytes;
+    let payload = (
+        Bytes::from_slice(env, POLICY_AUTHORIZATION_DOMAIN),
+        seller.clone(),
+        asset.clone(),
+        amount,
+        resource_hash.clone(),
+    );
+    env.crypto().sha256(&payload.to_xdr(env)).to_bytes()
+}
+
+fn record_payment_spend(
+    env: &Env,
+    agent: &Address,
+    seller: &Address,
+    resource_hash: &BytesN<32>,
+    amount: i128,
+    ledger_day: u32,
+) -> Result<(), PolicyWalletError> {
+    let auth_count = read_daily_auth_count(env, agent, ledger_day);
+    let next_auth_count = auth_count
+        .checked_add(1)
+        .ok_or(PolicyWalletError::AuthorizationLimitExceeded)?;
+    env.storage().instance().set(
+        &DataKey::DailyAuthCount(agent.clone(), ledger_day),
+        &next_auth_count,
+    );
+
+    let spent = read_daily_spend(env, agent, ledger_day);
+    let next_spent = spent
+        .checked_add(amount)
+        .ok_or(PolicyWalletError::AmountExceedsDailyCap)?;
+    env.storage()
+        .instance()
+        .set(&DataKey::DailySpend(agent.clone(), ledger_day), &next_spent);
+
+    let seller_spent = read_daily_seller_spend(env, agent, seller, ledger_day);
+    let next_seller_spent = seller_spent
+        .checked_add(amount)
+        .ok_or(PolicyWalletError::AmountExceedsDailyCap)?;
+    env.storage().instance().set(
+        &DataKey::DailySellerSpend(agent.clone(), seller.clone(), ledger_day),
+        &next_seller_spent,
+    );
+
+    let resource_spent = read_daily_resource_spend(env, agent, resource_hash, ledger_day);
+    let next_resource_spent = resource_spent
+        .checked_add(amount)
+        .ok_or(PolicyWalletError::AmountExceedsDailyCap)?;
+    env.storage().instance().set(
+        &DataKey::DailyResourceSpend(agent.clone(), resource_hash.clone(), ledger_day),
+        &next_resource_spent,
+    );
 
     Ok(())
 }

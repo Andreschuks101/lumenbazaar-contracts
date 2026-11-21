@@ -1571,3 +1571,167 @@ fn preview_payment_matches_check_payment_and_never_mutates_state() {
         }
     );
 }
+
+#[test]
+fn authorize_payment_with_nonce_exact_replay_and_conflict() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, agent, seller, asset, _owner, resource_hash) = initialized_wallet(&env);
+    set_standard_policy(&env, &client, &agent, &seller, &asset, &resource_hash);
+
+    let nonce1 = BytesN::from_array(&env, &[1; 32]);
+    let nonce2 = BytesN::from_array(&env, &[2; 32]);
+
+    env.ledger().set_sequence_number(10);
+
+    // Initial authorization succeeds
+    let outcome1 = client.authorize_payment_with_nonce(
+        &agent,
+        &seller,
+        &asset,
+        &25,
+        &resource_hash,
+        &nonce1,
+    );
+    assert_eq!(
+        outcome1,
+        PaymentAuthorizationOutcome {
+            replayed: false,
+            authorized_at_ledger: 10,
+        }
+    );
+    assert_eq!(client.spent_today(&agent), 25);
+    assert_eq!(client.authorized_count_today(&agent), 1);
+
+    // Check recorded authorization record
+    let record1 = client.get_authorization_nonce(&agent, &nonce1).unwrap();
+    assert_eq!(record1.authorized_at_ledger, 10);
+    assert_eq!(record1.amount, 25);
+
+    // Exact replay with same nonce and same parameters at a later ledger
+    env.ledger().set_sequence_number(20);
+    let replay_outcome = client.authorize_payment_with_nonce(
+        &agent,
+        &seller,
+        &asset,
+        &25,
+        &resource_hash,
+        &nonce1,
+    );
+    assert_eq!(
+        replay_outcome,
+        PaymentAuthorizationOutcome {
+            replayed: true,
+            authorized_at_ledger: 10,
+        }
+    );
+    // Crucial: spend and auth count must NOT be incremented on replay
+    assert_eq!(client.spent_today(&agent), 25);
+    assert_eq!(client.authorized_count_today(&agent), 1);
+
+    // Conflicting request with same nonce but different amount fails with ReplayConflict
+    let err_conflict_amount = client.try_authorize_payment_with_nonce(
+        &agent,
+        &seller,
+        &asset,
+        &30,
+        &resource_hash,
+        &nonce1,
+    );
+    assert_eq!(
+        err_conflict_amount,
+        Err(Ok(PolicyWalletError::ReplayConflict))
+    );
+
+    // Conflicting request with same nonce but different seller fails with ReplayConflict
+    let other_seller = Address::generate(&env);
+    let err_conflict_seller = client.try_authorize_payment_with_nonce(
+        &agent,
+        &other_seller,
+        &asset,
+        &25,
+        &resource_hash,
+        &nonce1,
+    );
+    assert_eq!(
+        err_conflict_seller,
+        Err(Ok(PolicyWalletError::ReplayConflict))
+    );
+
+    // Conflicting request with same nonce but different asset fails with ReplayConflict
+    let other_asset = Address::generate(&env);
+    let err_conflict_asset = client.try_authorize_payment_with_nonce(
+        &agent,
+        &seller,
+        &other_asset,
+        &25,
+        &resource_hash,
+        &nonce1,
+    );
+    assert_eq!(
+        err_conflict_asset,
+        Err(Ok(PolicyWalletError::ReplayConflict))
+    );
+
+    // Conflicting request with same nonce but different resource_hash fails with ReplayConflict
+    let other_resource = BytesN::from_array(&env, &[99; 32]);
+    let err_conflict_res = client.try_authorize_payment_with_nonce(
+        &agent,
+        &seller,
+        &asset,
+        &25,
+        &other_resource,
+        &nonce1,
+    );
+    assert_eq!(
+        err_conflict_res,
+        Err(Ok(PolicyWalletError::ReplayConflict))
+    );
+
+    // Spend and auth count still untouched after conflicts
+    assert_eq!(client.spent_today(&agent), 25);
+    assert_eq!(client.authorized_count_today(&agent), 1);
+
+    // Authorizing with distinct nonce2 succeeds
+    let outcome2 = client.authorize_payment_with_nonce(
+        &agent,
+        &seller,
+        &asset,
+        &15,
+        &resource_hash,
+        &nonce2,
+    );
+    assert_eq!(
+        outcome2,
+        PaymentAuthorizationOutcome {
+            replayed: false,
+            authorized_at_ledger: 20,
+        }
+    );
+    assert_eq!(client.spent_today(&agent), 40);
+    assert_eq!(client.authorized_count_today(&agent), 2);
+
+    // Exact replay across day boundary returns deterministic outcome and does not double-spend
+    env.ledger().set_sequence_number(LEDGERS_PER_DAY + 5);
+    assert_eq!(client.spent_today(&agent), 0); // New day
+    assert_eq!(client.authorized_count_today(&agent), 0);
+
+    let replay_day2 = client.authorize_payment_with_nonce(
+        &agent,
+        &seller,
+        &asset,
+        &25,
+        &resource_hash,
+        &nonce1,
+    );
+    assert_eq!(
+        replay_day2,
+        PaymentAuthorizationOutcome {
+            replayed: true,
+            authorized_at_ledger: 10,
+        }
+    );
+    // Still 0 on new day because replay does not consume new day's quota
+    assert_eq!(client.spent_today(&agent), 0);
+    assert_eq!(client.authorized_count_today(&agent), 0);
+}
