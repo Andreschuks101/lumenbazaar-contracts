@@ -699,3 +699,81 @@ fn p7_extreme_amounts_return_defined_errors() {
     );
     assert_eq!(client.spent_today(&actors.agent), i128::MAX);
 }
+
+/// Invariant: Policy active-window status matches authorization enforcement and revocation precedence.
+#[test]
+fn policy_active_window_status_matches_authorization_and_revocation() {
+    let env = Env::default();
+    let (client, actors) = setup(&env);
+    let valid_from = START_LEDGER + 5;
+    let valid_until = START_LEDGER + 15;
+    let mut policy = pinned_policy(&env, &actors, 100, valid_until);
+    policy.valid_from_ledger = valid_from;
+    client.set_policy(&policy);
+
+    // 1. Pending window
+    for l in START_LEDGER..valid_from {
+        env.ledger().set_sequence_number(l);
+        let status = client.get_policy_status(&actors.agent);
+        assert_eq!(status.status, PolicyStatus::Pending);
+        assert_eq!(status.next_boundary_ledger, Some(valid_from));
+        let check = defined(client.try_check_payment(
+            &actors.agent,
+            &actors.sellers[0],
+            &actors.assets[0],
+            &1,
+            &actors.resources[0],
+        ));
+        assert_eq!(check, Err(PolicyWalletError::PolicyNotActive));
+    }
+
+    // 2. Active window (inclusive at both valid_from and valid_until)
+    for l in valid_from..=valid_until {
+        env.ledger().set_sequence_number(l);
+        let status = client.get_policy_status(&actors.agent);
+        assert_eq!(status.status, PolicyStatus::Active);
+        assert_eq!(status.next_boundary_ledger, Some(valid_until + 1));
+        let check = defined(client.try_check_payment(
+            &actors.agent,
+            &actors.sellers[0],
+            &actors.assets[0],
+            &1,
+            &actors.resources[0],
+        ));
+        assert_eq!(check, Ok(()));
+    }
+
+    // 3. Expired window
+    for l in (valid_until + 1)..=(valid_until + 5) {
+        env.ledger().set_sequence_number(l);
+        let status = client.get_policy_status(&actors.agent);
+        assert_eq!(status.status, PolicyStatus::Expired);
+        assert_eq!(status.next_boundary_ledger, None);
+        let check = defined(client.try_check_payment(
+            &actors.agent,
+            &actors.sellers[0],
+            &actors.assets[0],
+            &1,
+            &actors.resources[0],
+        ));
+        assert_eq!(check, Err(PolicyWalletError::PolicyExpired));
+    }
+
+    // 4. Revocation precedence
+    env.ledger().set_sequence_number(valid_from + 1);
+    client.revoke_policy(&actors.agent);
+    for l in [START_LEDGER, valid_from, valid_from + 2, valid_until, valid_until + 10] {
+        env.ledger().set_sequence_number(l);
+        let status = client.get_policy_status(&actors.agent);
+        assert_eq!(status.status, PolicyStatus::Revoked);
+        assert_eq!(status.next_boundary_ledger, None);
+        let check = defined(client.try_check_payment(
+            &actors.agent,
+            &actors.sellers[0],
+            &actors.assets[0],
+            &1,
+            &actors.resources[0],
+        ));
+        assert_eq!(check, Err(PolicyWalletError::PolicyRevoked));
+    }
+}

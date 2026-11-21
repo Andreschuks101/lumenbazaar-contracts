@@ -60,6 +60,25 @@ pub struct WalletConfig {
 }
 
 #[contracttype]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum PolicyStatus {
+    Pending,
+    Active,
+    Expired,
+    Revoked,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PolicyActiveWindowStatus {
+    pub status: PolicyStatus,
+    pub current_ledger: u32,
+    pub valid_from_ledger: u32,
+    pub valid_until_ledger: u32,
+    pub next_boundary_ledger: Option<u32>,
+}
+
+#[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SpendingPolicy {
     pub agent: Address,
@@ -234,6 +253,77 @@ impl PolicyWalletExampleContract {
 
     pub fn get_policy_revision(env: Env, agent: Address) -> Result<u32, PolicyWalletError> {
         Ok(read_policy(&env, &agent)?.revision)
+    }
+
+    /// Read-only status query reporting whether an agent's policy is Pending, Active,
+    /// Expired, or Revoked at the current ledger sequence, alongside the policy's
+    /// active window and the next ledger boundary. Revocation takes precedence.
+    pub fn get_policy_status(
+        env: Env,
+        agent: Address,
+    ) -> Result<PolicyActiveWindowStatus, PolicyWalletError> {
+        let current_ledger = env.ledger().sequence();
+        if env
+            .storage()
+            .instance()
+            .has(&DataKey::RevokedPolicy(agent.clone()))
+        {
+            let policy_opt = env
+                .storage()
+                .instance()
+                .get::<_, SpendingPolicy>(&DataKey::Policy(agent));
+            let (from, until) = match policy_opt {
+                Some(p) => (p.valid_from_ledger, p.valid_until_ledger),
+                None => (0, 0),
+            };
+            return Ok(PolicyActiveWindowStatus {
+                status: PolicyStatus::Revoked,
+                current_ledger,
+                valid_from_ledger: from,
+                valid_until_ledger: until,
+                next_boundary_ledger: None,
+            });
+        }
+
+        let policy = env
+            .storage()
+            .instance()
+            .get::<_, SpendingPolicy>(&DataKey::Policy(agent))
+            .ok_or(PolicyWalletError::PolicyNotFound)?;
+
+        let from = policy.valid_from_ledger;
+        let until = policy.valid_until_ledger;
+
+        if current_ledger < from {
+            Ok(PolicyActiveWindowStatus {
+                status: PolicyStatus::Pending,
+                current_ledger,
+                valid_from_ledger: from,
+                valid_until_ledger: until,
+                next_boundary_ledger: Some(from),
+            })
+        } else if current_ledger <= until {
+            let next_boundary = if until < u32::MAX {
+                Some(until + 1)
+            } else {
+                None
+            };
+            Ok(PolicyActiveWindowStatus {
+                status: PolicyStatus::Active,
+                current_ledger,
+                valid_from_ledger: from,
+                valid_until_ledger: until,
+                next_boundary_ledger: next_boundary,
+            })
+        } else {
+            Ok(PolicyActiveWindowStatus {
+                status: PolicyStatus::Expired,
+                current_ledger,
+                valid_from_ledger: from,
+                valid_until_ledger: until,
+                next_boundary_ledger: None,
+            })
+        }
     }
 
     pub fn check_payment(

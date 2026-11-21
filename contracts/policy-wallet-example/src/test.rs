@@ -1024,3 +1024,124 @@ fn authorization_limit_isolation_and_rollover() {
         .is_ok());
     assert_eq!(client.authorized_count_today(&agent_a), 1);
 }
+
+#[test]
+fn test_policy_active_window_status_boundaries_and_revocation() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, agent, seller, asset, _owner, resource_hash) = initialized_wallet(&env);
+
+    // 1. Policy not found for unregistered agent
+    let unregistered = Address::generate(&env);
+    assert_eq!(
+        client.try_get_policy_status(&unregistered),
+        Err(Ok(PolicyWalletError::PolicyNotFound))
+    );
+
+    // 2. Set policy with validity window [100, 200]
+    let mut policy = standard_policy(&env, &agent, &seller, &asset, &resource_hash, 200);
+    policy.valid_from_ledger = 100;
+    client.set_policy(&policy);
+
+    // Pending: ledger 99 (< valid_from 100)
+    env.ledger().set_sequence_number(99);
+    assert_eq!(
+        client.get_policy_status(&agent),
+        PolicyActiveWindowStatus {
+            status: PolicyStatus::Pending,
+            current_ledger: 99,
+            valid_from_ledger: 100,
+            valid_until_ledger: 200,
+            next_boundary_ledger: Some(100),
+        }
+    );
+    // Matches authorization enforcement
+    assert_eq!(
+        client.try_check_payment(&agent, &seller, &asset, &10, &resource_hash),
+        Err(Ok(PolicyWalletError::PolicyNotActive))
+    );
+
+    // Active exact valid_from: ledger 100
+    env.ledger().set_sequence_number(100);
+    assert_eq!(
+        client.get_policy_status(&agent),
+        PolicyActiveWindowStatus {
+            status: PolicyStatus::Active,
+            current_ledger: 100,
+            valid_from_ledger: 100,
+            valid_until_ledger: 200,
+            next_boundary_ledger: Some(201),
+        }
+    );
+    assert!(client.try_check_payment(&agent, &seller, &asset, &10, &resource_hash).is_ok());
+
+    // Active interior: ledger 150
+    env.ledger().set_sequence_number(150);
+    assert_eq!(
+        client.get_policy_status(&agent),
+        PolicyActiveWindowStatus {
+            status: PolicyStatus::Active,
+            current_ledger: 150,
+            valid_from_ledger: 100,
+            valid_until_ledger: 200,
+            next_boundary_ledger: Some(201),
+        }
+    );
+    assert!(client.try_check_payment(&agent, &seller, &asset, &10, &resource_hash).is_ok());
+
+    // Active exact valid_until: ledger 200 (inclusive upper bound)
+    env.ledger().set_sequence_number(200);
+    assert_eq!(
+        client.get_policy_status(&agent),
+        PolicyActiveWindowStatus {
+            status: PolicyStatus::Active,
+            current_ledger: 200,
+            valid_from_ledger: 100,
+            valid_until_ledger: 200,
+            next_boundary_ledger: Some(201),
+        }
+    );
+    assert!(client.try_check_payment(&agent, &seller, &asset, &10, &resource_hash).is_ok());
+
+    // Expired exact: ledger 201 (> valid_until 200)
+    env.ledger().set_sequence_number(201);
+    assert_eq!(
+        client.get_policy_status(&agent),
+        PolicyActiveWindowStatus {
+            status: PolicyStatus::Expired,
+            current_ledger: 201,
+            valid_from_ledger: 100,
+            valid_until_ledger: 200,
+            next_boundary_ledger: None,
+        }
+    );
+    assert_eq!(
+        client.try_check_payment(&agent, &seller, &asset, &10, &resource_hash),
+        Err(Ok(PolicyWalletError::PolicyExpired))
+    );
+
+    // 3. Revocation takes precedence over temporal state
+    // Revoke at ledger 150 (within active window)
+    env.ledger().set_sequence_number(150);
+    client.revoke_policy(&agent);
+    assert_eq!(
+        client.get_policy_status(&agent),
+        PolicyActiveWindowStatus {
+            status: PolicyStatus::Revoked,
+            current_ledger: 150,
+            valid_from_ledger: 0,
+            valid_until_ledger: 0,
+            next_boundary_ledger: None,
+        }
+    );
+    assert_eq!(
+        client.try_check_payment(&agent, &seller, &asset, &10, &resource_hash),
+        Err(Ok(PolicyWalletError::PolicyRevoked))
+    );
+
+    // Revocation status holds even at ledger before valid_from or after valid_until
+    env.ledger().set_sequence_number(50);
+    assert_eq!(client.get_policy_status(&agent).status, PolicyStatus::Revoked);
+    env.ledger().set_sequence_number(250);
+    assert_eq!(client.get_policy_status(&agent).status, PolicyStatus::Revoked);
+}

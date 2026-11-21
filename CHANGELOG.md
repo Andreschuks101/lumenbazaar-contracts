@@ -4,6 +4,13 @@
 
 ### Added
 
+- Add policy active-window status query (`get_policy_status`) in `policy-wallet-example`
+  reporting whether a policy is pending, active, expired, or revoked at the current ledger
+  sequence, with the active ledger window and next transition boundary.
+  Compatibility: additive method and return types (`PolicyStatus`, `PolicyActiveWindowStatus`);
+  existing authorization semantics are unchanged.
+  Migration: none.
+
 - Add typed transaction evidence helpers to the TypeScript binding
   (`createSessionWithEvidence`, `settleWithEvidence`, `cancelWithEvidence`,
   `extendTtlWithEvidence`) that sign through an injected signer, confirm through RPC and
