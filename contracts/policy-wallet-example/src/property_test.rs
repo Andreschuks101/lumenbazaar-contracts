@@ -896,3 +896,80 @@ proptest! {
         }
     }
 }
+
+/// Invariant: Same-ledger authorization permutations and rejections never cause state drift.
+/// Rejected calls leave storage unchanged, and permutations of valid authorizations that fit
+/// within caps accumulate deterministically without order-dependent drift.
+#[test]
+fn same_ledger_authorization_permutations_and_rejections_preserve_consistency() {
+    let env = Env::default();
+    let (client, actors) = setup(&env);
+    let ledger = START_LEDGER + 1;
+    env.ledger().set_sequence_number(ledger);
+
+    let mut policy = pinned_policy(&env, &actors, 100, START_LEDGER + 50);
+    policy.max_authorizations_per_day = 10;
+    client.set_policy(&policy);
+
+    let wallet = client.address.clone();
+    let initial_storage = snapshot(&env, &wallet);
+
+    // Sequence of invalid calls on the same ledger:
+    let unlisted_seller = &actors.sellers[SELLERS];
+    let unlisted_asset = &actors.assets[ASSETS];
+    let unlisted_resource = &actors.resources[RESOURCES];
+
+    assert_eq!(
+        defined(client.try_authorize_payment(&actors.agent, unlisted_seller, &actors.assets[0], &10, &actors.resources[0])),
+        Err(PolicyWalletError::SellerNotAllowed)
+    );
+    assert_eq!(snapshot(&env, &wallet), initial_storage);
+
+    assert_eq!(
+        defined(client.try_authorize_payment(&actors.agent, &actors.sellers[0], unlisted_asset, &10, &actors.resources[0])),
+        Err(PolicyWalletError::AssetNotAllowed)
+    );
+    assert_eq!(snapshot(&env, &wallet), initial_storage);
+
+    assert_eq!(
+        defined(client.try_authorize_payment(&actors.agent, &actors.sellers[0], &actors.assets[0], &10, unlisted_resource)),
+        Err(PolicyWalletError::ResourceHashNotAllowed)
+    );
+    assert_eq!(snapshot(&env, &wallet), initial_storage);
+
+    // Valid authorization 1: 30
+    assert_eq!(
+        defined(client.try_authorize_payment(&actors.agent, &actors.sellers[0], &actors.assets[0], &30, &actors.resources[0])),
+        Ok(())
+    );
+    let after_first = snapshot(&env, &wallet);
+
+    // More invalid calls in the middle of a same-ledger sequence:
+    assert_eq!(
+        defined(client.try_authorize_payment(&actors.agent, unlisted_seller, &actors.assets[0], &10, &actors.resources[0])),
+        Err(PolicyWalletError::SellerNotAllowed)
+    );
+    assert_eq!(snapshot(&env, &wallet), after_first);
+
+    // Valid authorization 2: 40
+    assert_eq!(
+        defined(client.try_authorize_payment(&actors.agent, &actors.sellers[0], &actors.assets[0], &40, &actors.resources[0])),
+        Ok(())
+    );
+
+    // Daily cap violation (30 + 40 + 50 = 120 > 100):
+    let after_second = snapshot(&env, &wallet);
+    assert_eq!(
+        defined(client.try_authorize_payment(&actors.agent, &actors.sellers[0], &actors.assets[0], &50, &actors.resources[0])),
+        Err(PolicyWalletError::AmountExceedsDailyCap)
+    );
+    assert_eq!(snapshot(&env, &wallet), after_second);
+
+    // Valid authorization 3: 30 (exact cap: 30 + 40 + 30 = 100)
+    assert_eq!(
+        defined(client.try_authorize_payment(&actors.agent, &actors.sellers[0], &actors.assets[0], &30, &actors.resources[0])),
+        Ok(())
+    );
+    assert_eq!(client.spent_today(&actors.agent), 100);
+    assert_eq!(client.authorized_count_today(&actors.agent), 3);
+}

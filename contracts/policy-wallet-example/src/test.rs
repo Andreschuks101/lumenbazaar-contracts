@@ -1145,3 +1145,105 @@ fn test_policy_active_window_status_boundaries_and_revocation() {
     env.ledger().set_sequence_number(250);
     assert_eq!(client.get_policy_status(&agent).status, PolicyStatus::Revoked);
 }
+
+#[test]
+fn test_same_ledger_authorization_ordering_permutations_and_rejections() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, agent, seller, asset, _owner, resource_hash) = initialized_wallet(&env);
+    let wrong_seller = Address::generate(&env);
+
+    // Set standard policy: payment cap = 75, daily cap = 100, max authorizations per day = 3
+    let mut policy = standard_policy(&env, &agent, &seller, &asset, &resource_hash, 100_000);
+    policy.max_authorizations_per_day = 3;
+    client.set_policy(&policy);
+
+    // Ensure we are at a fixed ledger (same ledger throughout all permutation tests)
+    env.ledger().set_sequence_number(1_000);
+
+    // 1. Rejected calls (e.g. wrong seller, amount over per-payment cap, non-positive amount)
+    // executed in various positions do NOT cause state drift or increment spend/auth counters.
+    assert_eq!(
+        client.try_authorize_payment(&agent, &wrong_seller, &asset, &20, &resource_hash),
+        Err(Ok(PolicyWalletError::SellerNotAllowed))
+    );
+    assert_eq!(client.spent_today(&agent), 0);
+    assert_eq!(client.authorized_count_today(&agent), 0);
+
+    assert_eq!(
+        client.try_authorize_payment(&agent, &seller, &asset, &80, &resource_hash),
+        Err(Ok(PolicyWalletError::AmountExceedsPaymentCap))
+    );
+    assert_eq!(client.spent_today(&agent), 0);
+    assert_eq!(client.authorized_count_today(&agent), 0);
+
+    assert_eq!(
+        client.try_authorize_payment(&agent, &seller, &asset, &0, &resource_hash),
+        Err(Ok(PolicyWalletError::InvalidAmount))
+    );
+    assert_eq!(client.spent_today(&agent), 0);
+    assert_eq!(client.authorized_count_today(&agent), 0);
+
+    // 2. Successful same-ledger sequence: First call consumes 40
+    assert!(client.try_authorize_payment(&agent, &seller, &asset, &40, &resource_hash).is_ok());
+    assert_eq!(client.spent_today(&agent), 40);
+    assert_eq!(client.authorized_count_today(&agent), 1);
+
+    // Rejected call interleaved in the middle of a same-ledger sequence:
+    assert_eq!(
+        client.try_authorize_payment(&agent, &wrong_seller, &asset, &10, &resource_hash),
+        Err(Ok(PolicyWalletError::SellerNotAllowed))
+    );
+    assert_eq!(client.spent_today(&agent), 40);
+    assert_eq!(client.authorized_count_today(&agent), 1);
+
+    // Second valid call: consumes 50 (40 + 50 = 90 <= 100 daily cap)
+    assert!(client.try_authorize_payment(&agent, &seller, &asset, &50, &resource_hash).is_ok());
+    assert_eq!(client.spent_today(&agent), 90);
+    assert_eq!(client.authorized_count_today(&agent), 2);
+
+    // Payment exceeding remaining daily cap (90 + 20 = 110 > 100): rejected, no state drift
+    assert_eq!(
+        client.try_authorize_payment(&agent, &seller, &asset, &20, &resource_hash),
+        Err(Ok(PolicyWalletError::AmountExceedsDailyCap))
+    );
+    assert_eq!(client.spent_today(&agent), 90);
+    assert_eq!(client.authorized_count_today(&agent), 2);
+
+    // Third valid call: consumes 10 (reaches exact daily cap 100 and auth limit 3)
+    assert!(client.try_authorize_payment(&agent, &seller, &asset, &10, &resource_hash).is_ok());
+    assert_eq!(client.spent_today(&agent), 100);
+    assert_eq!(client.authorized_count_today(&agent), 3);
+
+    // Subsequent call fails on authorization count limit (even for amount 0 or within cap)
+    assert_eq!(
+        client.try_authorize_payment(&agent, &seller, &asset, &1, &resource_hash),
+        Err(Ok(PolicyWalletError::AuthorizationLimitExceeded))
+    );
+    assert_eq!(client.spent_today(&agent), 100);
+    assert_eq!(client.authorized_count_today(&agent), 3);
+
+    // 3. Alternative ordering test on fresh agent to verify deterministic order-independent final states
+    let agent2 = Address::generate(&env);
+    let mut policy2 = standard_policy(&env, &agent2, &seller, &asset, &resource_hash, 100_000);
+    policy2.agent = agent2.clone();
+    policy2.max_authorizations_per_day = 3;
+    client.set_policy(&policy2);
+
+    // Same ledger: execute in reverse amount order: 10, then 50, then 40
+    assert!(client.try_authorize_payment(&agent2, &seller, &asset, &10, &resource_hash).is_ok());
+    assert_eq!(client.spent_today(&agent2), 10);
+    assert_eq!(client.authorized_count_today(&agent2), 1);
+
+    assert!(client.try_authorize_payment(&agent2, &seller, &asset, &50, &resource_hash).is_ok());
+    assert_eq!(client.spent_today(&agent2), 60);
+    assert_eq!(client.authorized_count_today(&agent2), 2);
+
+    assert!(client.try_authorize_payment(&agent2, &seller, &asset, &40, &resource_hash).is_ok());
+    assert_eq!(client.spent_today(&agent2), 100);
+    assert_eq!(client.authorized_count_today(&agent2), 3);
+
+    // Reached exact same terminal totals on the same ledger
+    assert_eq!(client.spent_today(&agent), client.spent_today(&agent2));
+    assert_eq!(client.authorized_count_today(&agent), client.authorized_count_today(&agent2));
+}
