@@ -306,3 +306,12 @@ pub struct BatchSessionResult {
     pub session_id: BytesN<32>,
     pub status: BatchSessionStatus,
 }
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AssetExposureHeadroom {
+    pub ceiling: i128,
+    pub exposure: i128,
+    pub headroom: i128,
+}
+

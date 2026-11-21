@@ -10,8 +10,8 @@ pub mod validation;
 
 pub use errors::ContractError;
 pub use types::{
-    AdminRotation, AssetLifecycle, AssetPolicy, AssetPolicyResponse, AssetSolvency,
-    AssetSolvencySnapshot, AssetStatus, BatchRecoveryResult, BatchRecoveryStatus,
+    AdminRotation, AssetExposureHeadroom, AssetLifecycle, AssetPolicy, AssetPolicyResponse,
+    AssetSolvency, AssetSolvencySnapshot, AssetStatus, BatchRecoveryResult, BatchRecoveryStatus,
     BatchSessionResult, BatchSessionStatus, BuyerSessionCount, CapIncreaseProposal,
     CommitmentDomainMetadata, CommitmentKind, ContractConfiguration, OperationalState,
     RecoverabilityStatus, Session, SessionRecoverability, SessionStateCounts, SessionStatus,
@@ -448,6 +448,27 @@ impl UptoSessionContract {
         }
         storage::read_asset_exposure_ceiling(&env, &asset)
             .ok_or(ContractError::ExposureCeilingNotConfigured)
+    }
+
+    pub fn get_asset_exposure_headroom(
+        env: Env,
+        asset: Address,
+    ) -> Result<AssetExposureHeadroom, ContractError> {
+        if !storage::has_admin(&env) {
+            return Err(ContractError::NotInitialized);
+        }
+        if !storage::is_supported_asset(&env, &asset) {
+            return Err(ContractError::UnsupportedAsset);
+        }
+        let ceiling = storage::read_asset_exposure_ceiling(&env, &asset)
+            .ok_or(ContractError::ExposureCeilingNotConfigured)?;
+        let exposure = storage::read_liability(&env, &asset);
+        let headroom = ceiling.saturating_sub(exposure);
+        Ok(AssetExposureHeadroom {
+            ceiling,
+            exposure,
+            headroom,
+        })
     }
 
     /// Admin-only: sets the ceiling on open escrow any single buyer may hold

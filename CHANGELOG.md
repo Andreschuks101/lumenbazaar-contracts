@@ -4,6 +4,10 @@
 
 ### Added
 
+- Add asset exposure headroom query (#240).
+  Compatibility: additive method and result type; existing exposure ceiling and liability queries are unchanged.
+  Migration: none.
+
 - Add typed transaction evidence helpers to the TypeScript binding
   (`createSessionWithEvidence`, `settleWithEvidence`, `cancelWithEvidence`,
   `extendTtlWithEvidence`) that sign through an injected signer, confirm through RPC and
