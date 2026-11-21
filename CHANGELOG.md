@@ -4,6 +4,11 @@
 
 ### Added
 
+- Add versioned, domain-separated `get_policy_configuration_digest` query to `policy-wallet-example`
+  fingerprinting wallet owner, agent, limits, validity windows, and allowlists.
+  Compatibility: additive read-only query; existing policy evaluation is unchanged.
+  Migration: none.
+
 - Add bounded, read-only `preview_recover_expired_batch` query to `upto-session` with
   per-session recoverability and refund metadata matching batch recovery behavior.
   Compatibility: additive read-only query; existing recovery execution is unchanged.

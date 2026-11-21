@@ -1,13 +1,17 @@
 #![no_std]
 
 use soroban_sdk::{
-    contract, contracterror, contractevent, contractimpl, contracttype, Address, BytesN, Env, Vec,
+    contract, contracterror, contractevent, contractimpl, contracttype, xdr::ToXdr, Address,
+    Bytes, BytesN, Env, Vec,
 };
 
 pub const LEDGERS_PER_DAY: u32 = 17_280;
 pub const MAX_ALLOWED_SELLERS: u32 = 16;
 pub const MAX_ALLOWED_ASSETS: u32 = 16;
 pub const MAX_ALLOWED_RESOURCE_HASHES: u32 = 16;
+
+pub const POLICY_CONFIGURATION_DOMAIN: &[u8] = b"lumenbazaar/policy-configuration";
+pub const POLICY_CONFIGURATION_VERSION: u32 = 1;
 
 // TTL management constants for instance storage keys
 pub const DEFAULT_TTL_THRESHOLD: u32 = 100_000;
@@ -230,6 +234,17 @@ impl PolicyWalletExampleContract {
 
     pub fn get_policy(env: Env, agent: Address) -> Result<SpendingPolicy, PolicyWalletError> {
         read_policy(&env, &agent)
+    }
+
+    /// Queries the versioned, domain-separated cryptographic digest of an agent's active policy configuration.
+    /// The digest binds policy owner, limits, validity windows, allowlists, and contract identity.
+    pub fn get_policy_configuration_digest(
+        env: Env,
+        agent: Address,
+    ) -> Result<BytesN<32>, PolicyWalletError> {
+        let config = read_config(&env)?;
+        let policy = read_policy(&env, &agent)?;
+        Ok(compute_policy_configuration_digest(&env, &config.owner, &policy))
     }
 
     pub fn get_policy_revision(env: Env, agent: Address) -> Result<u32, PolicyWalletError> {
@@ -646,6 +661,38 @@ fn read_daily_auth_count(env: &Env, agent: &Address, ledger_day: u32) -> u32 {
 
 fn current_ledger_day(env: &Env) -> u32 {
     env.ledger().sequence() / LEDGERS_PER_DAY
+}
+
+/// Computes the canonical, versioned, domain-separated SHA-256 digest
+/// over the wallet owner and policy configuration fields (owner, limits, windows, allowlists).
+pub fn compute_policy_configuration_digest(
+    env: &Env,
+    owner: &Address,
+    policy: &SpendingPolicy,
+) -> BytesN<32> {
+    let domain = (
+        Bytes::from_slice(env, POLICY_CONFIGURATION_DOMAIN),
+        POLICY_CONFIGURATION_VERSION,
+        env.ledger().network_id(),
+        env.current_contract_address(),
+    )
+        .to_xdr(env);
+    let payload = (
+        domain,
+        owner.clone(),
+        policy.agent.clone(),
+        policy.max_amount_per_payment,
+        policy.max_amount_per_day,
+        policy.max_authorizations_per_day,
+        policy.valid_from_ledger,
+        policy.valid_until_ledger,
+        policy.allowed_sellers.clone(),
+        policy.allowed_assets.clone(),
+        policy.allowed_resource_hashes.clone(),
+        policy.seller_limits.clone(),
+        policy.resource_limits.clone(),
+    );
+    env.crypto().sha256(&payload.to_xdr(env)).to_bytes()
 }
 
 #[cfg(test)]

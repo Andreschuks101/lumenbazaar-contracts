@@ -1024,3 +1024,229 @@ fn authorization_limit_isolation_and_rollover() {
         .is_ok());
     assert_eq!(client.authorized_count_today(&agent_a), 1);
 }
+
+#[test]
+fn policy_configuration_digest_is_deterministic_domain_separated_and_sensitive_to_all_fields() {
+    let env = Env::default();
+    env.mock_all_auths();
+    env.ledger().set_network_id([5; 32]);
+    let contract_id = env.register(PolicyWalletExampleContract, ());
+    let other_contract_id = env.register(PolicyWalletExampleContract, ());
+    let client = PolicyWalletExampleContractClient::new(&env, &contract_id);
+    let other_client = PolicyWalletExampleContractClient::new(&env, &other_contract_id);
+
+    let owner = Address::generate(&env);
+    let upto_session = Address::generate(&env);
+    client.initialize(&owner, &upto_session);
+    other_client.initialize(&owner, &upto_session);
+
+    let agent = Address::generate(&env);
+    let seller = Address::generate(&env);
+    let asset = Address::generate(&env);
+    let resource_hash = BytesN::from_array(&env, &[1; 32]);
+
+    let baseline_policy = SpendingPolicy {
+        agent: agent.clone(),
+        max_amount_per_payment: 100,
+        max_amount_per_day: 1000,
+        max_authorizations_per_day: 50,
+        valid_from_ledger: 10,
+        valid_until_ledger: 10000,
+        allowed_sellers: vec![&env, seller.clone()],
+        allowed_assets: vec![&env, asset.clone()],
+        allowed_resource_hashes: vec![&env, resource_hash.clone()],
+        seller_limits: vec![
+            &env,
+            SellerSpendingLimit {
+                seller: seller.clone(),
+                max_amount_per_payment: 50,
+                max_amount_per_day: 500,
+            },
+        ],
+        resource_limits: vec![
+            &env,
+            ResourceSpendingLimit {
+                resource_hash: resource_hash.clone(),
+                max_amount_per_payment: 40,
+                max_amount_per_day: 400,
+            },
+        ],
+        revision: 0,
+    };
+
+    client.set_policy(&baseline_policy);
+    other_client.set_policy(&baseline_policy);
+
+    // 1. Acceptance Criteria: Equivalent configurations produce identical digests
+    let digest_1 = client.get_policy_configuration_digest(&agent);
+    let digest_2 = client.get_policy_configuration_digest(&agent);
+    assert_eq!(digest_1, digest_2);
+
+    // Domain separation: Different contract address -> different digest
+    let other_contract_digest = other_client.get_policy_configuration_digest(&agent);
+    assert_ne!(digest_1, other_contract_digest);
+
+    // Domain separation: Different network id -> different digest
+    let digest_owner_scope = env.as_contract(&contract_id, || {
+        compute_policy_configuration_digest(&env, &owner, &baseline_policy)
+    });
+    assert_eq!(digest_1, digest_owner_scope);
+
+    // 2. Acceptance Criteria: Any enforced policy field changes the digest
+    // Field sensitivity checks:
+
+    // Changing agent
+    let other_agent = Address::generate(&env);
+    let mut modified = baseline_policy.clone();
+    modified.agent = other_agent;
+    let digest_mod = env.as_contract(&contract_id, || {
+        compute_policy_configuration_digest(&env, &owner, &modified)
+    });
+    assert_ne!(digest_1, digest_mod);
+
+    // Changing owner
+    let other_owner = Address::generate(&env);
+    let digest_mod = env.as_contract(&contract_id, || {
+        compute_policy_configuration_digest(&env, &other_owner, &baseline_policy)
+    });
+    assert_ne!(digest_1, digest_mod);
+
+    // Changing max_amount_per_payment
+    let mut modified = baseline_policy.clone();
+    modified.max_amount_per_payment = 99;
+    let digest_mod = env.as_contract(&contract_id, || {
+        compute_policy_configuration_digest(&env, &owner, &modified)
+    });
+    assert_ne!(digest_1, digest_mod);
+
+    // Changing max_amount_per_day
+    let mut modified = baseline_policy.clone();
+    modified.max_amount_per_day = 999;
+    let digest_mod = env.as_contract(&contract_id, || {
+        compute_policy_configuration_digest(&env, &owner, &modified)
+    });
+    assert_ne!(digest_1, digest_mod);
+
+    // Changing max_authorizations_per_day
+    let mut modified = baseline_policy.clone();
+    modified.max_authorizations_per_day = 49;
+    let digest_mod = env.as_contract(&contract_id, || {
+        compute_policy_configuration_digest(&env, &owner, &modified)
+    });
+    assert_ne!(digest_1, digest_mod);
+
+    // Changing valid_from_ledger
+    let mut modified = baseline_policy.clone();
+    modified.valid_from_ledger = 11;
+    let digest_mod = env.as_contract(&contract_id, || {
+        compute_policy_configuration_digest(&env, &owner, &modified)
+    });
+    assert_ne!(digest_1, digest_mod);
+
+    // Changing valid_until_ledger
+    let mut modified = baseline_policy.clone();
+    modified.valid_until_ledger = 9999;
+    let digest_mod = env.as_contract(&contract_id, || {
+        compute_policy_configuration_digest(&env, &owner, &modified)
+    });
+    assert_ne!(digest_1, digest_mod);
+
+    // Changing allowed_sellers
+    let other_seller = Address::generate(&env);
+    let mut modified = baseline_policy.clone();
+    modified.allowed_sellers = vec![&env, other_seller.clone()];
+    let digest_mod = env.as_contract(&contract_id, || {
+        compute_policy_configuration_digest(&env, &owner, &modified)
+    });
+    assert_ne!(digest_1, digest_mod);
+
+    // Changing allowed_assets
+    let other_asset = Address::generate(&env);
+    let mut modified = baseline_policy.clone();
+    modified.allowed_assets = vec![&env, other_asset.clone()];
+    let digest_mod = env.as_contract(&contract_id, || {
+        compute_policy_configuration_digest(&env, &owner, &modified)
+    });
+    assert_ne!(digest_1, digest_mod);
+
+    // Changing allowed_resource_hashes
+    let other_res_hash = BytesN::from_array(&env, &[2; 32]);
+    let mut modified = baseline_policy.clone();
+    modified.allowed_resource_hashes = vec![&env, other_res_hash.clone()];
+    let digest_mod = env.as_contract(&contract_id, || {
+        compute_policy_configuration_digest(&env, &owner, &modified)
+    });
+    assert_ne!(digest_1, digest_mod);
+
+    // Changing seller_limits
+    let mut modified = baseline_policy.clone();
+    modified.seller_limits = vec![
+        &env,
+        SellerSpendingLimit {
+            seller: seller.clone(),
+            max_amount_per_payment: 45,
+            max_amount_per_day: 500,
+        },
+    ];
+    let digest_mod = env.as_contract(&contract_id, || {
+        compute_policy_configuration_digest(&env, &owner, &modified)
+    });
+    assert_ne!(digest_1, digest_mod);
+
+    // Changing resource_limits
+    let mut modified = baseline_policy.clone();
+    modified.resource_limits = vec![
+        &env,
+        ResourceSpendingLimit {
+            resource_hash: resource_hash.clone(),
+            max_amount_per_payment: 35,
+            max_amount_per_day: 400,
+        },
+    ];
+    let digest_mod = env.as_contract(&contract_id, || {
+        compute_policy_configuration_digest(&env, &owner, &modified)
+    });
+    assert_ne!(digest_1, digest_mod);
+
+    // 3. Acceptance Criteria: Golden vector documents canonical field ordering
+    // Canonical tuple layout:
+    // (
+    //   domain: (Bytes("lumenbazaar/policy-configuration"), version: 1, network_id, contract_id),
+    //   owner,
+    //   policy.agent,
+    //   policy.max_amount_per_payment,
+    //   policy.max_amount_per_day,
+    //   policy.max_authorizations_per_day,
+    //   policy.valid_from_ledger,
+    //   policy.valid_until_ledger,
+    //   policy.allowed_sellers,
+    //   policy.allowed_assets,
+    //   policy.allowed_resource_hashes,
+    //   policy.seller_limits,
+    //   policy.resource_limits,
+    // )
+    let domain = (
+        Bytes::from_slice(&env, POLICY_CONFIGURATION_DOMAIN),
+        POLICY_CONFIGURATION_VERSION,
+        env.ledger().network_id(),
+        env.current_contract_address(),
+    )
+        .to_xdr(&env);
+    let expected_payload = (
+        domain,
+        owner.clone(),
+        baseline_policy.agent.clone(),
+        baseline_policy.max_amount_per_payment,
+        baseline_policy.max_amount_per_day,
+        baseline_policy.max_authorizations_per_day,
+        baseline_policy.valid_from_ledger,
+        baseline_policy.valid_until_ledger,
+        baseline_policy.allowed_sellers.clone(),
+        baseline_policy.allowed_assets.clone(),
+        baseline_policy.allowed_resource_hashes.clone(),
+        baseline_policy.seller_limits.clone(),
+        baseline_policy.resource_limits.clone(),
+    );
+    let manual_digest = env.crypto().sha256(&expected_payload.to_xdr(&env)).to_bytes();
+    assert_eq!(digest_1, manual_digest);
+}
