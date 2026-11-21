@@ -193,3 +193,162 @@ fn initialization_digest_is_deterministic_and_domain_separated() {
     assert_ne!(first, other_contract);
     println!("initialization-digest={:02x?}", first.to_array());
 }
+
+#[test]
+fn session_indexes_and_counters_ttl_lifecycle_at_threshold_boundaries() {
+    let env = Env::default();
+    let contract = env.register(UptoSessionContract, ());
+    let buyer = Address::generate(&env);
+    let seller = Address::generate(&env);
+    let asset = Address::generate(&env);
+    let commitment = BytesN::from_array(&env, &[15; 32]);
+    let usage_commitment = BytesN::from_array(&env, &[16; 32]);
+
+    env.as_contract(&contract, || {
+        let session_id = BytesN::from_array(&env, &[1; 32]);
+        let mut sess = Session {
+            id: session_id.clone(),
+            buyer: buyer.clone(),
+            seller: seller.clone(),
+            asset: asset.clone(),
+            max_amount: 100,
+            escrowed_amount: 100,
+            settled_amount: 0,
+            expires_at_ledger: 500,
+            resource_hash: commitment.clone(),
+            usage_hash: None,
+            status: SessionStatus::Open,
+            creation_ledger: 0,
+            finalized_ledger: None,
+            resource_scheme_version: 1,
+            usage_scheme_version: None,
+        };
+
+        // Write open session: creates and extends all session indexes and counters
+        storage::write_session(&env, &sess).unwrap();
+        storage::index_session_commitment(
+            &env,
+            &CommitmentKind::Resource,
+            &commitment,
+            &session_id,
+        )
+        .unwrap();
+
+        let resource_key = storage::DataKey::CommitmentIndex(ids::commitment_index_key(
+            &env,
+            &CommitmentKind::Resource,
+            &commitment,
+        ));
+        let seller_state_key =
+            storage::DataKey::SellerSessionStateCount(seller.clone(), SessionStatus::Open);
+        let buyer_key = storage::DataKey::BuyerOpenSessions(buyer.clone());
+        let buyer_total_key = storage::DataKey::BuyerTotalSessions(buyer.clone());
+        let seller_key = storage::DataKey::SellerOpenSessions(seller.clone());
+        let liability_key = storage::DataKey::Liability(asset.clone());
+        let seller_exposure_key =
+            storage::DataKey::SellerExposure(seller.clone(), asset.clone());
+        let buyer_exposure_key =
+            storage::DataKey::BuyerExposure(buyer.clone(), asset.clone());
+
+        // Verify all indexes and aggregate counters start with full extension TTL
+        for key in [
+            &resource_key,
+            &seller_state_key,
+            &buyer_key,
+            &buyer_total_key,
+            &seller_key,
+            &liability_key,
+            &seller_exposure_key,
+            &buyer_exposure_key,
+        ] {
+            assert_eq!(
+                env.storage().persistent().get_ttl(key),
+                storage::TTL_EXTENSION_AMOUNT
+            );
+        }
+
+        // Advance ledger to 1 ledger before threshold: TTL is DEFAULT_TTL_THRESHOLD + 1
+        let at_threshold = storage::TTL_EXTENSION_AMOUNT - storage::DEFAULT_TTL_THRESHOLD;
+        env.ledger().set_sequence_number(at_threshold - 1);
+        storage::extend_session_and_liability_ttl(&env, &sess);
+
+        for key in [
+            &resource_key,
+            &seller_state_key,
+            &buyer_key,
+            &buyer_total_key,
+            &seller_key,
+            &liability_key,
+            &seller_exposure_key,
+            &buyer_exposure_key,
+        ] {
+            assert_eq!(
+                env.storage().persistent().get_ttl(key),
+                storage::DEFAULT_TTL_THRESHOLD + 1
+            );
+        }
+
+        // Advance ledger to exact threshold: TTL reaches DEFAULT_TTL_THRESHOLD
+        env.ledger().set_sequence_number(at_threshold);
+        storage::extend_session_and_liability_ttl(&env, &sess);
+
+        // All indexes and aggregate counters are extended back to full TTL_EXTENSION_AMOUNT
+        for key in [
+            &resource_key,
+            &seller_state_key,
+            &buyer_key,
+            &buyer_total_key,
+            &seller_key,
+            &liability_key,
+            &seller_exposure_key,
+            &buyer_exposure_key,
+        ] {
+            assert_eq!(
+                env.storage().persistent().get_ttl(key),
+                storage::TTL_EXTENSION_AMOUNT
+            );
+        }
+
+        // Terminal transition: settle the session
+        sess.status = SessionStatus::Settled;
+        sess.escrowed_amount = 0;
+        sess.settled_amount = 100;
+        sess.usage_hash = Some(usage_commitment.clone());
+        sess.finalized_ledger = Some(at_threshold);
+        storage::write_session(&env, &sess).unwrap();
+        storage::index_session_commitment(
+            &env,
+            &CommitmentKind::Usage,
+            &usage_commitment,
+            &session_id,
+        )
+        .unwrap();
+
+        // Terminal transitions preserve lookup availability
+        let found_by_resource = storage::read_sessions_by_commitment(
+            &env,
+            &CommitmentKind::Resource,
+            &commitment,
+        );
+        assert_eq!(found_by_resource.len(), 1);
+        assert_eq!(found_by_resource.get(0), Some(session_id.clone()));
+
+        let found_by_usage = storage::read_sessions_by_commitment(
+            &env,
+            &CommitmentKind::Usage,
+            &usage_commitment,
+        );
+        assert_eq!(found_by_usage.len(), 1);
+        assert_eq!(found_by_usage.get(0), Some(session_id));
+
+        // State counts reflect settled status
+        let counts = storage::read_session_state_counts(&env);
+        assert_eq!(counts.open, 0);
+        assert_eq!(counts.settled, 1);
+        assert_eq!(
+            storage::read_seller_session_state_count(&env, &seller, &SessionStatus::Settled),
+            1
+        );
+    });
+}
+
