@@ -187,3 +187,65 @@ fn initialization_digest_is_deterministic_and_domain_separated() {
     assert_ne!(first, other_contract);
     println!("initialization-digest={:02x?}", first.to_array());
 }
+
+#[test]
+fn session_index_consistency_audit_detects_mismatches_and_valid_state() {
+    let env = Env::default();
+    let contract = env.register(UptoSessionContract, ());
+    let admin = Address::generate(&env);
+    let seller = Address::generate(&env);
+    let token_contract = env.register(
+        test_token::TestTokenContract,
+        (),
+    );
+    let token_client = test_token::TestTokenContractClient::new(&env, &token_contract);
+    token_client.mock_all_auths().initialize(&admin);
+
+    let policies = Vec::from_array(
+        &env,
+        [AssetPolicy {
+            asset: token_contract.clone(),
+            max_session_amount: 1_000,
+            min_session_amount: 10,
+            max_asset_exposure: 10_000,
+            max_buyer_exposure: 2_000,
+        }],
+    );
+
+    let client = upto_session::UptoSessionContractClient::new(&env, &contract);
+    client.mock_all_auths().initialize(&admin, &policies);
+
+    let open_session = session(&env, 10, &seller, SessionStatus::Open);
+    env.as_contract(&contract, || {
+        storage::write_session(&env, &open_session).unwrap();
+        let _ = storage::increment_buyer_open_sessions(&env, &open_session.buyer);
+        let _ = storage::increment_seller_open_sessions(&env, &open_session.seller);
+    });
+
+    // Audit before indexing resource commitment detects mismatch
+    let audit_res = client.audit_session_index_consistency(&Vec::from_array(&env, [open_session.id.clone()]));
+    assert_eq!(audit_res.is_consistent, false);
+    assert_eq!(audit_res.mismatches.len(), 1);
+    assert_eq!(audit_res.mismatches.get(0).unwrap().category, upto_session::AuditIndexCategory::ResourceCommitment);
+
+    // Index resource commitment
+    env.as_contract(&contract, || {
+        storage::index_session_commitment(
+            &env,
+            &CommitmentKind::Resource,
+            &open_session.resource_hash,
+            &open_session.id,
+        ).unwrap();
+    });
+
+    // Audit after indexing passes
+    let audit_res_ok = client.audit_session_index_consistency(&Vec::from_array(&env, [open_session.id.clone()]));
+    assert_eq!(audit_res_ok.is_consistent, true);
+    assert_eq!(audit_res_ok.mismatches.len(), 0);
+
+    // Unknown session ID returns SessionNotFound
+    let unknown_id = BytesN::from_array(&env, &[99; 32]);
+    let audit_unknown = client.audit_session_index_consistency(&Vec::from_array(&env, [unknown_id]));
+    assert_eq!(audit_unknown.is_consistent, false);
+    assert_eq!(audit_unknown.mismatches.get(0).unwrap().category, upto_session::AuditIndexCategory::SessionNotFound);
+}

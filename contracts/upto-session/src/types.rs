@@ -321,6 +321,32 @@ pub enum BatchSessionStatus {
 
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub enum AuditIndexCategory {
+    ResourceCommitment,
+    UsageCommitment,
+    SellerStateCount,
+    BuyerOpenSessions,
+    SellerOpenSessions,
+    SessionNotFound,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SessionIndexMismatch {
+    pub session_id: BytesN<32>,
+    pub category: AuditIndexCategory,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SessionIndexAuditResult {
+    pub audited_count: u32,
+    pub mismatches: Vec<SessionIndexMismatch>,
+    pub is_consistent: bool,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct BatchSessionResult {
     pub session_id: BytesN<32>,
     pub status: BatchSessionStatus,
