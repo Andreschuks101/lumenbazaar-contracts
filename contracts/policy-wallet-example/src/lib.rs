@@ -29,6 +29,30 @@ pub enum DataKey {
 
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub enum PolicyDenialReason {
+    None,
+    PolicyNotFound,
+    PolicyRevoked,
+    PolicyNotActive,
+    PolicyExpired,
+    InvalidAmount,
+    AmountExceedsPaymentCap,
+    SellerNotAllowed,
+    AssetNotAllowed,
+    ResourceHashNotAllowed,
+    AuthorizationLimitExceeded,
+    AmountExceedsDailyCap,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PolicyPreviewResult {
+    pub allowed: bool,
+    pub denial_reason: PolicyDenialReason,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SellerSpendingLimit {
     pub seller: Address,
     pub max_amount_per_payment: i128,
@@ -250,6 +274,52 @@ impl PolicyWalletExampleContract {
     ) -> Result<(), PolicyWalletError> {
         validate_payment(&env, &agent, &seller, &asset, amount, &resource_hash)?;
         Ok(())
+    }
+
+    /// Read-only decision explaining whether a proposed payment would satisfy
+    /// the current wallet policy without mutating daily counters or extending TTL.
+    pub fn preview_payment(
+        env: Env,
+        agent: Address,
+        seller: Address,
+        asset: Address,
+        amount: i128,
+        resource_hash: BytesN<32>,
+    ) -> PolicyPreviewResult {
+        match validate_payment(&env, &agent, &seller, &asset, amount, &resource_hash) {
+            Ok(()) => PolicyPreviewResult {
+                allowed: true,
+                denial_reason: PolicyDenialReason::None,
+            },
+            Err(err) => {
+                let denial_reason = match err {
+                    PolicyWalletError::PolicyNotFound => PolicyDenialReason::PolicyNotFound,
+                    PolicyWalletError::PolicyRevoked => PolicyDenialReason::PolicyRevoked,
+                    PolicyWalletError::PolicyNotActive => PolicyDenialReason::PolicyNotActive,
+                    PolicyWalletError::PolicyExpired => PolicyDenialReason::PolicyExpired,
+                    PolicyWalletError::InvalidAmount => PolicyDenialReason::InvalidAmount,
+                    PolicyWalletError::AmountExceedsPaymentCap => {
+                        PolicyDenialReason::AmountExceedsPaymentCap
+                    }
+                    PolicyWalletError::SellerNotAllowed => PolicyDenialReason::SellerNotAllowed,
+                    PolicyWalletError::AssetNotAllowed => PolicyDenialReason::AssetNotAllowed,
+                    PolicyWalletError::ResourceHashNotAllowed => {
+                        PolicyDenialReason::ResourceHashNotAllowed
+                    }
+                    PolicyWalletError::AuthorizationLimitExceeded => {
+                        PolicyDenialReason::AuthorizationLimitExceeded
+                    }
+                    PolicyWalletError::AmountExceedsDailyCap => {
+                        PolicyDenialReason::AmountExceedsDailyCap
+                    }
+                    _ => PolicyDenialReason::None,
+                };
+                PolicyPreviewResult {
+                    allowed: false,
+                    denial_reason,
+                }
+            }
+        }
     }
 
     pub fn authorize_payment(

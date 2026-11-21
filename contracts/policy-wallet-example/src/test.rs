@@ -1360,3 +1360,214 @@ fn same_ledger_concurrent_cap_reductions_enforce_revision_and_seller_resource_or
     );
     assert_eq!(audit_log, std::vec!["session_created", "session_created"]);
 }
+
+#[test]
+fn preview_payment_matches_check_payment_and_never_mutates_state() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, agent, seller, asset, _owner, resource_hash) = initialized_wallet(&env);
+    let wrong_seller = Address::generate(&env);
+    let wrong_asset = Address::generate(&env);
+    let wrong_resource = BytesN::from_array(&env, &[99; 32]);
+
+    // 1. PolicyNotFound when no policy is set
+    assert_eq!(
+        client.preview_payment(&agent, &seller, &asset, &50, &resource_hash),
+        PolicyPreviewResult {
+            allowed: false,
+            denial_reason: PolicyDenialReason::PolicyNotFound,
+        }
+    );
+
+    // Set standard policy: max_per_payment = 75, max_per_day = 100, max_auth = 100, valid_until = 100, valid_from = 10
+    let mut policy = standard_policy(&env, &agent, &seller, &asset, &resource_hash, 100);
+    policy.valid_from_ledger = 10;
+    client.set_policy(&policy, &0);
+
+    // 2. PolicyNotActive (sequence 0 < valid_from 10)
+    assert_eq!(
+        client.preview_payment(&agent, &seller, &asset, &50, &resource_hash),
+        PolicyPreviewResult {
+            allowed: false,
+            denial_reason: PolicyDenialReason::PolicyNotActive,
+        }
+    );
+
+    // Advance to valid window: sequence 10
+    env.ledger().set_sequence_number(10);
+
+    // 3. Positive allowed preview
+    let snapshot_before = client.spent_today(&agent);
+    let auths_before = client.authorized_count_today(&agent);
+    let preview_ok = client.preview_payment(&agent, &seller, &asset, &50, &resource_hash);
+    assert_eq!(
+        preview_ok,
+        PolicyPreviewResult {
+            allowed: true,
+            denial_reason: PolicyDenialReason::None,
+        }
+    );
+    // Assert no mutation occurred
+    assert_eq!(client.spent_today(&agent), snapshot_before);
+    assert_eq!(client.authorized_count_today(&agent), auths_before);
+
+    // 4. InvalidAmount (0 and negative)
+    assert_eq!(
+        client.preview_payment(&agent, &seller, &asset, &0, &resource_hash),
+        PolicyPreviewResult {
+            allowed: false,
+            denial_reason: PolicyDenialReason::InvalidAmount,
+        }
+    );
+    assert_eq!(
+        client.preview_payment(&agent, &seller, &asset, &-5, &resource_hash),
+        PolicyPreviewResult {
+            allowed: false,
+            denial_reason: PolicyDenialReason::InvalidAmount,
+        }
+    );
+
+    // 5. AmountExceedsPaymentCap (76 > 75)
+    assert_eq!(
+        client.preview_payment(&agent, &seller, &asset, &76, &resource_hash),
+        PolicyPreviewResult {
+            allowed: false,
+            denial_reason: PolicyDenialReason::AmountExceedsPaymentCap,
+        }
+    );
+
+    // 6. SellerNotAllowed
+    assert_eq!(
+        client.preview_payment(&agent, &wrong_seller, &asset, &50, &resource_hash),
+        PolicyPreviewResult {
+            allowed: false,
+            denial_reason: PolicyDenialReason::SellerNotAllowed,
+        }
+    );
+
+    // 7. AssetNotAllowed
+    assert_eq!(
+        client.preview_payment(&agent, &seller, &wrong_asset, &50, &resource_hash),
+        PolicyPreviewResult {
+            allowed: false,
+            denial_reason: PolicyDenialReason::AssetNotAllowed,
+        }
+    );
+
+    // 8. ResourceHashNotAllowed
+    assert_eq!(
+        client.preview_payment(&agent, &seller, &asset, &50, &wrong_resource),
+        PolicyPreviewResult {
+            allowed: false,
+            denial_reason: PolicyDenialReason::ResourceHashNotAllowed,
+        }
+    );
+
+    // 9. AuthorizationLimitExceeded
+    // Set policy with max_authorizations_per_day = 1
+    policy.max_authorizations_per_day = 1;
+    client.set_policy(&policy, &1);
+    // Authorize 1 payment
+    client.authorize_payment(&agent, &seller, &asset, &10, &resource_hash);
+    assert_eq!(client.authorized_count_today(&agent), 1);
+    assert_eq!(
+        client.preview_payment(&agent, &seller, &asset, &10, &resource_hash),
+        PolicyPreviewResult {
+            allowed: false,
+            denial_reason: PolicyDenialReason::AuthorizationLimitExceeded,
+        }
+    );
+
+    // 10. AmountExceedsDailyCap
+    // Update policy with max_authorizations_per_day = 100, max_amount_per_payment = 50, max_amount_per_day = 50
+    policy.max_authorizations_per_day = 100;
+    policy.max_amount_per_payment = 50;
+    policy.max_amount_per_day = 50;
+    client.set_policy(&policy, &2);
+    // Spent is already 10. Trying 41 would total 51 > 50
+    assert_eq!(
+        client.preview_payment(&agent, &seller, &asset, &41, &resource_hash),
+        PolicyPreviewResult {
+            allowed: false,
+            denial_reason: PolicyDenialReason::AmountExceedsDailyCap,
+        }
+    );
+
+    // 11. Per-seller payment cap and daily cap
+    policy.seller_limits = vec![
+        &env,
+        SellerSpendingLimit {
+            seller: seller.clone(),
+            max_amount_per_payment: 30,
+            max_amount_per_day: 40,
+        },
+    ];
+    client.set_policy(&policy, &3);
+    // Payment cap violation (31 > 30)
+    assert_eq!(
+        client.preview_payment(&agent, &seller, &asset, &31, &resource_hash),
+        PolicyPreviewResult {
+            allowed: false,
+            denial_reason: PolicyDenialReason::AmountExceedsPaymentCap,
+        }
+    );
+    // Daily cap violation
+    client.authorize_payment(&agent, &seller, &asset, &25, &resource_hash);
+    assert_eq!(client.spent_today_seller(&agent, &seller), 35);
+    assert_eq!(
+        client.preview_payment(&agent, &seller, &asset, &10, &resource_hash),
+        PolicyPreviewResult {
+            allowed: false,
+            denial_reason: PolicyDenialReason::AmountExceedsDailyCap,
+        }
+    );
+
+    // 12. Per-resource payment cap and daily cap
+    policy.resource_limits = vec![
+        &env,
+        ResourceSpendingLimit {
+            resource_hash: resource_hash.clone(),
+            max_amount_per_payment: 20,
+            max_amount_per_day: 40,
+        },
+    ];
+    policy.max_amount_per_day = 200;
+    policy.seller_limits = vec![&env];
+    client.set_policy(&policy, &4);
+    // Payment cap violation (21 > 20)
+    assert_eq!(
+        client.preview_payment(&agent, &seller, &asset, &21, &resource_hash),
+        PolicyPreviewResult {
+            allowed: false,
+            denial_reason: PolicyDenialReason::AmountExceedsPaymentCap,
+        }
+    );
+    // Daily cap violation: spent on resource is already 35. 35 + 10 = 45 > 40
+    assert_eq!(
+        client.preview_payment(&agent, &seller, &asset, &10, &resource_hash),
+        PolicyPreviewResult {
+            allowed: false,
+            denial_reason: PolicyDenialReason::AmountExceedsDailyCap,
+        }
+    );
+
+    // 13. PolicyExpired (sequence 101 > valid_until 100)
+    env.ledger().set_sequence_number(101);
+    assert_eq!(
+        client.preview_payment(&agent, &seller, &asset, &10, &resource_hash),
+        PolicyPreviewResult {
+            allowed: false,
+            denial_reason: PolicyDenialReason::PolicyExpired,
+        }
+    );
+
+    // 14. PolicyRevoked
+    client.revoke_policy(&agent);
+    assert_eq!(
+        client.preview_payment(&agent, &seller, &asset, &10, &resource_hash),
+        PolicyPreviewResult {
+            allowed: false,
+            denial_reason: PolicyDenialReason::PolicyRevoked,
+        }
+    );
+}
