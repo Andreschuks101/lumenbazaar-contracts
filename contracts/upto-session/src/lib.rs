@@ -10,14 +10,14 @@ pub mod validation;
 
 pub use errors::ContractError;
 pub use types::{
-    AdminRotation, AssetExposureHeadroom, AssetLifecycle, AssetPolicy, AssetPolicyResponse,
-    AssetSolvency, AssetSolvencySnapshot, AssetStatus, BatchRecoveryResult, BatchRecoveryStatus,
-    BatchSessionResult, BatchSessionStatus, BuyerExposureHeadroom, BuyerSessionCount,
-    CapIncreaseProposal, CommitmentDomainMetadata, CommitmentKind, ContractConfiguration,
-    OperationalState, RecoverabilityStatus, SellerExposureHeadroom, Session, SessionRecoverability,
-    SessionStateCounts, SessionStatus, SessionStatusResponse, SettlementPreview,
-    SettlementRejectionReason, SolvencyAssetState, SolvencyStatus, TerminalEvidence,
-    TerminalEvidenceDigest,
+    AdminRotation, AdminRotationStatus, AssetExposureHeadroom, AssetLifecycle, AssetPolicy,
+    AssetPolicyResponse, AssetSolvency, AssetSolvencySnapshot, AssetStatus, BatchRecoveryResult,
+    BatchRecoveryStatus, BatchSessionResult, BatchSessionStatus, BuyerExposureHeadroom,
+    BuyerSessionCount, CapIncreaseProposal, CommitmentDomainMetadata, CommitmentKind,
+    ContractConfiguration, OperationalState, RecoverabilityStatus, SellerExposureHeadroom, Session,
+    SessionRecoverability, SessionStateCounts, SessionStatus, SessionStatusResponse,
+    SettlementPreview, SettlementRejectionReason, SolvencyAssetState, SolvencyStatus,
+    TerminalEvidence, TerminalEvidenceDigest,
 };
 
 use soroban_sdk::{contract, contractimpl, token, Address, BytesN, Env, Vec};
@@ -636,6 +636,29 @@ impl UptoSessionContract {
 
     pub fn get_admin_rotation(env: Env) -> Option<AdminRotation> {
         storage::read_admin_rotation(&env)
+    }
+
+    pub fn get_admin_rotation_status(env: Env) -> Result<AdminRotationStatus, ContractError> {
+        if !storage::has_admin(&env) {
+            return Err(ContractError::NotInitialized);
+        }
+        match storage::read_admin_rotation(&env) {
+            None => Ok(AdminRotationStatus::NoProposal),
+            Some(rotation) => {
+                let current_ledger = env.ledger().sequence();
+                if current_ledger >= rotation.expires_at_ledger {
+                    Ok(AdminRotationStatus::Expired {
+                        pending_admin: rotation.pending_admin,
+                        expires_at_ledger: rotation.expires_at_ledger,
+                    })
+                } else {
+                    Ok(AdminRotationStatus::Active {
+                        pending_admin: rotation.pending_admin,
+                        expires_at_ledger: rotation.expires_at_ledger,
+                    })
+                }
+            }
+        }
     }
 
     pub fn get_configuration(env: Env) -> Result<ContractConfiguration, ContractError> {

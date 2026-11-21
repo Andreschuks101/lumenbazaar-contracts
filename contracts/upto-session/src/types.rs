@@ -331,5 +331,20 @@ pub struct SellerExposureHeadroom {
     pub headroom: Option<i128>,
 }
 
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum AdminRotationStatus {
+    NoProposal,
+    Active {
+        pending_admin: Address,
+        expires_at_ledger: u32,
+    },
+    Expired {
+        pending_admin: Address,
+        expires_at_ledger: u32,
+    },
+}
+
+
 
 

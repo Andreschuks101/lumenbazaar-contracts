@@ -4,6 +4,10 @@
 
 ### Added
 
+- Add pending administrator rotation status query (#243).
+  Compatibility: additive method and result type; existing admin and admin rotation queries are unchanged.
+  Migration: none.
+
 - Add seller exposure headroom query (#242).
   Compatibility: additive method and result type; existing seller exposure ceiling and exposure queries are unchanged.
   Migration: none.
