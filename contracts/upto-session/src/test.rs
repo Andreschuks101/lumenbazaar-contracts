@@ -3732,6 +3732,45 @@ fn preview_settle_detects_undercollateralized_escrow() {
 }
 
 #[test]
+fn preview_settle_scheme_and_boundary_checks() {
+    let env = Env::default();
+    env.mock_all_auths_allowing_non_root_auth();
+    let contract_id = env.register(UptoSessionContract, ());
+    let client = UptoSessionContractClient::new(&env, &contract_id);
+    let buyer = Address::generate(&env);
+    let seller = Address::generate(&env);
+    let asset = create_test_asset(&env, &buyer, 1_000);
+    let resource_hash = BytesN::from_array(&env, &[94; 32]);
+    initialize_for_asset(&env, &client, &buyer, &asset);
+
+    let session_id = client.create_session(&buyer, &seller, &asset, &500, &50, &resource_hash);
+
+    // Exact boundary test: cap, cap - 1, cap + 1
+    let cap_preview = client.preview_settle(&session_id, &500);
+    assert!(cap_preview.eligible);
+    assert_eq!(cap_preview.seller_payout, 500);
+    assert_eq!(cap_preview.buyer_refund, 0);
+
+    let below_cap = client.preview_settle(&session_id, &499);
+    assert!(below_cap.eligible);
+    assert_eq!(below_cap.seller_payout, 499);
+    assert_eq!(below_cap.buyer_refund, 1);
+
+    let above_cap = client.preview_settle(&session_id, &501);
+    assert!(!above_cap.eligible);
+    assert_eq!(above_cap.rejection_reason, SettlementRejectionReason::AmountExceedsCap);
+
+    // Expiry exact boundaries: expires_at - 1, expires_at
+    env.ledger().set_sequence_number(49);
+    assert!(client.preview_settle(&session_id, &200).eligible);
+
+    env.ledger().set_sequence_number(50);
+    let expired_preview = client.preview_settle(&session_id, &200);
+    assert!(!expired_preview.eligible);
+    assert_eq!(expired_preview.rejection_reason, SettlementRejectionReason::Expired);
+}
+
+#[test]
 fn extend_ttl_succeeds_for_open_sessions() {
     let env = Env::default();
     env.mock_all_auths();

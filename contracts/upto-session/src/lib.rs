@@ -1050,7 +1050,12 @@ impl UptoSessionContract {
             SessionStatus::Expired => SettlementRejectionReason::AlreadyExpired,
             SessionStatus::Rejected => SettlementRejectionReason::AlreadyRejected,
             SessionStatus::Open => {
-                if actual_amount <= 0 {
+                if validation::validate_commitment_scheme(
+                    session.resource_scheme_version,
+                    validation::SUPPORTED_RESOURCE_SCHEME_VERSION,
+                ).is_err() {
+                    SettlementRejectionReason::UnsupportedScheme
+                } else if actual_amount <= 0 {
                     SettlementRejectionReason::InvalidAmount
                 } else if actual_amount > session.max_amount {
                     SettlementRejectionReason::AmountExceedsCap

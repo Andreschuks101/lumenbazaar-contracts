@@ -219,6 +219,7 @@ pub enum SettlementRejectionReason {
     AmountExceedsCap,
     Expired,
     EscrowUnderfunded,
+    UnsupportedScheme,
 }
 
 #[contracttype]
