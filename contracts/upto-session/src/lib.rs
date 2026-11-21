@@ -1470,7 +1470,7 @@ impl UptoSessionContract {
             return Ok(TerminalEvidence::Nonterminal);
         }
         let finalized_ledger = session.finalized_ledger
-            .ok_or(ContractError::InvalidStateTransition)?;
+            .ok_or(ContractError::SessionNotFound)?;
         let digest = ids::terminal_evidence_digest(
             &env,
             &session.id,
