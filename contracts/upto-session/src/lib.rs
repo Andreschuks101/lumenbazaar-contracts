@@ -1460,6 +1460,25 @@ impl UptoSessionContract {
         storage::read_session(&env, &session_id).ok_or(ContractError::SessionNotFound)
     }
 
+    pub fn get_immutable_session_terms_digest(
+        env: Env,
+        session_id: BytesN<32>,
+    ) -> Result<BytesN<32>, ContractError> {
+        let session = storage::read_session(&env, &session_id)
+            .ok_or(ContractError::SessionNotFound)?;
+        Ok(ids::immutable_session_terms_digest(
+            &env,
+            &session.id,
+            &session.buyer,
+            &session.seller,
+            &session.asset,
+            session.max_amount,
+            session.creation_ledger,
+            &session.resource_hash,
+            session.resource_scheme_version,
+        ))
+    }
+
     pub fn get_terminal_evidence(
         env: Env,
         session_id: BytesN<32>,
