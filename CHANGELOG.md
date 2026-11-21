@@ -4,6 +4,11 @@
 
 ### Added
 
+- Add bounded, read-only `preview_recover_expired_batch` query to `upto-session` with
+  per-session recoverability and refund metadata matching batch recovery behavior.
+  Compatibility: additive read-only query; existing recovery execution is unchanged.
+  Migration: none.
+
 - Add typed transaction evidence helpers to the TypeScript binding
   (`createSessionWithEvidence`, `settleWithEvidence`, `cancelWithEvidence`,
   `extendTtlWithEvidence`) that sign through an injected signer, confirm through RPC and

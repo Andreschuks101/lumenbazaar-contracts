@@ -101,6 +101,7 @@ administrator-rotation, and creation pause/resume events use version `3`.
 | `recover_expired(session_id)` | Permissionless full refund to the stored buyer at or after expiry. |
 | `get_recoverability(session_id)` | Read-only, authorization-free versioned (`response_version` 1) `SessionRecoverability`: status (`NotFound`, `NotExpired`, `Recoverable`, terminal states), expiry and current ledger, stored buyer recipient, asset, and refundable amount. Recoverable exactly when `recover_expired` would succeed (ledger >= expiry). |
 | `recover_expired_batch(session_ids)` | Recover up to eight caller-supplied IDs with ordered per-item results. Missing, premature, terminal, and repeated IDs do not block eligible recoveries. |
+| `preview_recover_expired_batch(session_ids)` | Read-only, authorization-free preview of batch recovery returning `Vec<BatchRecoveryResult>` (status, refunded_amount). Input bound and ordering match batch recovery. |
 | `extend_ttl(session_id)` | Extend storage TTL for still-open sessions. |
 | `pause_creation()` | Admin-authorized transition to `Paused`; rejects new sessions before buyer authorization or token transfer without affecting existing session exits. |
 | `resume_creation()` | Admin-authorized transition back to `Active`; re-enables new session creation. |

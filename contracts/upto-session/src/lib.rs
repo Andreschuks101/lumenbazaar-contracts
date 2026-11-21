@@ -1364,6 +1364,62 @@ impl UptoSessionContract {
         Ok(results)
     }
 
+    pub fn preview_recover_expired_batch(
+        env: Env,
+        session_ids: Vec<BytesN<32>>,
+    ) -> Result<Vec<BatchRecoveryResult>, ContractError> {
+        if session_ids.is_empty() || session_ids.len() > MAX_RECOVERY_BATCH_SIZE {
+            return Err(ContractError::InvalidBatchSize);
+        }
+
+        let mut seen = Vec::new(&env);
+        let mut results = Vec::new(&env);
+        let current_ledger = env.ledger().sequence();
+        let contract = env.current_contract_address();
+
+        for session_id in session_ids.iter() {
+            if seen.iter().any(|seen_id| seen_id == session_id) {
+                results.push_back(batch_result(session_id, BatchRecoveryStatus::Duplicate, 0));
+                continue;
+            }
+            seen.push_back(session_id.clone());
+
+            let Some(session) = storage::read_session(&env, &session_id) else {
+                results.push_back(batch_result(session_id, BatchRecoveryStatus::NotFound, 0));
+                continue;
+            };
+
+            let status = match session.status {
+                SessionStatus::Settled => BatchRecoveryStatus::AlreadySettled,
+                SessionStatus::Cancelled => BatchRecoveryStatus::AlreadyCancelled,
+                SessionStatus::Expired => BatchRecoveryStatus::AlreadyRecovered,
+                SessionStatus::Rejected => BatchRecoveryStatus::AlreadyRejected,
+                SessionStatus::Open if current_ledger < session.expires_at_ledger => {
+                    BatchRecoveryStatus::NotExpired
+                }
+                SessionStatus::Open => {
+                    let refunded_amount = session.escrowed_amount;
+                    let asset = token::Client::new(&env, &session.asset);
+                    if refunded_amount != session.max_amount
+                        || asset.balance(&contract) < storage::read_liability(&env, &session.asset)
+                    {
+                        BatchRecoveryStatus::EscrowUnavailable
+                    } else {
+                        results.push_back(batch_result(
+                            session_id,
+                            BatchRecoveryStatus::Recovered,
+                            refunded_amount,
+                        ));
+                        continue;
+                    }
+                }
+            };
+            results.push_back(batch_result(session_id, status, 0));
+        }
+
+        Ok(results)
+    }
+
     pub fn get_recoverability(env: Env, session_id: BytesN<32>) -> SessionRecoverability {
         let current_ledger = env.ledger().sequence();
         let session = match storage::read_session(&env, &session_id) {
