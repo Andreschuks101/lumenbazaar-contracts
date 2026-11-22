@@ -4,6 +4,11 @@
 
 ### Added
 
+- Add deterministic cursor pagination `get_agent_policies` and per-agent policy index to
+  `policy-wallet-example` with bounded page sizes and strict agent isolation.
+  Compatibility: additive read-only query; existing policy evaluation is unchanged.
+  Migration: none.
+
 - Add versioned, domain-separated `get_policy_configuration_digest` query to `policy-wallet-example`
   fingerprinting wallet owner, agent, limits, validity windows, and allowlists.
   Compatibility: additive read-only query; existing policy evaluation is unchanged.

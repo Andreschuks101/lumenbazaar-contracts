@@ -1250,3 +1250,130 @@ fn policy_configuration_digest_is_deterministic_domain_separated_and_sensitive_t
     let manual_digest = env.crypto().sha256(&expected_payload.to_xdr(&env)).to_bytes();
     assert_eq!(digest_1, manual_digest);
 }
+
+#[test]
+fn agent_policy_cursor_pagination_and_index_lifecycle() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let contract_id = env.register(PolicyWalletExampleContract, ());
+    let client = PolicyWalletExampleContractClient::new(&env, &contract_id);
+
+    let owner = Address::generate(&env);
+    let upto_session = Address::generate(&env);
+    client.initialize(&owner, &upto_session);
+
+    let agent_a = Address::generate(&env);
+    let agent_b = Address::generate(&env);
+    let seller = Address::generate(&env);
+    let asset = Address::generate(&env);
+    let resource_hash = BytesN::from_array(&env, &[1; 32]);
+
+    // Initial empty pagination
+    let initial_page = client.get_agent_policies(&agent_a, &None, &None);
+    assert_eq!(initial_page.total_count, 0);
+    assert!(initial_page.policy_ids.is_empty());
+    assert_eq!(initial_page.next_cursor, None);
+
+    // 1. Create policy for Agent A -> index updated with policy ID
+    let mut policy_a1 = standard_policy(&env, &agent_a, &seller, &asset, &resource_hash, 100);
+    client.set_policy(&policy_a1);
+    let id_a1 = client.get_policy_configuration_digest(&agent_a);
+
+    let page = client.get_agent_policies(&agent_a, &None, &None);
+    assert_eq!(page.total_count, 1);
+    assert_eq!(page.policy_ids.len(), 1);
+    assert_eq!(page.policy_ids.get(0).unwrap(), id_a1);
+
+    // Agent B index is completely empty (Multi-agent isolation: pagination cannot expose policies for another agent)
+    let page_b = client.get_agent_policies(&agent_b, &None, &None);
+    assert_eq!(page_b.total_count, 0);
+    assert!(page_b.policy_ids.is_empty());
+
+    // 2. Replacement path: Update Agent A policy with new limit -> new policy ID recorded
+    policy_a1.max_amount_per_payment = 80;
+    client.set_policy(&policy_a1);
+    let id_a2 = client.get_policy_configuration_digest(&agent_a);
+    assert_ne!(id_a1, id_a2);
+
+    let page_after_replace = client.get_agent_policies(&agent_a, &None, &None);
+    assert_eq!(page_after_replace.total_count, 2);
+    assert_eq!(page_after_replace.policy_ids.len(), 2);
+    assert_eq!(page_after_replace.policy_ids.get(0).unwrap(), id_a1);
+    assert_eq!(page_after_replace.policy_ids.get(1).unwrap(), id_a2);
+
+    // Re-setting the exact same policy (idempotent / same ID) does not duplicate entry in index
+    client.set_policy(&policy_a1);
+    let page_same = client.get_agent_policies(&agent_a, &None, &None);
+    assert_eq!(page_same.total_count, 2);
+
+    // 3. Revoke path: Revoking Agent A's policy clears its index
+    client.revoke_policy(&agent_a);
+    let page_after_revoke = client.get_agent_policies(&agent_a, &None, &None);
+    assert_eq!(page_after_revoke.total_count, 0);
+    assert!(page_after_revoke.policy_ids.is_empty());
+    assert_eq!(page_after_revoke.next_cursor, None);
+
+    // Create policy for Agent B to verify agent isolation after A's revocation
+    let policy_b = standard_policy(&env, &agent_b, &seller, &asset, &resource_hash, 100);
+    client.set_policy(&policy_b);
+    let id_b = client.get_policy_configuration_digest(&agent_b);
+
+    let page_b_active = client.get_agent_policies(&agent_b, &None, &None);
+    assert_eq!(page_b_active.total_count, 1);
+    assert_eq!(page_b_active.policy_ids.get(0).unwrap(), id_b);
+    assert_eq!(client.get_agent_policies(&agent_a, &None, &None).total_count, 0);
+
+    // 4. Cursor pagination and boundary testing
+    // Set multiple policies for Agent A
+    let mut current_expected_ids = std::vec::Vec::new();
+    for i in 1..=15 {
+        let mut p = standard_policy(&env, &agent_a, &seller, &asset, &resource_hash, 100 + i);
+        p.max_amount_per_payment = 10 + i as i128;
+        client.set_policy(&p);
+        current_expected_ids.push(client.get_policy_configuration_digest(&agent_a));
+    }
+
+    // Page 1: limit 5, cursor 0
+    let p1 = client.get_agent_policies(&agent_a, &Some(0), &Some(5));
+    assert_eq!(p1.total_count, 15);
+    assert_eq!(p1.policy_ids.len(), 5);
+    assert_eq!(p1.next_cursor, Some(5));
+    for i in 0..5 {
+        assert_eq!(p1.policy_ids.get(i as u32).unwrap(), current_expected_ids[i]);
+    }
+
+    // Page 2: limit 5, cursor 5
+    let p2 = client.get_agent_policies(&agent_a, &Some(5), &Some(5));
+    assert_eq!(p2.total_count, 15);
+    assert_eq!(p2.policy_ids.len(), 5);
+    assert_eq!(p2.next_cursor, Some(10));
+    for i in 0..5 {
+        assert_eq!(p2.policy_ids.get(i as u32).unwrap(), current_expected_ids[i + 5]);
+    }
+
+    // Page 3: limit 5, cursor 10
+    let p3 = client.get_agent_policies(&agent_a, &Some(10), &Some(5));
+    assert_eq!(p3.total_count, 15);
+    assert_eq!(p3.policy_ids.len(), 5);
+    assert_eq!(p3.next_cursor, None); // Reached end
+    for i in 0..5 {
+        assert_eq!(p3.policy_ids.get(i as u32).unwrap(), current_expected_ids[i + 10]);
+    }
+
+    // Cursor past total_count returns empty page with None next_cursor
+    let p_empty = client.get_agent_policies(&agent_a, &Some(20), &Some(5));
+    assert_eq!(p_empty.total_count, 15);
+    assert!(p_empty.policy_ids.is_empty());
+    assert_eq!(p_empty.next_cursor, None);
+
+    // Limit exceeding MAX_POLICY_PAGE_SIZE fails with InvalidPageLimit
+    assert_eq!(
+        client.try_get_agent_policies(&agent_a, &Some(0), &Some(MAX_POLICY_PAGE_SIZE + 1)),
+        Err(Ok(PolicyWalletError::InvalidPageLimit))
+    );
+    // Limit of 0 fails with InvalidPageLimit
+    assert_eq!(
+        client.try_get_agent_policies(&agent_a, &Some(0), &Some(0)),
+        Err(Ok(PolicyWalletError::InvalidPageLimit))
+    );
+}
