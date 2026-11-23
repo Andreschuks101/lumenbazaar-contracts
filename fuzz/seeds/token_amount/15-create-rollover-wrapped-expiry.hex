@@ -1,0 +1,5 @@
+# token_amount: helper 5 (validate_create_session) ledger u32::MAX wrapped expiry 1 => ExpiredSession
+# Synthetic. Layout: fuzz/README.md.
+05000000000000000000000000000000
+00000000000000000000000000000000
+00000000000001000000000200000000

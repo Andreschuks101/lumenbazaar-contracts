@@ -19,6 +19,29 @@
   Compatibility: additive read-only query; existing recovery execution is unchanged.
   Migration: none.
 
+- Add policy active-window status query (`get_policy_status`) in `policy-wallet-example`
+  reporting whether a policy is pending, active, expired, or revoked at the current ledger
+  sequence, with the active ledger window and next transition boundary.
+  Compatibility: additive method and return types (`PolicyStatus`, `PolicyActiveWindowStatus`);
+  existing authorization semantics are unchanged.
+  Migration: none.
+
+- Add pending administrator rotation status query (#243).
+  Compatibility: additive method and result type; existing admin and admin rotation queries are unchanged.
+  Migration: none.
+
+- Add seller exposure headroom query (#242).
+  Compatibility: additive method and result type; existing seller exposure ceiling and exposure queries are unchanged.
+  Migration: none.
+
+- Add buyer exposure headroom query (#241).
+  Compatibility: additive method and result type; existing buyer exposure ceiling and exposure queries are unchanged.
+  Migration: none.
+
+- Add asset exposure headroom query (#240).
+  Compatibility: additive method and result type; existing exposure ceiling and liability queries are unchanged.
+  Migration: none.
+
 - Add typed transaction evidence helpers to the TypeScript binding
   (`createSessionWithEvidence`, `settleWithEvidence`, `cancelWithEvidence`,
   `extendTtlWithEvidence`) that sign through an injected signer, confirm through RPC and
@@ -65,6 +88,14 @@
   Migration: [v2-to-v3 replacement routing](artifacts/interface/migrations/v2-to-v3.json).
 
 ### Fixed
+
+- Decrement per-buyer active exposure in `reduce_session_cap` alongside escrow liability and
+  per-seller exposure, and return `ContractError::SessionNotFound` when querying
+  `get_terminal_evidence` for an unknown session.
+  Compatibility: Preserve the public contract ABI, storage layout, and error variants; callers
+  reading `get_buyer_exposure` or handling missing sessions now observe consistent state and
+  `SessionNotFound` (`#5`).
+  Migration: No contract reinitialization or state migration is required.
 
 - Bind `idempotencyKey` in the TypeScript `deriveSessionId` helper so it matches the
   contract's v3 session ID preimage. Compatibility: `SessionIdInputV3` now requires

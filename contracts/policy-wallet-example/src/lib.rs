@@ -14,6 +14,7 @@ pub const MAX_POLICY_PAGE_SIZE: u32 = 10;
 
 pub const POLICY_CONFIGURATION_DOMAIN: &[u8] = b"lumenbazaar/policy-configuration";
 pub const POLICY_CONFIGURATION_VERSION: u32 = 1;
+pub const AUTHORIZATION_NONCE_TTL_LEDGERS: u32 = 17_280 * 30; // 30 days retention
 
 // TTL management constants for instance storage keys
 pub const DEFAULT_TTL_THRESHOLD: u32 = 100_000;
@@ -32,6 +33,31 @@ pub enum DataKey {
     RevokedPolicy(Address),
     AgentPolicyIndex(Address),
     OwnerRotation,
+    AuthorizationNonce(Address, BytesN<32>),
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum PolicyDenialReason {
+    None,
+    PolicyNotFound,
+    PolicyRevoked,
+    PolicyNotActive,
+    PolicyExpired,
+    InvalidAmount,
+    AmountExceedsPaymentCap,
+    SellerNotAllowed,
+    AssetNotAllowed,
+    ResourceHashNotAllowed,
+    AuthorizationLimitExceeded,
+    AmountExceedsDailyCap,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PolicyPreviewResult {
+    pub allowed: bool,
+    pub denial_reason: PolicyDenialReason,
 }
 
 #[contracttype]
@@ -67,6 +93,25 @@ pub struct WalletConfig {
 }
 
 #[contracttype]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum PolicyStatus {
+    Pending,
+    Active,
+    Expired,
+    Revoked,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PolicyActiveWindowStatus {
+    pub status: PolicyStatus,
+    pub current_ledger: u32,
+    pub valid_from_ledger: u32,
+    pub valid_until_ledger: u32,
+    pub next_boundary_ledger: Option<u32>,
+}
+
+#[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SpendingPolicy {
     pub agent: Address,
@@ -89,6 +134,21 @@ pub struct PolicyPage {
     pub policy_ids: Vec<BytesN<32>>,
     pub next_cursor: Option<u32>,
     pub total_count: u32,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AuthorizationRecord {
+    pub request_hash: BytesN<32>,
+    pub authorized_at_ledger: u32,
+    pub amount: i128,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PaymentAuthorizationOutcome {
+    pub replayed: bool,
+    pub authorized_at_ledger: u32,
 }
 
 #[contracterror]
@@ -116,8 +176,9 @@ pub enum PolicyWalletError {
     OwnerRotationExpired = 19,
     StaleRevision = 20,
     RevisionOverflow = 21,
-    InvalidPageLimit = 22,
-    PolicyIndexFull = 23,
+    ReplayConflict = 22,
+    InvalidPageLimit = 23,
+    PolicyIndexFull = 24,
 }
 
 /// Emitted once when the owner revokes an agent's policy.
@@ -152,7 +213,9 @@ impl PolicyWalletExampleContract {
             example_only: true,
         };
         env.storage().instance().set(&DataKey::Config, &config);
-        env.storage().instance().extend_ttl(DEFAULT_TTL_THRESHOLD, TTL_EXTENSION_AMOUNT);
+        env.storage()
+            .instance()
+            .extend_ttl(DEFAULT_TTL_THRESHOLD, TTL_EXTENSION_AMOUNT);
 
         Ok(())
     }
@@ -202,7 +265,9 @@ impl PolicyWalletExampleContract {
         env.storage()
             .instance()
             .set(&DataKey::Policy(agent), &policy);
-        env.storage().instance().extend_ttl(DEFAULT_TTL_THRESHOLD, TTL_EXTENSION_AMOUNT);
+        env.storage()
+            .instance()
+            .extend_ttl(DEFAULT_TTL_THRESHOLD, TTL_EXTENSION_AMOUNT);
 
         Ok(())
     }
@@ -317,6 +382,77 @@ impl PolicyWalletExampleContract {
         }
     }
 
+    /// Read-only status query reporting whether an agent's policy is Pending, Active,
+    /// Expired, or Revoked at the current ledger sequence, alongside the policy's
+    /// active window and the next ledger boundary. Revocation takes precedence.
+    pub fn get_policy_status(
+        env: Env,
+        agent: Address,
+    ) -> Result<PolicyActiveWindowStatus, PolicyWalletError> {
+        let current_ledger = env.ledger().sequence();
+        if env
+            .storage()
+            .instance()
+            .has(&DataKey::RevokedPolicy(agent.clone()))
+        {
+            let policy_opt = env
+                .storage()
+                .instance()
+                .get::<_, SpendingPolicy>(&DataKey::Policy(agent));
+            let (from, until) = match policy_opt {
+                Some(p) => (p.valid_from_ledger, p.valid_until_ledger),
+                None => (0, 0),
+            };
+            return Ok(PolicyActiveWindowStatus {
+                status: PolicyStatus::Revoked,
+                current_ledger,
+                valid_from_ledger: from,
+                valid_until_ledger: until,
+                next_boundary_ledger: None,
+            });
+        }
+
+        let policy = env
+            .storage()
+            .instance()
+            .get::<_, SpendingPolicy>(&DataKey::Policy(agent))
+            .ok_or(PolicyWalletError::PolicyNotFound)?;
+
+        let from = policy.valid_from_ledger;
+        let until = policy.valid_until_ledger;
+
+        if current_ledger < from {
+            Ok(PolicyActiveWindowStatus {
+                status: PolicyStatus::Pending,
+                current_ledger,
+                valid_from_ledger: from,
+                valid_until_ledger: until,
+                next_boundary_ledger: Some(from),
+            })
+        } else if current_ledger <= until {
+            let next_boundary = if until < u32::MAX {
+                Some(until + 1)
+            } else {
+                None
+            };
+            Ok(PolicyActiveWindowStatus {
+                status: PolicyStatus::Active,
+                current_ledger,
+                valid_from_ledger: from,
+                valid_until_ledger: until,
+                next_boundary_ledger: next_boundary,
+            })
+        } else {
+            Ok(PolicyActiveWindowStatus {
+                status: PolicyStatus::Expired,
+                current_ledger,
+                valid_from_ledger: from,
+                valid_until_ledger: until,
+                next_boundary_ledger: None,
+            })
+        }
+    }
+
     pub fn check_payment(
         env: Env,
         agent: Address,
@@ -327,6 +463,52 @@ impl PolicyWalletExampleContract {
     ) -> Result<(), PolicyWalletError> {
         validate_payment(&env, &agent, &seller, &asset, amount, &resource_hash)?;
         Ok(())
+    }
+
+    /// Read-only decision explaining whether a proposed payment would satisfy
+    /// the current wallet policy without mutating daily counters or extending TTL.
+    pub fn preview_payment(
+        env: Env,
+        agent: Address,
+        seller: Address,
+        asset: Address,
+        amount: i128,
+        resource_hash: BytesN<32>,
+    ) -> PolicyPreviewResult {
+        match validate_payment(&env, &agent, &seller, &asset, amount, &resource_hash) {
+            Ok(()) => PolicyPreviewResult {
+                allowed: true,
+                denial_reason: PolicyDenialReason::None,
+            },
+            Err(err) => {
+                let denial_reason = match err {
+                    PolicyWalletError::PolicyNotFound => PolicyDenialReason::PolicyNotFound,
+                    PolicyWalletError::PolicyRevoked => PolicyDenialReason::PolicyRevoked,
+                    PolicyWalletError::PolicyNotActive => PolicyDenialReason::PolicyNotActive,
+                    PolicyWalletError::PolicyExpired => PolicyDenialReason::PolicyExpired,
+                    PolicyWalletError::InvalidAmount => PolicyDenialReason::InvalidAmount,
+                    PolicyWalletError::AmountExceedsPaymentCap => {
+                        PolicyDenialReason::AmountExceedsPaymentCap
+                    }
+                    PolicyWalletError::SellerNotAllowed => PolicyDenialReason::SellerNotAllowed,
+                    PolicyWalletError::AssetNotAllowed => PolicyDenialReason::AssetNotAllowed,
+                    PolicyWalletError::ResourceHashNotAllowed => {
+                        PolicyDenialReason::ResourceHashNotAllowed
+                    }
+                    PolicyWalletError::AuthorizationLimitExceeded => {
+                        PolicyDenialReason::AuthorizationLimitExceeded
+                    }
+                    PolicyWalletError::AmountExceedsDailyCap => {
+                        PolicyDenialReason::AmountExceedsDailyCap
+                    }
+                    _ => PolicyDenialReason::None,
+                };
+                PolicyPreviewResult {
+                    allowed: false,
+                    denial_reason,
+                }
+            }
+        }
     }
 
     pub fn authorize_payment(
@@ -341,45 +523,75 @@ impl PolicyWalletExampleContract {
         validate_payment(&env, &agent, &seller, &asset, amount, &resource_hash)?;
 
         let ledger_day = current_ledger_day(&env);
-        let auth_count = read_daily_auth_count(&env, &agent, ledger_day);
-        let next_auth_count = auth_count
-            .checked_add(1)
-            .ok_or(PolicyWalletError::AuthorizationLimitExceeded)?;
-        env.storage().instance().set(
-            &DataKey::DailyAuthCount(agent.clone(), ledger_day),
-            &next_auth_count,
-        );
-
-        let spent = read_daily_spend(&env, &agent, ledger_day);
-        let next_spent = spent
-            .checked_add(amount)
-            .ok_or(PolicyWalletError::AmountExceedsDailyCap)?;
-        env.storage()
-            .instance()
-            .set(&DataKey::DailySpend(agent.clone(), ledger_day), &next_spent);
-
-        let seller_spent = read_daily_seller_spend(&env, &agent, &seller, ledger_day);
-        let next_seller_spent = seller_spent
-            .checked_add(amount)
-            .ok_or(PolicyWalletError::AmountExceedsDailyCap)?;
-        env.storage().instance().set(
-            &DataKey::DailySellerSpend(agent.clone(), seller, ledger_day),
-            &next_seller_spent,
-        );
-
-        let resource_spent = read_daily_resource_spend(&env, &agent, &resource_hash, ledger_day);
-        let next_resource_spent = resource_spent
-            .checked_add(amount)
-            .ok_or(PolicyWalletError::AmountExceedsDailyCap)?;
-        env.storage().instance().set(
-            &DataKey::DailyResourceSpend(agent, resource_hash, ledger_day),
-            &next_resource_spent,
-        );
-        env.storage()
-            .instance()
-            .extend_ttl(DEFAULT_TTL_THRESHOLD, TTL_EXTENSION_AMOUNT);
+        record_payment_spend(&env, &agent, &seller, &resource_hash, amount, ledger_day)?;
+        extend_instance_ttl(&env);
 
         Ok(())
+    }
+
+    /// Authorizes a payment while binding a caller-provided nonce to prevent replay attacks
+    /// or duplicate consumption.
+    ///
+    /// - If the nonce was not previously seen for this agent, validates and consumes policy allowances,
+    ///   recording the authorization under the nonce. Returns `PaymentAuthorizationOutcome { replayed: false, ... }`.
+    /// - If the exact same request is resubmitted with the same nonce, returns `PaymentAuthorizationOutcome { replayed: true, ... }`
+    ///   deterministically without re-deducting spend or authorization counts.
+    /// - If the nonce is reused for a distinct request (different seller, asset, amount, or resource hash),
+    ///   fails with `PolicyWalletError::ReplayConflict`.
+    pub fn authorize_payment_with_nonce(
+        env: Env,
+        agent: Address,
+        seller: Address,
+        asset: Address,
+        amount: i128,
+        resource_hash: BytesN<32>,
+        nonce: BytesN<32>,
+    ) -> Result<PaymentAuthorizationOutcome, PolicyWalletError> {
+        agent.require_auth();
+
+        let request_hash = compute_request_hash(&env, &seller, &asset, amount, &resource_hash);
+        let nonce_key = DataKey::AuthorizationNonce(agent.clone(), nonce);
+
+        if let Some(record) = env.storage().instance().get::<_, AuthorizationRecord>(&nonce_key) {
+            if record.request_hash != request_hash {
+                return Err(PolicyWalletError::ReplayConflict);
+            }
+            extend_instance_ttl(&env);
+            return Ok(PaymentAuthorizationOutcome {
+                replayed: true,
+                authorized_at_ledger: record.authorized_at_ledger,
+            });
+        }
+
+        validate_payment(&env, &agent, &seller, &asset, amount, &resource_hash)?;
+
+        let ledger_day = current_ledger_day(&env);
+        record_payment_spend(&env, &agent, &seller, &resource_hash, amount, ledger_day)?;
+
+        let current_ledger = env.ledger().sequence();
+        let record = AuthorizationRecord {
+            request_hash,
+            authorized_at_ledger: current_ledger,
+            amount,
+        };
+        env.storage().instance().set(&nonce_key, &record);
+        extend_instance_ttl(&env);
+
+        Ok(PaymentAuthorizationOutcome {
+            replayed: false,
+            authorized_at_ledger: current_ledger,
+        })
+    }
+
+    /// Queries the recorded replay outcome for a given agent and authorization nonce.
+    pub fn get_authorization_nonce(
+        env: Env,
+        agent: Address,
+        nonce: BytesN<32>,
+    ) -> Option<AuthorizationRecord> {
+        env.storage()
+            .instance()
+            .get(&DataKey::AuthorizationNonce(agent, nonce))
     }
 
     pub fn spent_today(env: Env, agent: Address) -> i128 {
@@ -684,6 +896,72 @@ fn validate_payment(
     Ok(())
 }
 
+pub const POLICY_AUTHORIZATION_DOMAIN: &[u8] = b"lumenbazaar/policy-authorization";
+
+fn compute_request_hash(
+    env: &Env,
+    seller: &Address,
+    asset: &Address,
+    amount: i128,
+    resource_hash: &BytesN<32>,
+) -> BytesN<32> {
+    use soroban_sdk::xdr::ToXdr;
+    use soroban_sdk::Bytes;
+    let payload = (
+        Bytes::from_slice(env, POLICY_AUTHORIZATION_DOMAIN),
+        seller.clone(),
+        asset.clone(),
+        amount,
+        resource_hash.clone(),
+    );
+    env.crypto().sha256(&payload.to_xdr(env)).to_bytes()
+}
+
+fn record_payment_spend(
+    env: &Env,
+    agent: &Address,
+    seller: &Address,
+    resource_hash: &BytesN<32>,
+    amount: i128,
+    ledger_day: u32,
+) -> Result<(), PolicyWalletError> {
+    let auth_count = read_daily_auth_count(env, agent, ledger_day);
+    let next_auth_count = auth_count
+        .checked_add(1)
+        .ok_or(PolicyWalletError::AuthorizationLimitExceeded)?;
+    env.storage().instance().set(
+        &DataKey::DailyAuthCount(agent.clone(), ledger_day),
+        &next_auth_count,
+    );
+
+    let spent = read_daily_spend(env, agent, ledger_day);
+    let next_spent = spent
+        .checked_add(amount)
+        .ok_or(PolicyWalletError::AmountExceedsDailyCap)?;
+    env.storage()
+        .instance()
+        .set(&DataKey::DailySpend(agent.clone(), ledger_day), &next_spent);
+
+    let seller_spent = read_daily_seller_spend(env, agent, seller, ledger_day);
+    let next_seller_spent = seller_spent
+        .checked_add(amount)
+        .ok_or(PolicyWalletError::AmountExceedsDailyCap)?;
+    env.storage().instance().set(
+        &DataKey::DailySellerSpend(agent.clone(), seller.clone(), ledger_day),
+        &next_seller_spent,
+    );
+
+    let resource_spent = read_daily_resource_spend(env, agent, resource_hash, ledger_day);
+    let next_resource_spent = resource_spent
+        .checked_add(amount)
+        .ok_or(PolicyWalletError::AmountExceedsDailyCap)?;
+    env.storage().instance().set(
+        &DataKey::DailyResourceSpend(agent.clone(), resource_hash.clone(), ledger_day),
+        &next_resource_spent,
+    );
+
+    Ok(())
+}
 
 pub fn extend_instance_ttl(env: &Env) {
     env.storage()

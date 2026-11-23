@@ -1,0 +1,5 @@
+# token_amount: helper 4 (validate_cap_increase_proposal) active plus max delay overflows => InvalidCapIncreaseDelay
+# Synthetic. Layout: fuzz/README.md.
+04000000000000000000000000000000
+00000000000000000000000000000000
+000000ffffbc80ffffffff01ffffbc1b

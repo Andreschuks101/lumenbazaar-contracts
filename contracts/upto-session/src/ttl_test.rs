@@ -64,6 +64,7 @@ impl Harness {
             &CAP,
             &expires_at_ledger,
             &BytesN::from_array(&self.env, &[7; 32]),
+            &unique_idempotency_key(&self.env),
         )
     }
 
@@ -171,17 +172,17 @@ fn instance_ttl_extension_boundary_is_exact_for_config_changes() {
     // One ledger above the threshold: the admin call must not extend.
     harness.ledger(AT_THRESHOLD - 1);
     assert_eq!(harness.instance_ttl(), DEFAULT_TTL_THRESHOLD + 1);
-    client.set_asset_max_session_amount(&harness.asset, &(CAP * 2));
+    client.set_asset_max_session_amount(&harness.asset, &(CAP * 3));
     assert_eq!(harness.instance_ttl(), DEFAULT_TTL_THRESHOLD + 1);
 
     // Exactly at the threshold: the same call extends to the full amount.
     harness.ledger(AT_THRESHOLD);
     assert_eq!(harness.instance_ttl(), DEFAULT_TTL_THRESHOLD);
-    client.set_asset_max_session_amount(&harness.asset, &(CAP * 3));
+    client.set_asset_max_session_amount(&harness.asset, &(CAP * 2));
     assert_eq!(harness.instance_ttl(), TTL_EXTENSION_AMOUNT);
     assert_eq!(
         client.get_asset_max_session_amount(&harness.asset),
-        CAP * 3
+        CAP * 2
     );
 }
 
@@ -499,6 +500,7 @@ fn lapsed_instance_config_fails_closed_for_admin_and_new_sessions_only() {
             &CAP,
             &SESSION_EXPIRY,
             &BytesN::from_array(&harness.env, &[9; 32]),
+            &unique_idempotency_key(&harness.env),
         ),
         Err(Ok(ContractError::NotInitialized))
     );
@@ -563,6 +565,7 @@ fn creation_and_rotation_expiry_windows_have_exact_bounds() {
             &1,
             &expires_at_ledger,
             &hash,
+            &unique_idempotency_key(&harness.env),
         )
     };
 
@@ -586,4 +589,508 @@ fn creation_and_rotation_expiry_windows_have_exact_bounds() {
     assert!(client
         .try_propose_admin(&pending, &(1_000 + MAX_ADMIN_ROTATION_DURATION_LEDGERS))
         .is_ok());
+}
+
+#[test]
+fn idempotency_retention_boundary_and_divergence_guarantees() {
+    let harness = Harness::new();
+    let client = harness.client();
+    let id_key = BytesN::from_array(&harness.env, &[42; 32]);
+    let resource_hash = BytesN::from_array(&harness.env, &[99; 32]);
+    let session_expiry = 500;
+
+    // Create session with idempotency key
+    let session_id = client.create_session(
+        &harness.buyer,
+        &harness.seller,
+        &harness.asset,
+        &100,
+        &session_expiry,
+        &resource_hash,
+        &id_key,
+    );
+
+    let storage_key = DataKey::Idempotency(harness.buyer.clone(), id_key.clone());
+    let session_key = DataKey::Session(session_id.clone());
+
+    // Before extension, verify record availability and session alignment
+    assert_eq!(
+        harness.env.as_contract(&harness.contract_id, || {
+            storage::read_idempotency_key(&harness.env, &harness.buyer, &id_key)
+        }),
+        Some(session_id.clone())
+    );
+
+    // Initial TTLs
+    let initial_session_ttl = harness.persistent_ttl(&session_key);
+    let initial_id_ttl = harness.persistent_ttl(&storage_key);
+    assert_eq!(initial_session_ttl, TTL_EXTENSION_AMOUNT);
+    assert_eq!(initial_id_ttl, TTL_EXTENSION_AMOUNT);
+
+    // Test boundary at threshold - 1 (remaining TTL: DEFAULT_TTL_THRESHOLD + 1)
+    // Advance to AT_THRESHOLD - 1
+    harness.ledger(AT_THRESHOLD - 1);
+    assert_eq!(harness.persistent_ttl(&session_key), DEFAULT_TTL_THRESHOLD + 1);
+    assert_eq!(harness.persistent_ttl(&storage_key), DEFAULT_TTL_THRESHOLD + 1);
+
+    // Test boundary at threshold (remaining TTL: DEFAULT_TTL_THRESHOLD)
+    harness.ledger(AT_THRESHOLD);
+    assert_eq!(harness.persistent_ttl(&session_key), DEFAULT_TTL_THRESHOLD);
+    assert_eq!(harness.persistent_ttl(&storage_key), DEFAULT_TTL_THRESHOLD);
+
+    // Test boundary at threshold + 1 (remaining TTL: DEFAULT_TTL_THRESHOLD - 1)
+    harness.ledger(AT_THRESHOLD + 1);
+    assert_eq!(harness.persistent_ttl(&session_key), DEFAULT_TTL_THRESHOLD - 1);
+    assert_eq!(harness.persistent_ttl(&storage_key), DEFAULT_TTL_THRESHOLD - 1);
+
+    // Extension: calling extend_ttl re-aligns retention for both session and idempotency
+    client.extend_ttl(&session_id);
+    assert_eq!(harness.persistent_ttl(&session_key), TTL_EXTENSION_AMOUNT);
+    assert_eq!(harness.persistent_ttl(&storage_key), TTL_EXTENSION_AMOUNT);
+
+    // Ensure record and session retention cannot diverge unexpectedly:
+    // Retrying with the same parameters returns the identical session_id
+    let retried_id = client.create_session(
+        &harness.buyer,
+        &harness.seller,
+        &harness.asset,
+        &100,
+        &session_expiry,
+        &resource_hash,
+        &id_key,
+    );
+    assert_eq!(retried_id, session_id);
+
+    // Simulate entry lapse / expiry of idempotency record
+    harness.remove_persistent(&storage_key);
+    assert_eq!(
+        harness.env.as_contract(&harness.contract_id, || {
+            storage::read_idempotency_key(&harness.env, &harness.buyer, &id_key)
+        }),
+        None
+    );
+
+    // Expired records cannot resolve to a different session; a fresh call creates a distinct session
+    let fresh_id = client.create_session(
+        &harness.buyer,
+        &harness.seller,
+        &harness.asset,
+        &100,
+        &session_expiry,
+        &resource_hash,
+        &id_key,
+    );
+    assert_ne!(fresh_id, session_id);
+}
+
+#[test]
+fn creation_and_expiry_extension_rollover_boundaries_reject_wrapped_ledgers() {
+    use crate::storage::write_session;
+    use crate::validation::{
+        validate_create_session, validate_expiry_extension, MIN_ADMIN_ROTATION_DURATION_LEDGERS,
+    };
+
+    assert_eq!(MIN_ADMIN_ROTATION_DURATION_LEDGERS, 1);
+
+    let harness = Harness::new();
+    let client = harness.client();
+    let hash = BytesN::from_array(&harness.env, &[9; 32]);
+
+    // Pure validation bounds at u32::MAX and rollover-adjacent ledgers.
+    let at_max_duration_start = u32::MAX - MAX_SESSION_DURATION_LEDGERS;
+    let one_before_max_duration_start = at_max_duration_start - 1;
+
+    harness.ledger(one_before_max_duration_start);
+    assert_eq!(
+        validate_create_session(
+            &harness.env,
+            &harness.buyer,
+            &harness.seller,
+            &harness.asset,
+            1,
+            u32::MAX,
+            &hash,
+        ),
+        Err(ContractError::SessionDurationTooLong)
+    );
+    assert_eq!(
+        validate_create_session(
+            &harness.env,
+            &harness.buyer,
+            &harness.seller,
+            &harness.asset,
+            1,
+            u32::MAX - 1,
+            &hash,
+        ),
+        Ok(())
+    );
+    // Wrapped ledger sequences (< current_ledger) are always rejected as expired.
+    for wrapped in [0_u32, 1_u32, MAX_SESSION_DURATION_LEDGERS] {
+        assert_eq!(
+            validate_create_session(
+                &harness.env,
+                &harness.buyer,
+                &harness.seller,
+                &harness.asset,
+                1,
+                wrapped,
+                &hash,
+            ),
+            Err(ContractError::ExpiredSession)
+        );
+    }
+
+    harness.ledger(at_max_duration_start);
+    assert_eq!(
+        validate_create_session(
+            &harness.env,
+            &harness.buyer,
+            &harness.seller,
+            &harness.asset,
+            1,
+            u32::MAX,
+            &hash,
+        ),
+        Ok(())
+    );
+
+    harness.ledger(u32::MAX - 1);
+    assert_eq!(
+        validate_create_session(
+            &harness.env,
+            &harness.buyer,
+            &harness.seller,
+            &harness.asset,
+            1,
+            u32::MAX,
+            &hash,
+        ),
+        Ok(())
+    );
+    assert_eq!(
+        validate_create_session(
+            &harness.env,
+            &harness.buyer,
+            &harness.seller,
+            &harness.asset,
+            1,
+            0,
+            &hash,
+        ),
+        Err(ContractError::ExpiredSession)
+    );
+
+    harness.ledger(u32::MAX);
+    for invalid_expiry in [0_u32, 1_u32, MAX_SESSION_DURATION_LEDGERS, u32::MAX] {
+        assert_eq!(
+            validate_create_session(
+                &harness.env,
+                &harness.buyer,
+                &harness.seller,
+                &harness.asset,
+                1,
+                invalid_expiry,
+                &hash,
+            ),
+            Err(ContractError::ExpiredSession)
+        );
+    }
+
+    // Expiry extension checked arithmetic across rollover boundaries using a real stored session.
+    harness.ledger(1_000);
+    let sid = client.create_session(
+        &harness.buyer,
+        &harness.seller,
+        &harness.asset,
+        &100,
+        &2_000,
+        &hash,
+        &unique_idempotency_key(&harness.env),
+    );
+    let mut session = client.get_session(&sid);
+    session.expires_at_ledger = u32::MAX - 1;
+    harness.env.as_contract(&harness.contract_id, || {
+        write_session(&harness.env, &session).unwrap();
+    });
+
+    harness.ledger(one_before_max_duration_start);
+    assert_eq!(
+        validate_expiry_extension(&harness.env, &session, u32::MAX),
+        Err(ContractError::SessionDurationTooLong)
+    );
+
+    harness.ledger(at_max_duration_start);
+    assert_eq!(
+        validate_expiry_extension(&harness.env, &session, u32::MAX),
+        Ok(())
+    );
+    assert_eq!(
+        validate_expiry_extension(&harness.env, &session, 0),
+        Err(ContractError::ExpiredSession)
+    );
+    assert_eq!(
+        validate_expiry_extension(&harness.env, &session, 1),
+        Err(ContractError::ExpiredSession)
+    );
+
+    harness.ledger(u32::MAX - 1);
+    assert_eq!(
+        validate_expiry_extension(&harness.env, &session, u32::MAX),
+        Err(ContractError::ExpiredSession)
+    );
+
+    session.expires_at_ledger = u32::MAX;
+    harness.ledger(u32::MAX);
+    assert_eq!(
+        validate_expiry_extension(&harness.env, &session, 0),
+        Err(ContractError::ExpiredSession)
+    );
+    assert_eq!(
+        validate_expiry_extension(&harness.env, &session, u32::MAX),
+        Err(ContractError::ExpiredSession)
+    );
+}
+
+#[test]
+fn admin_rotation_and_cap_increase_timelock_rollover_boundaries_fail_closed() {
+    use crate::validation::{
+        validate_admin_rotation, validate_cap_increase_proposal, MAX_CAP_INCREASE_DELAY_LEDGERS,
+        MIN_CAP_INCREASE_DELAY_LEDGERS,
+    };
+
+    let harness = Harness::new();
+    let admin = harness.client().get_configuration().admin;
+    let pending = Address::generate(&harness.env);
+
+    // Admin rotation: [ledger + 1, ledger + MAX_ADMIN_ROTATION_DURATION_LEDGERS].
+    harness.ledger(u32::MAX);
+    for wrapped_or_max in [0_u32, 1_u32, u32::MAX] {
+        assert_eq!(
+            validate_admin_rotation(&harness.env, &admin, &pending, wrapped_or_max),
+            Err(ContractError::InvalidAdminRotationExpiry)
+        );
+    }
+
+    // Overflow in checked_add(MAX_ADMIN_ROTATION_DURATION_LEDGERS) fails closed even if min fits.
+    harness.ledger(u32::MAX - MAX_ADMIN_ROTATION_DURATION_LEDGERS + 1);
+    assert_eq!(
+        validate_admin_rotation(&harness.env, &admin, &pending, u32::MAX),
+        Err(ContractError::InvalidAdminRotationExpiry)
+    );
+    assert_eq!(
+        validate_admin_rotation(&harness.env, &admin, &pending, 0),
+        Err(ContractError::InvalidAdminRotationExpiry)
+    );
+
+    // Exact highest ledger where ledger + MAX_ADMIN_ROTATION_DURATION_LEDGERS == u32::MAX.
+    harness.ledger(u32::MAX - MAX_ADMIN_ROTATION_DURATION_LEDGERS);
+    assert_eq!(
+        validate_admin_rotation(&harness.env, &admin, &pending, u32::MAX),
+        Ok(())
+    );
+    assert_eq!(
+        validate_admin_rotation(
+            &harness.env,
+            &admin,
+            &pending,
+            u32::MAX - MAX_ADMIN_ROTATION_DURATION_LEDGERS + 1
+        ),
+        Ok(())
+    );
+    assert_eq!(
+        validate_admin_rotation(&harness.env, &admin, &pending, 0),
+        Err(ContractError::InvalidAdminRotationExpiry)
+    );
+
+    // Cap increase cooldown + timelock expiry:
+    // active in [ledger + MIN_CAP_INCREASE_DELAY_LEDGERS, ledger + MAX_CAP_INCREASE_DELAY_LEDGERS],
+    // expires in (active, active + MAX_CAP_INCREASE_DELAY_LEDGERS].
+    harness.ledger(u32::MAX - MIN_CAP_INCREASE_DELAY_LEDGERS + 1);
+    assert_eq!(
+        validate_cap_increase_proposal(&harness.env, CAP, CAP * 2, u32::MAX, u32::MAX),
+        Err(ContractError::InvalidCapIncreaseDelay)
+    );
+    assert_eq!(
+        validate_cap_increase_proposal(&harness.env, CAP, CAP * 2, 0, 10),
+        Err(ContractError::InvalidCapIncreaseDelay)
+    );
+
+    harness.ledger(u32::MAX - MAX_CAP_INCREASE_DELAY_LEDGERS + 1);
+    assert_eq!(
+        validate_cap_increase_proposal(
+            &harness.env,
+            CAP,
+            CAP * 2,
+            u32::MAX - 1,
+            u32::MAX
+        ),
+        Err(ContractError::InvalidCapIncreaseDelay)
+    );
+
+    // active + MAX_CAP_INCREASE_DELAY_LEDGERS overflows when active > u32::MAX - MAX_CAP_INCREASE_DELAY_LEDGERS.
+    let latest_valid_active = u32::MAX - MAX_CAP_INCREASE_DELAY_LEDGERS;
+    harness.ledger(latest_valid_active - MIN_CAP_INCREASE_DELAY_LEDGERS);
+    assert_eq!(
+        validate_cap_increase_proposal(
+            &harness.env,
+            CAP,
+            CAP * 2,
+            latest_valid_active,
+            u32::MAX
+        ),
+        Ok(())
+    );
+    assert_eq!(
+        validate_cap_increase_proposal(
+            &harness.env,
+            CAP,
+            CAP * 2,
+            latest_valid_active + 1,
+            u32::MAX
+        ),
+        Err(ContractError::InvalidCapIncreaseDelay)
+    );
+    assert_eq!(
+        validate_cap_increase_proposal(
+            &harness.env,
+            CAP,
+            CAP * 2,
+            latest_valid_active,
+            0
+        ),
+        Err(ContractError::InvalidCapIncreaseDelay)
+    );
+
+    let client = harness.client();
+    harness.ledger(1_000);
+    client.set_asset_max_session_amount(&harness.asset, &CAP);
+    let increased_cap = CAP * 2;
+    let set_rollover_ledger = |seq: u32| {
+        harness.env.ledger().with_mut(|li| {
+            li.min_persistent_entry_ttl = 1;
+            li.min_temp_entry_ttl = 1;
+            li.max_entry_ttl = 1;
+            li.sequence_number = seq;
+        });
+    };
+
+    // Contract entry points fail closed with typed errors at u32::MAX before any pending rotation
+    // or cap increase exists.
+    set_rollover_ledger(u32::MAX);
+    assert_eq!(
+        client.try_propose_admin(&pending, &0),
+        Err(Ok(ContractError::InvalidAdminRotationExpiry))
+    );
+    assert_eq!(
+        client.try_propose_admin(&pending, &u32::MAX),
+        Err(Ok(ContractError::InvalidAdminRotationExpiry))
+    );
+    assert_eq!(
+        client.try_propose_asset_cap_increase(&harness.asset, &increased_cap, &0, &10),
+        Err(Ok(ContractError::InvalidCapIncreaseDelay))
+    );
+    assert_eq!(
+        client.try_propose_asset_cap_increase(
+            &harness.asset,
+            &increased_cap,
+            &u32::MAX,
+            &u32::MAX
+        ),
+        Err(Ok(ContractError::InvalidCapIncreaseDelay))
+    );
+
+    // Propose valid rotation and cap increase at a host-safe ledger, then test cooldown & expiry.
+    harness.env.ledger().with_mut(|li| {
+        li.min_persistent_entry_ttl = 4096;
+        li.min_temp_entry_ttl = 16;
+        li.max_entry_ttl = 6_312_000;
+        li.sequence_number = 1_000;
+    });
+    client.propose_admin(&pending, &2_000);
+    client.propose_asset_cap_increase(&harness.asset, &increased_cap, &1_200, &2_000);
+
+    harness.ledger(1_199);
+    assert_eq!(
+        client.try_accept_asset_cap_increase(&harness.asset),
+        Err(Ok(ContractError::CapIncreaseNotReady))
+    );
+
+    set_rollover_ledger(u32::MAX);
+    assert_eq!(
+        client.try_accept_admin(),
+        Err(Ok(ContractError::AdminRotationExpired))
+    );
+    assert_eq!(
+        client.try_accept_asset_cap_increase(&harness.asset),
+        Err(Ok(ContractError::CapIncreaseExpired))
+    );
+}
+
+#[test]
+fn terminal_session_at_u32_max_expiry_boundary() {
+    use crate::storage::write_session;
+
+    let harness = Harness::new();
+    let client = harness.client();
+    harness.ledger(1_000);
+    let hash = BytesN::from_array(&harness.env, &[0xAB; 32]);
+    let sid = client.create_session(
+        &harness.buyer,
+        &harness.seller,
+        &harness.asset,
+        &250,
+        &2_000,
+        &hash,
+        &unique_idempotency_key(&harness.env),
+    );
+    let mut session = client.get_session(&sid);
+    session.expires_at_ledger = u32::MAX;
+    harness.env.as_contract(&harness.contract_id, || {
+        write_session(&harness.env, &session).unwrap();
+    });
+
+    let set_rollover_ledger = |seq: u32| {
+        harness.env.ledger().with_mut(|li| {
+            li.min_persistent_entry_ttl = 1;
+            li.min_temp_entry_ttl = 1;
+            li.max_entry_ttl = 1;
+            li.sequence_number = seq;
+        });
+    };
+
+    // At u32::MAX - 1, the session is not yet expired according to recoverability and settlement
+    // validation (avoiding SAC `balance()` inside `preview_settle` which calls `extend_ttl`).
+    set_rollover_ledger(u32::MAX - 1);
+    let before_expiry = client.get_recoverability(&sid);
+    assert_eq!(before_expiry.current_ledger, u32::MAX - 1);
+    assert_eq!(before_expiry.expires_at_ledger, u32::MAX);
+    assert_eq!(
+        client.try_recover_expired(&sid),
+        Err(Ok(ContractError::SessionNotExpired))
+    );
+    assert_eq!(
+        crate::validation::validate_settlement_amount(&harness.env, &session, 100),
+        Ok(())
+    );
+
+    // At u32::MAX, ledger >= expires_at_ledger makes the session expired for mutating & view APIs.
+    set_rollover_ledger(u32::MAX);
+    let at_expiry = client.get_recoverability(&sid);
+    assert_eq!(at_expiry.current_ledger, u32::MAX);
+    assert_eq!(at_expiry.expires_at_ledger, u32::MAX);
+    let expired_preview = client.preview_settle(&sid, &100);
+    assert!(!expired_preview.eligible);
+    assert!(expired_preview.is_expired);
+    assert_eq!(
+        expired_preview.rejection_reason,
+        crate::types::SettlementRejectionReason::Expired
+    );
+    assert_eq!(client.try_settle(&sid, &100, &hash), Err(Ok(ContractError::ExpiredSession)));
+    assert_eq!(client.try_cancel(&sid), Err(Ok(ContractError::ExpiredSession)));
+    assert_eq!(client.try_reject(&sid), Err(Ok(ContractError::ExpiredSession)));
+    assert_eq!(
+        client.try_reduce_session_cap(&sid, &100),
+        Err(Ok(ContractError::ExpiredSession))
+    );
 }
