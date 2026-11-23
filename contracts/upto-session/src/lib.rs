@@ -13,12 +13,13 @@ pub use types::{
     AdminRotation, AdminRotationStatus, AssetExposureHeadroom, AssetLifecycle, AssetPolicy,
     AssetPolicyResponse, AssetSolvency, AssetSolvencySnapshot, AssetStatus, AuditIndexCategory,
     BatchRecoveryResult, BatchRecoveryStatus, BatchSessionResult, BatchSessionStatus,
-    BuyerExposureHeadroom, BuyerSessionCount, CapIncreaseProposal, CapIncreaseStatus,
-    CapIncreaseStatusResponse, CommitmentDomainMetadata, CommitmentKind, ContractConfiguration,
-    OperationalState, RecoverabilityStatus, SellerExposureHeadroom, Session,
-    SessionIndexAuditResult, SessionIndexMismatch, SessionRecoverability, SessionStateCounts,
-    SessionStatus, SessionStatusResponse, SettlementPreview, SettlementRejectionReason,
-    SolvencyAssetState, SolvencyStatus, TerminalEvidence, TerminalEvidenceDigest,
+    BuyerExposureHeadroom, BuyerSessionCount, CancellationPreview, CancellationRejectionReason,
+    CapIncreaseProposal, CapIncreaseStatus, CapIncreaseStatusResponse, CommitmentDomainMetadata,
+    CommitmentKind, ContractConfiguration, OperationalState, RecoverabilityStatus,
+    SellerExposureHeadroom, Session, SessionIndexAuditResult, SessionIndexMismatch,
+    SessionRecoverability, SessionStateCounts, SessionStatus, SessionStatusResponse,
+    SettlementPreview, SettlementRejectionReason, SolvencyAssetState, SolvencyStatus,
+    TerminalEvidence, TerminalEvidenceDigest,
 };
 
 use soroban_sdk::{contract, contractimpl, token, Address, BytesN, Env, Vec};
@@ -1273,7 +1274,12 @@ impl UptoSessionContract {
             SessionStatus::Expired => SettlementRejectionReason::AlreadyExpired,
             SessionStatus::Rejected => SettlementRejectionReason::AlreadyRejected,
             SessionStatus::Open => {
-                if actual_amount <= 0 {
+                if validation::validate_commitment_scheme(
+                    session.resource_scheme_version,
+                    validation::SUPPORTED_RESOURCE_SCHEME_VERSION,
+                ).is_err() {
+                    SettlementRejectionReason::UnsupportedScheme
+                } else if actual_amount <= 0 {
                     SettlementRejectionReason::InvalidAmount
                 } else if actual_amount > session.max_amount {
                     SettlementRejectionReason::AmountExceedsCap
@@ -1305,6 +1311,61 @@ impl UptoSessionContract {
             actual_amount,
             seller_payout,
             buyer_refund,
+            is_expired,
+            rejection_reason,
+        }
+    }
+
+    pub fn preview_cancel(
+        env: Env,
+        session_id: BytesN<32>,
+    ) -> CancellationPreview {
+        let session = match storage::read_session(&env, &session_id) {
+            Some(s) => s,
+            None => {
+                return CancellationPreview {
+                    eligible: false,
+                    refundable_amount: 0,
+                    is_expired: false,
+                    rejection_reason: CancellationRejectionReason::NotFound,
+                };
+            }
+        };
+
+        let is_expired = env.ledger().sequence() >= session.expires_at_ledger;
+
+        let rejection_reason = match &session.status {
+            SessionStatus::Settled => CancellationRejectionReason::AlreadySettled,
+            SessionStatus::Cancelled => CancellationRejectionReason::AlreadyCancelled,
+            SessionStatus::Expired => CancellationRejectionReason::AlreadyExpired,
+            SessionStatus::Rejected => CancellationRejectionReason::AlreadyRejected,
+            SessionStatus::Open => {
+                if is_expired {
+                    CancellationRejectionReason::Expired
+                } else {
+                    let contract = env.current_contract_address();
+                    let asset = token::Client::new(&env, &session.asset);
+                    if session.escrowed_amount != session.max_amount
+                        || asset.balance(&contract) < storage::read_liability(&env, &session.asset)
+                    {
+                        CancellationRejectionReason::EscrowUnderfunded
+                    } else {
+                        CancellationRejectionReason::None
+                    }
+                }
+            }
+        };
+
+        let eligible = rejection_reason == CancellationRejectionReason::None;
+        let refundable_amount = if eligible {
+            session.escrowed_amount
+        } else {
+            0
+        };
+
+        CancellationPreview {
+            eligible,
+            refundable_amount,
             is_expired,
             rejection_reason,
         }
@@ -1688,6 +1749,25 @@ impl UptoSessionContract {
 
     pub fn get_session(env: Env, session_id: BytesN<32>) -> Result<Session, ContractError> {
         storage::read_session(&env, &session_id).ok_or(ContractError::SessionNotFound)
+    }
+
+    pub fn get_immutable_session_terms_digest(
+        env: Env,
+        session_id: BytesN<32>,
+    ) -> Result<BytesN<32>, ContractError> {
+        let session = storage::read_session(&env, &session_id)
+            .ok_or(ContractError::SessionNotFound)?;
+        Ok(ids::immutable_session_terms_digest(
+            &env,
+            &session.id,
+            &session.buyer,
+            &session.seller,
+            &session.asset,
+            session.max_amount,
+            session.creation_ledger,
+            &session.resource_hash,
+            session.resource_scheme_version,
+        ))
     }
 
     pub fn get_terminal_evidence(
