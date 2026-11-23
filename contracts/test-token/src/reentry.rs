@@ -182,6 +182,7 @@ fn attempt_callback(env: &Env) -> Result<(), ReentryTokenError> {
             let amount: i128 = required(env, &DataKey::Amount)?;
             let expires_at: u32 = required(env, &DataKey::ExpiresAtLedger)?;
             let resource_hash: BytesN<32> = required(env, &DataKey::ResourceHash)?;
+            let idempotency_key = BytesN::from_array(env, &[0xee; 32]);
             let result = env.try_invoke_contract::<BytesN<32>, Error>(
                 &target,
                 &Symbol::new(env, "create_session"),
@@ -192,6 +193,7 @@ fn attempt_callback(env: &Env) -> Result<(), ReentryTokenError> {
                     amount,
                     expires_at,
                     resource_hash,
+                    idempotency_key,
                 )
                     .into_val(env),
             );

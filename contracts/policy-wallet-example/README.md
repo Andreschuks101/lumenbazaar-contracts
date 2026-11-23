@@ -25,6 +25,8 @@ Spending policies are keyed by agent address and can restrict:
 
 Each policy carries a monotonic `revision`. `set_policy(policy, expected_revision)` rejects stale updates with `StaleRevision`; new policies use revision zero as the expectation and are stored at revision one. `create_policy(policy)` is the revision-zero convenience entrypoint, and `get_policy_revision(agent)` returns the current value.
 
+When a cap reduction and a session-creation authorization land in the same ledger sequence, each executes against the policy revision visible in its transaction order; preserved daily-spend counters block any post-reduction spend above the tightened ceiling. See [Same-Ledger Cap-Reduction and Session-Creation Ordering Semantics](docs/policy-examples.md#same-ledger-cap-reduction-and-session-creation-ordering-semantics).
+
 ## Revocation
 
 `revoke_policy(agent)` requires the owner's signature. It removes the agent's policy, records the revocation ledger, and publishes `AgentPolicyRevoked`. From then on `get_policy`, `check_payment`, and `authorize_payment` for that agent return `PolicyRevoked` (14). `get_policy_revocation(agent)` returns the revocation ledger, or `None` when the agent is not revoked.

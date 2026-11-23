@@ -127,6 +127,7 @@ fn create_session(
     contract: &Address,
     input: CreateInput<'_>,
 ) -> BytesN<32> {
+    let idempotency_key = super::unique_idempotency_key(env);
     client
         .mock_auths(&[MockAuth {
             address: input.buyer,
@@ -140,6 +141,7 @@ fn create_session(
                     input.cap,
                     EXPIRY_LEDGER,
                     input.resource_hash.clone(),
+                    idempotency_key.clone(),
                 )
                     .into_val(env),
                 sub_invokes: &[MockAuthInvoke {
@@ -162,6 +164,7 @@ fn create_session(
             &input.cap,
             &EXPIRY_LEDGER,
             input.resource_hash,
+            &idempotency_key,
         )
 }
 

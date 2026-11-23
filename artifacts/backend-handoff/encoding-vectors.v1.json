@@ -1,0 +1,1281 @@
+{
+  "addresses": [
+    {
+      "accepted": true,
+      "kind": "account",
+      "name": "account-g",
+      "scValXdrHex": "0000001200000000000000001111111111111111111111111111111111111111111111111111111111111111",
+      "strkey": "GAIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCF6M"
+    },
+    {
+      "accepted": true,
+      "kind": "account",
+      "name": "account-g-other",
+      "scValXdrHex": "0000001200000000000000003333333333333333333333333333333333333333333333333333333333333333",
+      "strkey": "GAZTGMZTGMZTGMZTGMZTGMZTGMZTGMZTGMZTGMZTGMZTGMZTGMZTHCM6"
+    },
+    {
+      "accepted": true,
+      "kind": "contract",
+      "name": "contract-c",
+      "scValXdrHex": "0000001200000001c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1",
+      "strkey": "CDA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4CFV6"
+    },
+    {
+      "accepted": true,
+      "kind": "contract",
+      "name": "contract-c-asset",
+      "scValXdrHex": "0000001200000001a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+      "strkey": "CCS2LJNFUWS2LJNFUWS2LJNFUWS2LJNFUWS2LJNFUWS2LJNFUWS2LSSM"
+    },
+    {
+      "accepted": false,
+      "error": "unsupported_muxed_address",
+      "name": "muxed-m",
+      "strkey": "MBCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIAAAAAAAAAAAA4WDM"
+    },
+    {
+      "accepted": false,
+      "error": "invalid_strkey",
+      "name": "bad-checksum",
+      "strkey": "GAIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCF6A"
+    },
+    {
+      "accepted": false,
+      "error": "invalid_strkey",
+      "name": "lowercase",
+      "strkey": "gairceirceirceirceirceirceirceirceirceirceirceirceircf6m"
+    },
+    {
+      "accepted": false,
+      "error": "invalid_strkey",
+      "name": "truncated-55-chars",
+      "strkey": "GAIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCF6"
+    },
+    {
+      "accepted": false,
+      "error": "invalid_strkey",
+      "name": "empty",
+      "strkey": ""
+    }
+  ],
+  "amounts": [
+    {
+      "createSessionAccepted": true,
+      "decimal": "1",
+      "encodable": true,
+      "name": "one",
+      "scValXdrHex": "0000000a00000000000000000000000000000001"
+    },
+    {
+      "createSessionAccepted": true,
+      "decimal": "9007199254740991",
+      "encodable": true,
+      "name": "js-max-safe-integer",
+      "scValXdrHex": "0000000a0000000000000000001fffffffffffff"
+    },
+    {
+      "createSessionAccepted": true,
+      "decimal": "9007199254740993",
+      "encodable": true,
+      "name": "above-js-max-safe-integer",
+      "scValXdrHex": "0000000a00000000000000000020000000000001"
+    },
+    {
+      "createSessionAccepted": true,
+      "decimal": "170141183460469231731687303715884105727",
+      "encodable": true,
+      "name": "i128-max",
+      "scValXdrHex": "0000000a7fffffffffffffffffffffffffffffff"
+    },
+    {
+      "contractError": {
+        "code": 3,
+        "name": "InvalidAmount"
+      },
+      "createSessionAccepted": false,
+      "decimal": "0",
+      "encodable": true,
+      "name": "zero",
+      "scValXdrHex": "0000000a00000000000000000000000000000000"
+    },
+    {
+      "contractError": {
+        "code": 3,
+        "name": "InvalidAmount"
+      },
+      "createSessionAccepted": false,
+      "decimal": "-1",
+      "encodable": true,
+      "name": "negative-one",
+      "scValXdrHex": "0000000affffffffffffffffffffffffffffffff"
+    },
+    {
+      "contractError": {
+        "code": 3,
+        "name": "InvalidAmount"
+      },
+      "createSessionAccepted": false,
+      "decimal": "-170141183460469231731687303715884105728",
+      "encodable": true,
+      "name": "i128-min",
+      "scValXdrHex": "0000000a80000000000000000000000000000000"
+    },
+    {
+      "decimal": "170141183460469231731687303715884105728",
+      "encodable": false,
+      "error": "out_of_range_i128",
+      "name": "i128-max-plus-one"
+    },
+    {
+      "decimal": "-170141183460469231731687303715884105729",
+      "encodable": false,
+      "error": "out_of_range_i128",
+      "name": "i128-min-minus-one"
+    },
+    {
+      "decimal": "",
+      "encodable": false,
+      "error": "empty",
+      "name": "empty"
+    },
+    {
+      "decimal": "01",
+      "encodable": false,
+      "error": "non_canonical_decimal",
+      "name": "leading-zero"
+    },
+    {
+      "decimal": "-0",
+      "encodable": false,
+      "error": "non_canonical_decimal",
+      "name": "negative-zero"
+    },
+    {
+      "decimal": "+1",
+      "encodable": false,
+      "error": "non_canonical_decimal",
+      "name": "explicit-plus"
+    },
+    {
+      "decimal": "1.0",
+      "encodable": false,
+      "error": "non_canonical_decimal",
+      "name": "decimal-point"
+    },
+    {
+      "decimal": "1e3",
+      "encodable": false,
+      "error": "non_canonical_decimal",
+      "name": "exponent"
+    },
+    {
+      "decimal": " 1",
+      "encodable": false,
+      "error": "non_canonical_decimal",
+      "name": "leading-whitespace"
+    }
+  ],
+  "context": {
+    "asset": "CCS2LJNFUWS2LJNFUWS2LJNFUWS2LJNFUWS2LJNFUWS2LJNFUWS2LSSM",
+    "buyer": "GAIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCF6M",
+    "contractId": "CDA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4CFV6",
+    "currentLedger": 1000,
+    "maxSessionDurationLedgers": 518400,
+    "seller": "GARCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCFRVX"
+  },
+  "events": [
+    {
+      "dataXdrHex": "0000001100000001000000080000000f0000000561737365740000000000001200000001a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a50000000f00000005627579657200000000000012000000000000000011111111111111111111111111111111111111111111111111111111111111110000000f0000000f657363726f7765645f616d6f756e74000000000a7fffffffffffffffffffffffffffffff0000000f0000000d6576656e745f76657273696f6e00000000000003000000020000000f00000011657870697265735f61745f6c6564676572000000000000030000044c0000000f0000000a6d61785f616d6f756e7400000000000a7fffffffffffffffffffffffffffffff0000000f0000000d7265736f757263655f686173680000000000000d0000002009090909090909090909090909090909090909090909090909090909090909090000000f0000000673656c6c657200000000001200000000000000002222222222222222222222222222222222222222222222222222222222222222",
+      "expected": {
+        "data": {
+          "asset": {
+            "type": "address",
+            "value": "CCS2LJNFUWS2LJNFUWS2LJNFUWS2LJNFUWS2LJNFUWS2LJNFUWS2LSSM"
+          },
+          "buyer": {
+            "type": "address",
+            "value": "GAIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCF6M"
+          },
+          "escrowed_amount": {
+            "type": "i128",
+            "value": "170141183460469231731687303715884105727"
+          },
+          "event_version": {
+            "type": "u32",
+            "value": 2
+          },
+          "expires_at_ledger": {
+            "type": "u32",
+            "value": 1100
+          },
+          "max_amount": {
+            "type": "i128",
+            "value": "170141183460469231731687303715884105727"
+          },
+          "resource_hash": {
+            "type": "bytes",
+            "value": "0909090909090909090909090909090909090909090909090909090909090909"
+          },
+          "seller": {
+            "type": "address",
+            "value": "GARCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCFRVX"
+          }
+        },
+        "topics": [
+          {
+            "type": "symbol",
+            "value": "session_created"
+          },
+          {
+            "type": "bytes",
+            "value": "5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e"
+          }
+        ]
+      },
+      "flow": "create",
+      "name": "session_created",
+      "topicsXdrHex": [
+        "0000000f0000000f73657373696f6e5f6372656174656400",
+        "0000000d000000205e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e"
+      ]
+    },
+    {
+      "dataXdrHex": "0000001100000001000000060000000f0000000d61637475616c5f616d6f756e740000000000000a000000000000000000200000000000010000000f0000000561737365740000000000001200000001a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a50000000f0000000d6576656e745f76657273696f6e00000000000003000000020000000f0000000f726566756e6465645f616d6f756e74000000000a7fffffffffffffffffdffffffffffffe0000000f0000000673656c6c6572000000000012000000000000000022222222222222222222222222222222222222222222222222222222222222220000000f0000000a75736167655f6861736800000000000d000000200e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e",
+      "expected": {
+        "data": {
+          "actual_amount": {
+            "type": "i128",
+            "value": "9007199254740993"
+          },
+          "asset": {
+            "type": "address",
+            "value": "CCS2LJNFUWS2LJNFUWS2LJNFUWS2LJNFUWS2LJNFUWS2LJNFUWS2LSSM"
+          },
+          "event_version": {
+            "type": "u32",
+            "value": 2
+          },
+          "refunded_amount": {
+            "type": "i128",
+            "value": "170141183460469231731678296516629364734"
+          },
+          "seller": {
+            "type": "address",
+            "value": "GARCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCFRVX"
+          },
+          "usage_hash": {
+            "type": "bytes",
+            "value": "0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e"
+          }
+        },
+        "topics": [
+          {
+            "type": "symbol",
+            "value": "session_settled"
+          },
+          {
+            "type": "bytes",
+            "value": "5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e"
+          }
+        ]
+      },
+      "flow": "settle",
+      "name": "session_settled",
+      "topicsXdrHex": [
+        "0000000f0000000f73657373696f6e5f736574746c656400",
+        "0000000d000000205e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e"
+      ]
+    },
+    {
+      "dataXdrHex": "0000001100000001000000040000000f0000000561737365740000000000001200000001a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a50000000f00000005627579657200000000000012000000000000000011111111111111111111111111111111111111111111111111111111111111110000000f0000000d6576656e745f76657273696f6e00000000000003000000020000000f0000000f726566756e6465645f616d6f756e74000000000a00000000000000000000000000000000",
+      "expected": {
+        "data": {
+          "asset": {
+            "type": "address",
+            "value": "CCS2LJNFUWS2LJNFUWS2LJNFUWS2LJNFUWS2LJNFUWS2LJNFUWS2LSSM"
+          },
+          "buyer": {
+            "type": "address",
+            "value": "GAIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCF6M"
+          },
+          "event_version": {
+            "type": "u32",
+            "value": 2
+          },
+          "refunded_amount": {
+            "type": "i128",
+            "value": "0"
+          }
+        },
+        "topics": [
+          {
+            "type": "symbol",
+            "value": "session_cancelled"
+          },
+          {
+            "type": "bytes",
+            "value": "5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e"
+          }
+        ]
+      },
+      "flow": "cancel",
+      "name": "session_cancelled",
+      "topicsXdrHex": [
+        "0000000f0000001173657373696f6e5f63616e63656c6c6564000000",
+        "0000000d000000205e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e"
+      ]
+    },
+    {
+      "dataXdrHex": "0000001100000001000000050000000f00000005627579657200000000000012000000000000000011111111111111111111111111111111111111111111111111111111111111110000000f0000000d6576656e745f76657273696f6e00000000000003000000020000000f000000156e65775f657870697265735f61745f6c656467657200000000000003ffffffff0000000f0000001a70726576696f75735f657870697265735f61745f6c65646765720000000000030000044c0000000f0000000673656c6c657200000000001200000000000000002222222222222222222222222222222222222222222222222222222222222222",
+      "expected": {
+        "data": {
+          "buyer": {
+            "type": "address",
+            "value": "GAIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCF6M"
+          },
+          "event_version": {
+            "type": "u32",
+            "value": 2
+          },
+          "new_expires_at_ledger": {
+            "type": "u32",
+            "value": 4294967295
+          },
+          "previous_expires_at_ledger": {
+            "type": "u32",
+            "value": 1100
+          },
+          "seller": {
+            "type": "address",
+            "value": "GARCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCFRVX"
+          }
+        },
+        "topics": [
+          {
+            "type": "symbol",
+            "value": "session_expiry_extended"
+          },
+          {
+            "type": "bytes",
+            "value": "5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e"
+          }
+        ]
+      },
+      "flow": "extend",
+      "name": "session_expiry_extended",
+      "topicsXdrHex": [
+        "0000000f0000001773657373696f6e5f6578706972795f657874656e64656400",
+        "0000000d000000205e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e"
+      ]
+    }
+  ],
+  "generator": "contracts/upto-session/src/encoding_vectors_test.rs",
+  "interfaceVersion": 3,
+  "networkPassphrases": [
+    {
+      "accepted": true,
+      "name": "public-testnet",
+      "networkIdHex": "cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd472",
+      "nfc": true,
+      "passphrase": "Test SDF Network ; September 2015",
+      "utf16Units": 33,
+      "utf8Bytes": 33,
+      "utf8Hex": "5465737420534446204e6574776f726b203b2053657074656d6265722032303135"
+    },
+    {
+      "accepted": true,
+      "name": "latin-precomposed-nfc",
+      "networkIdHex": "35446a7167ad8005f9bf3624518554de9f6cec40932827f8cb40d7fbcf293f30",
+      "nfc": true,
+      "passphrase": "Réseau synthétique ; 2026",
+      "utf16Units": 25,
+      "utf8Bytes": 27,
+      "utf8Hex": "52c3a9736561752073796e7468c3a97469717565203b2032303236"
+    },
+    {
+      "accepted": false,
+      "error": "not_nfc",
+      "name": "latin-decomposed-nfd",
+      "networkIdHex": "e87e61180bef76852df8b1af07e17b0d3b958eb52d546c32117295e87d6949b5",
+      "nfc": false,
+      "passphrase": "Réseau synthétique ; 2026",
+      "utf16Units": 27,
+      "utf8Bytes": 29,
+      "utf8Hex": "5265cc81736561752073796e746865cc817469717565203b2032303236"
+    },
+    {
+      "accepted": true,
+      "name": "cjk-multibyte",
+      "networkIdHex": "87209003fe2ab0e75b025650a77e0d9170f9a474b93528c9f67a4940b7c3162e",
+      "nfc": true,
+      "passphrase": "合成テストネット ; 2026",
+      "utf16Units": 15,
+      "utf8Bytes": 31,
+      "utf8Hex": "e59088e68890e38386e382b9e38388e3838de38383e38388203b2032303236"
+    },
+    {
+      "accepted": true,
+      "name": "emoji-astral-with-variation-selector",
+      "networkIdHex": "e1780384af349f3bca09cef3ad5b4db66f67968608cdeff64f0452550ea4bd76",
+      "nfc": true,
+      "passphrase": "Synthetic 🛰️ network ; 2026",
+      "utf16Units": 28,
+      "utf8Bytes": 32,
+      "utf8Hex": "53796e74686574696320f09f9bb0efb88f206e6574776f726b203b2032303236"
+    },
+    {
+      "accepted": true,
+      "name": "combining-marks-canonical-order",
+      "networkIdHex": "0c535976610d3ebabb08761cfa3e43494fea047e3b0101c0964d966d8be6e067",
+      "nfc": true,
+      "passphrase": "q̣̇ synthetic ; 2026",
+      "utf16Units": 20,
+      "utf8Bytes": 22,
+      "utf8Hex": "71cca3cc872073796e746865746963203b2032303236"
+    },
+    {
+      "accepted": false,
+      "error": "not_nfc",
+      "name": "combining-marks-noncanonical-order",
+      "networkIdHex": "ef3877d70ba4d5db9378beb940ee6f3dd52d6bc18c6e4aff889c3803f32f41be",
+      "nfc": false,
+      "passphrase": "q̣̇ synthetic ; 2026",
+      "utf16Units": 20,
+      "utf8Bytes": 22,
+      "utf8Hex": "71cc87cca32073796e746865746963203b2032303236"
+    },
+    {
+      "accepted": false,
+      "error": "empty",
+      "name": "empty",
+      "nfc": true,
+      "passphrase": "",
+      "utf16Units": 0,
+      "utf8Bytes": 0,
+      "utf8Hex": ""
+    },
+    {
+      "accepted": false,
+      "error": "surrounding_whitespace",
+      "name": "leading-whitespace",
+      "networkIdHex": "f7c585a6820ea312e0b05b9527f18ebe9a8ee4feacee809ed5f03ebb093cfb92",
+      "nfc": true,
+      "passphrase": " Test SDF Network ; September 2015",
+      "utf16Units": 34,
+      "utf8Bytes": 34,
+      "utf8Hex": "205465737420534446204e6574776f726b203b2053657074656d6265722032303135"
+    },
+    {
+      "accepted": true,
+      "name": "max-length-256-ascii",
+      "networkIdHex": "02d7160d77e18c6447be80c2e355c7ed4388545271702c50253b0914c65ce5fe",
+      "nfc": true,
+      "passphrase": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "utf16Units": 256,
+      "utf8Bytes": 256,
+      "utf8Hex": "61616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161"
+    },
+    {
+      "accepted": true,
+      "name": "below-max-255-ascii",
+      "networkIdHex": "b0f3323e7a3cad8ae6778340cc2a17ae0cb31c818df3767cda7c3dd423725e90",
+      "nfc": true,
+      "passphrase": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "utf16Units": 255,
+      "utf8Bytes": 255,
+      "utf8Hex": "616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161"
+    },
+    {
+      "accepted": false,
+      "error": "too_long",
+      "name": "over-max-257-ascii",
+      "networkIdHex": "e8d95cc2b4bc198c54b40bd214df958afb65f5e73d2c2eafe0593cf5c635c1f0",
+      "nfc": true,
+      "passphrase": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "utf16Units": 257,
+      "utf8Bytes": 257,
+      "utf8Hex": "6161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161"
+    },
+    {
+      "accepted": true,
+      "name": "max-length-256-utf16-units-of-2-byte-utf8",
+      "networkIdHex": "57ed0ef12199207a92e3484cdf02cc0d3822dd0671fdecc234f39b4f50932c07",
+      "nfc": true,
+      "passphrase": "éééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé",
+      "utf16Units": 256,
+      "utf8Bytes": 512,
+      "utf8Hex": "c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9"
+    },
+    {
+      "accepted": true,
+      "name": "max-length-128-astral-emoji",
+      "networkIdHex": "fe398dab7db39ba250a21ff3e7f8099108b655511e183e3edde4fc55f0975d62",
+      "nfc": true,
+      "passphrase": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀",
+      "utf16Units": 256,
+      "utf8Bytes": 512,
+      "utf8Hex": "f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880"
+    },
+    {
+      "accepted": false,
+      "error": "too_long",
+      "name": "over-max-255-ascii-plus-astral-emoji",
+      "networkIdHex": "03a845bef0bdda16b1f3e9db7964a57e5069d36dba829e849725140a0754545d",
+      "nfc": true,
+      "passphrase": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa😀",
+      "utf16Units": 257,
+      "utf8Bytes": 259,
+      "utf8Hex": "616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161f09f9880"
+    }
+  ],
+  "regenerate": "LUMENBAZAAR_UPDATE_ENCODING_VECTORS=1 cargo test -p upto-session --all-features encoding_vectors",
+  "resourceHashes": [
+    {
+      "createSessionAccepted": true,
+      "encodable": true,
+      "hex": "0909090909090909090909090909090909090909090909090909090909090909",
+      "name": "repeated-09",
+      "scValXdrHex": "0000000d000000200909090909090909090909090909090909090909090909090909090909090909"
+    },
+    {
+      "createSessionAccepted": true,
+      "encodable": true,
+      "hex": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "name": "all-ff",
+      "scValXdrHex": "0000000d00000020ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+    },
+    {
+      "createSessionAccepted": true,
+      "encodable": true,
+      "hex": "0000000000000000000000000000000000000000000000000000000000000001",
+      "name": "lowest-nonzero",
+      "scValXdrHex": "0000000d000000200000000000000000000000000000000000000000000000000000000000000001"
+    },
+    {
+      "contractError": {
+        "code": 12,
+        "name": "InvalidResourceHash"
+      },
+      "createSessionAccepted": false,
+      "encodable": true,
+      "hex": "0000000000000000000000000000000000000000000000000000000000000000",
+      "name": "all-zero",
+      "scValXdrHex": "0000000d000000200000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "encodable": false,
+      "error": "empty",
+      "hex": "",
+      "name": "empty"
+    },
+    {
+      "encodable": false,
+      "error": "invalid_length",
+      "hex": "09090909090909090909090909090909090909090909090909090909090909",
+      "name": "short-31-bytes"
+    },
+    {
+      "encodable": false,
+      "error": "invalid_length",
+      "hex": "090909090909090909090909090909090909090909090909090909090909090909",
+      "name": "long-33-bytes"
+    },
+    {
+      "encodable": false,
+      "error": "non_canonical_hex",
+      "hex": "ABABABABABABABABABABABABABABABABABABABABABABABABABABABABABABABAB",
+      "name": "uppercase"
+    },
+    {
+      "encodable": false,
+      "error": "invalid_hex",
+      "hex": "09090909090909090909090909090909090909090909090909090909090909zz",
+      "name": "non-hex"
+    },
+    {
+      "encodable": false,
+      "error": "invalid_hex",
+      "hex": "090909090909090909090909090909090909090909090909090909090909090",
+      "name": "odd-length"
+    }
+  ],
+  "rules": [
+    "All XDR is the Soroban ScVal XDR produced by soroban-sdk `to_xdr`, lowercase hex.",
+    "Session ID = sha256(ScVal Vec[Bytes(domain_xdr), Bytes(payload_xdr)]) where domain = Vec[Bytes(\"lumenbazaar/session-id\"), U32(interface_version), Bytes(network_id), Address(contract)] and payload = Vec[Address(buyer), Address(seller), Address(asset), I128(max_amount), U32(expires_at_ledger), Bytes(resource_hash), U64(sequence), Bytes(idempotency_key)].",
+    "Usage commitment = sha256(ScVal Vec[Bytes(domain_xdr), Bytes(payload_xdr)]) where domain uses the label \"lumenbazaar/usage-commitment\" and payload = Vec[U32(receipt_schema_version), Bytes(session_id), I128(actual_amount), Bytes(resource_hash), Bytes(measurement_hash)].",
+    "network_id = sha256(UTF-8 bytes of the network passphrase). No Unicode normalization is applied when hashing: NFC and NFD forms of the same visible text produce different network IDs, so producers must reject non-NFC input instead of normalizing it.",
+    "Backend passphrase policy: non-empty, NFC, no leading or trailing whitespace, at most 256 UTF-16 code units (JavaScript string length).",
+    "measurement_hash = sha256(canonical usage receipt v1 UTF-8 bytes). Non-ASCII characters are emitted as raw UTF-8, never as \\u escapes.",
+    "Amounts are canonical base-10 strings matching ^(0|-?[1-9][0-9]*)$ that fit i128. create_session additionally requires max_amount > 0 (ContractError::InvalidAmount).",
+    "Resource hashes are exactly 32 bytes of lowercase hex. The all-zero hash is encodable but rejected by create_session (ContractError::InvalidResourceHash).",
+    "Contract-facing addresses are G (account) or C (contract) strkeys. Muxed M addresses are not accepted as Address arguments.",
+    "Events use #[contractevent] defaults: topics = [Symbol(snake_case event name), indexed fields...], data = Map of the remaining fields keyed by Symbol in ascending key order."
+  ],
+  "schema": "lumenbazaar/encoding-vectors",
+  "sessionExpiry": [
+    {
+      "contractError": {
+        "code": 4,
+        "name": "ExpiredSession"
+      },
+      "createSessionAccepted": false,
+      "currentLedger": 1000,
+      "expiresAtLedger": 1000,
+      "name": "current-ledger"
+    },
+    {
+      "createSessionAccepted": true,
+      "currentLedger": 1000,
+      "expiresAtLedger": 1001,
+      "name": "current-ledger-plus-one"
+    },
+    {
+      "createSessionAccepted": true,
+      "currentLedger": 1000,
+      "expiresAtLedger": 519399,
+      "name": "max-duration-minus-one"
+    },
+    {
+      "createSessionAccepted": true,
+      "currentLedger": 1000,
+      "expiresAtLedger": 519400,
+      "name": "max-duration"
+    },
+    {
+      "contractError": {
+        "code": 16,
+        "name": "SessionDurationTooLong"
+      },
+      "createSessionAccepted": false,
+      "currentLedger": 1000,
+      "expiresAtLedger": 519401,
+      "name": "max-duration-plus-one"
+    },
+    {
+      "contractError": {
+        "code": 16,
+        "name": "SessionDurationTooLong"
+      },
+      "createSessionAccepted": false,
+      "currentLedger": 1000,
+      "expiresAtLedger": 4294967295,
+      "name": "u32-max"
+    }
+  ],
+  "sessionIds": [
+    {
+      "asset": "CCS2LJNFUWS2LJNFUWS2LJNFUWS2LJNFUWS2LJNFUWS2LJNFUWS2LSSM",
+      "buyer": "GAIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCF6M",
+      "contractId": "CDA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4CFV6",
+      "expiresAtLedger": 5067600,
+      "idempotencyKeyHex": "0808080808080808080808080808080808080808080808080808080808080808",
+      "maxAmount": "420000000",
+      "name": "baseline-testnet",
+      "networkIdHex": "cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd472",
+      "networkPassphrase": "Test SDF Network ; September 2015",
+      "preimageXdrHex": "0000001000000001000000020000000d000000840000001000000001000000040000000d000000166c756d656e62617a6161722f73657373696f6e2d6964000000000003000000030000000d00000020cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd4720000001200000001c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c10000000d00000104000000100000000100000008000000120000000000000000111111111111111111111111111111111111111111111111111111111111111100000012000000000000000022222222222222222222222222222222222222222222222222222222222222220000001200000001a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a50000000a0000000000000000000000001908b10000000003004d53500000000d0000002009090909090909090909090909090909090909090909090909090909090909090000000500000000000000070000000d000000200808080808080808080808080808080808080808080808080808080808080808",
+      "resourceHashHex": "0909090909090909090909090909090909090909090909090909090909090909",
+      "seller": "GARCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCFRVX",
+      "sequence": "7",
+      "sessionIdHex": "f361b584768c43d31720ccc9216676bf51e0c651cc7bae113d0dd2f213adaf54"
+    },
+    {
+      "asset": "CCS2LJNFUWS2LJNFUWS2LJNFUWS2LJNFUWS2LJNFUWS2LJNFUWS2LSSM",
+      "buyer": "GAIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCF6M",
+      "contractId": "CDA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4CFV6",
+      "expiresAtLedger": 5067600,
+      "idempotencyKeyHex": "0808080808080808080808080808080808080808080808080808080808080808",
+      "maxAmount": "420000000",
+      "name": "sequence-zero",
+      "networkIdHex": "cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd472",
+      "networkPassphrase": "Test SDF Network ; September 2015",
+      "preimageXdrHex": "0000001000000001000000020000000d000000840000001000000001000000040000000d000000166c756d656e62617a6161722f73657373696f6e2d6964000000000003000000030000000d00000020cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd4720000001200000001c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c10000000d00000104000000100000000100000008000000120000000000000000111111111111111111111111111111111111111111111111111111111111111100000012000000000000000022222222222222222222222222222222222222222222222222222222222222220000001200000001a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a50000000a0000000000000000000000001908b10000000003004d53500000000d0000002009090909090909090909090909090909090909090909090909090909090909090000000500000000000000000000000d000000200808080808080808080808080808080808080808080808080808080808080808",
+      "resourceHashHex": "0909090909090909090909090909090909090909090909090909090909090909",
+      "seller": "GARCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCFRVX",
+      "sequence": "0",
+      "sessionIdHex": "b6e0ff05f8fd53924e16b7605c26114a8a874deb6f8b99ca214a8543a3b80ca9"
+    },
+    {
+      "asset": "CCS2LJNFUWS2LJNFUWS2LJNFUWS2LJNFUWS2LJNFUWS2LJNFUWS2LSSM",
+      "buyer": "GAIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCF6M",
+      "contractId": "CDA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4CFV6",
+      "expiresAtLedger": 5067600,
+      "idempotencyKeyHex": "0808080808080808080808080808080808080808080808080808080808080808",
+      "maxAmount": "420000000",
+      "name": "sequence-u64-max",
+      "networkIdHex": "cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd472",
+      "networkPassphrase": "Test SDF Network ; September 2015",
+      "preimageXdrHex": "0000001000000001000000020000000d000000840000001000000001000000040000000d000000166c756d656e62617a6161722f73657373696f6e2d6964000000000003000000030000000d00000020cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd4720000001200000001c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c10000000d00000104000000100000000100000008000000120000000000000000111111111111111111111111111111111111111111111111111111111111111100000012000000000000000022222222222222222222222222222222222222222222222222222222222222220000001200000001a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a50000000a0000000000000000000000001908b10000000003004d53500000000d00000020090909090909090909090909090909090909090909090909090909090909090900000005ffffffffffffffff0000000d000000200808080808080808080808080808080808080808080808080808080808080808",
+      "resourceHashHex": "0909090909090909090909090909090909090909090909090909090909090909",
+      "seller": "GARCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCFRVX",
+      "sequence": "18446744073709551615",
+      "sessionIdHex": "1b8dce8de5116003c9cb0d20a175d83c467bd751f86b39f69bd75c19f545cb8f"
+    },
+    {
+      "asset": "CCS2LJNFUWS2LJNFUWS2LJNFUWS2LJNFUWS2LJNFUWS2LJNFUWS2LSSM",
+      "buyer": "GAIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCF6M",
+      "contractId": "CDA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4CFV6",
+      "expiresAtLedger": 5067600,
+      "idempotencyKeyHex": "0808080808080808080808080808080808080808080808080808080808080808",
+      "maxAmount": "1",
+      "name": "max-amount-one",
+      "networkIdHex": "cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd472",
+      "networkPassphrase": "Test SDF Network ; September 2015",
+      "preimageXdrHex": "0000001000000001000000020000000d000000840000001000000001000000040000000d000000166c756d656e62617a6161722f73657373696f6e2d6964000000000003000000030000000d00000020cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd4720000001200000001c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c10000000d00000104000000100000000100000008000000120000000000000000111111111111111111111111111111111111111111111111111111111111111100000012000000000000000022222222222222222222222222222222222222222222222222222222222222220000001200000001a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a50000000a0000000000000000000000000000000100000003004d53500000000d0000002009090909090909090909090909090909090909090909090909090909090909090000000500000000000000070000000d000000200808080808080808080808080808080808080808080808080808080808080808",
+      "resourceHashHex": "0909090909090909090909090909090909090909090909090909090909090909",
+      "seller": "GARCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCFRVX",
+      "sequence": "7",
+      "sessionIdHex": "9921d2fd6eabb67ee6357588d84e8d283526ebac426b425509dda2f65a7d201d"
+    },
+    {
+      "asset": "CCS2LJNFUWS2LJNFUWS2LJNFUWS2LJNFUWS2LJNFUWS2LJNFUWS2LSSM",
+      "buyer": "GAIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCF6M",
+      "contractId": "CDA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4CFV6",
+      "expiresAtLedger": 5067600,
+      "idempotencyKeyHex": "0808080808080808080808080808080808080808080808080808080808080808",
+      "maxAmount": "9007199254740993",
+      "name": "max-amount-above-js-safe-integer",
+      "networkIdHex": "cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd472",
+      "networkPassphrase": "Test SDF Network ; September 2015",
+      "preimageXdrHex": "0000001000000001000000020000000d000000840000001000000001000000040000000d000000166c756d656e62617a6161722f73657373696f6e2d6964000000000003000000030000000d00000020cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd4720000001200000001c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c10000000d00000104000000100000000100000008000000120000000000000000111111111111111111111111111111111111111111111111111111111111111100000012000000000000000022222222222222222222222222222222222222222222222222222222222222220000001200000001a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a50000000a0000000000000000002000000000000100000003004d53500000000d0000002009090909090909090909090909090909090909090909090909090909090909090000000500000000000000070000000d000000200808080808080808080808080808080808080808080808080808080808080808",
+      "resourceHashHex": "0909090909090909090909090909090909090909090909090909090909090909",
+      "seller": "GARCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCFRVX",
+      "sequence": "7",
+      "sessionIdHex": "38aacd0b9a59ad62cfadcf5fc084ffdad43e2dff5fd8b48c599d20bf0b4a7ce6"
+    },
+    {
+      "asset": "CCS2LJNFUWS2LJNFUWS2LJNFUWS2LJNFUWS2LJNFUWS2LJNFUWS2LSSM",
+      "buyer": "GAIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCF6M",
+      "contractId": "CDA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4CFV6",
+      "expiresAtLedger": 5067600,
+      "idempotencyKeyHex": "0808080808080808080808080808080808080808080808080808080808080808",
+      "maxAmount": "170141183460469231731687303715884105727",
+      "name": "max-amount-i128-max",
+      "networkIdHex": "cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd472",
+      "networkPassphrase": "Test SDF Network ; September 2015",
+      "preimageXdrHex": "0000001000000001000000020000000d000000840000001000000001000000040000000d000000166c756d656e62617a6161722f73657373696f6e2d6964000000000003000000030000000d00000020cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd4720000001200000001c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c10000000d00000104000000100000000100000008000000120000000000000000111111111111111111111111111111111111111111111111111111111111111100000012000000000000000022222222222222222222222222222222222222222222222222222222222222220000001200000001a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a50000000a7fffffffffffffffffffffffffffffff00000003004d53500000000d0000002009090909090909090909090909090909090909090909090909090909090909090000000500000000000000070000000d000000200808080808080808080808080808080808080808080808080808080808080808",
+      "resourceHashHex": "0909090909090909090909090909090909090909090909090909090909090909",
+      "seller": "GARCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCFRVX",
+      "sequence": "7",
+      "sessionIdHex": "b8a6d186751e3116d655183bf8966eb45e83e7dc110ddacdf5351c0ad7d1254c"
+    },
+    {
+      "asset": "CCS2LJNFUWS2LJNFUWS2LJNFUWS2LJNFUWS2LJNFUWS2LJNFUWS2LSSM",
+      "buyer": "GAIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCF6M",
+      "contractId": "CDA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4CFV6",
+      "expiresAtLedger": 4294967295,
+      "idempotencyKeyHex": "0808080808080808080808080808080808080808080808080808080808080808",
+      "maxAmount": "420000000",
+      "name": "expires-at-u32-max",
+      "networkIdHex": "cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd472",
+      "networkPassphrase": "Test SDF Network ; September 2015",
+      "preimageXdrHex": "0000001000000001000000020000000d000000840000001000000001000000040000000d000000166c756d656e62617a6161722f73657373696f6e2d6964000000000003000000030000000d00000020cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd4720000001200000001c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c10000000d00000104000000100000000100000008000000120000000000000000111111111111111111111111111111111111111111111111111111111111111100000012000000000000000022222222222222222222222222222222222222222222222222222222222222220000001200000001a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a50000000a0000000000000000000000001908b10000000003ffffffff0000000d0000002009090909090909090909090909090909090909090909090909090909090909090000000500000000000000070000000d000000200808080808080808080808080808080808080808080808080808080808080808",
+      "resourceHashHex": "0909090909090909090909090909090909090909090909090909090909090909",
+      "seller": "GARCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCFRVX",
+      "sequence": "7",
+      "sessionIdHex": "a9c95097681b0c414a727d133e60692cfea01dbf957718a1164ed5878a91e70d"
+    },
+    {
+      "asset": "CCS2LJNFUWS2LJNFUWS2LJNFUWS2LJNFUWS2LJNFUWS2LJNFUWS2LSSM",
+      "buyer": "GAIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCF6M",
+      "contractId": "CDA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4CFV6",
+      "expiresAtLedger": 5067600,
+      "idempotencyKeyHex": "0808080808080808080808080808080808080808080808080808080808080808",
+      "maxAmount": "420000000",
+      "name": "resource-hash-all-ff",
+      "networkIdHex": "cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd472",
+      "networkPassphrase": "Test SDF Network ; September 2015",
+      "preimageXdrHex": "0000001000000001000000020000000d000000840000001000000001000000040000000d000000166c756d656e62617a6161722f73657373696f6e2d6964000000000003000000030000000d00000020cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd4720000001200000001c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c10000000d00000104000000100000000100000008000000120000000000000000111111111111111111111111111111111111111111111111111111111111111100000012000000000000000022222222222222222222222222222222222222222222222222222222222222220000001200000001a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a50000000a0000000000000000000000001908b10000000003004d53500000000d00000020ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0000000500000000000000070000000d000000200808080808080808080808080808080808080808080808080808080808080808",
+      "resourceHashHex": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "seller": "GARCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCFRVX",
+      "sequence": "7",
+      "sessionIdHex": "f8ad2235c949fb3921836d5f17bbbca4413b39b528dac6606a9547f1a4b454e2"
+    },
+    {
+      "asset": "CCS2LJNFUWS2LJNFUWS2LJNFUWS2LJNFUWS2LJNFUWS2LJNFUWS2LSSM",
+      "buyer": "GAIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCF6M",
+      "contractId": "CDA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4CFV6",
+      "expiresAtLedger": 5067600,
+      "idempotencyKeyHex": "0000000000000000000000000000000000000000000000000000000000000000",
+      "maxAmount": "420000000",
+      "name": "idempotency-key-all-zero",
+      "networkIdHex": "cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd472",
+      "networkPassphrase": "Test SDF Network ; September 2015",
+      "preimageXdrHex": "0000001000000001000000020000000d000000840000001000000001000000040000000d000000166c756d656e62617a6161722f73657373696f6e2d6964000000000003000000030000000d00000020cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd4720000001200000001c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c10000000d00000104000000100000000100000008000000120000000000000000111111111111111111111111111111111111111111111111111111111111111100000012000000000000000022222222222222222222222222222222222222222222222222222222222222220000001200000001a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a50000000a0000000000000000000000001908b10000000003004d53500000000d0000002009090909090909090909090909090909090909090909090909090909090909090000000500000000000000070000000d000000200000000000000000000000000000000000000000000000000000000000000000",
+      "resourceHashHex": "0909090909090909090909090909090909090909090909090909090909090909",
+      "seller": "GARCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCFRVX",
+      "sequence": "7",
+      "sessionIdHex": "989148b744b144a757e608487080d7ae694d7f878bc02d9d5807587e3744f395"
+    },
+    {
+      "asset": "CCS2LJNFUWS2LJNFUWS2LJNFUWS2LJNFUWS2LJNFUWS2LJNFUWS2LSSM",
+      "buyer": "GAIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCF6M",
+      "contractId": "CDA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4CFV6",
+      "expiresAtLedger": 5067600,
+      "idempotencyKeyHex": "0808080808080808080808080808080808080808080808080808080808080808",
+      "maxAmount": "420000000",
+      "name": "contract-seller-address",
+      "networkIdHex": "cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd472",
+      "networkPassphrase": "Test SDF Network ; September 2015",
+      "preimageXdrHex": "0000001000000001000000020000000d000000840000001000000001000000040000000d000000166c756d656e62617a6161722f73657373696f6e2d6964000000000003000000030000000d00000020cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd4720000001200000001c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c10000000d00000100000000100000000100000008000000120000000000000000111111111111111111111111111111111111111111111111111111111111111100000012000000015c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c0000001200000001a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a50000000a0000000000000000000000001908b10000000003004d53500000000d0000002009090909090909090909090909090909090909090909090909090909090909090000000500000000000000070000000d000000200808080808080808080808080808080808080808080808080808080808080808",
+      "resourceHashHex": "0909090909090909090909090909090909090909090909090909090909090909",
+      "seller": "CBOFYXC4LROFYXC4LROFYXC4LROFYXC4LROFYXC4LROFYXC4LROFZ7GH",
+      "sequence": "7",
+      "sessionIdHex": "91d665a16ebf0165f49f6433d13cb75385f98a27dda8e863dc41785dbfda7d85"
+    },
+    {
+      "asset": "CCS2LJNFUWS2LJNFUWS2LJNFUWS2LJNFUWS2LJNFUWS2LJNFUWS2LSSM",
+      "buyer": "GAIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCF6M",
+      "contractId": "CDA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4CFV6",
+      "expiresAtLedger": 5067600,
+      "idempotencyKeyHex": "0808080808080808080808080808080808080808080808080808080808080808",
+      "maxAmount": "420000000",
+      "name": "network-passphrase-nfc",
+      "networkIdHex": "35446a7167ad8005f9bf3624518554de9f6cec40932827f8cb40d7fbcf293f30",
+      "networkPassphrase": "Réseau synthétique ; 2026",
+      "preimageXdrHex": "0000001000000001000000020000000d000000840000001000000001000000040000000d000000166c756d656e62617a6161722f73657373696f6e2d6964000000000003000000030000000d0000002035446a7167ad8005f9bf3624518554de9f6cec40932827f8cb40d7fbcf293f300000001200000001c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c10000000d00000104000000100000000100000008000000120000000000000000111111111111111111111111111111111111111111111111111111111111111100000012000000000000000022222222222222222222222222222222222222222222222222222222222222220000001200000001a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a50000000a0000000000000000000000001908b10000000003004d53500000000d0000002009090909090909090909090909090909090909090909090909090909090909090000000500000000000000070000000d000000200808080808080808080808080808080808080808080808080808080808080808",
+      "resourceHashHex": "0909090909090909090909090909090909090909090909090909090909090909",
+      "seller": "GARCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCFRVX",
+      "sequence": "7",
+      "sessionIdHex": "9da264b7e5effc8ccf7c1bf00cb7d9cee8c20253674d56bd112b5102636f4e46"
+    },
+    {
+      "asset": "CCS2LJNFUWS2LJNFUWS2LJNFUWS2LJNFUWS2LJNFUWS2LJNFUWS2LSSM",
+      "buyer": "GAIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCF6M",
+      "contractId": "CDA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4CFV6",
+      "expiresAtLedger": 5067600,
+      "idempotencyKeyHex": "0808080808080808080808080808080808080808080808080808080808080808",
+      "maxAmount": "420000000",
+      "name": "network-id-from-nfd-bytes",
+      "networkIdHex": "e87e61180bef76852df8b1af07e17b0d3b958eb52d546c32117295e87d6949b5",
+      "preimageXdrHex": "0000001000000001000000020000000d000000840000001000000001000000040000000d000000166c756d656e62617a6161722f73657373696f6e2d6964000000000003000000030000000d00000020e87e61180bef76852df8b1af07e17b0d3b958eb52d546c32117295e87d6949b50000001200000001c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c10000000d00000104000000100000000100000008000000120000000000000000111111111111111111111111111111111111111111111111111111111111111100000012000000000000000022222222222222222222222222222222222222222222222222222222222222220000001200000001a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a50000000a0000000000000000000000001908b10000000003004d53500000000d0000002009090909090909090909090909090909090909090909090909090909090909090000000500000000000000070000000d000000200808080808080808080808080808080808080808080808080808080808080808",
+      "resourceHashHex": "0909090909090909090909090909090909090909090909090909090909090909",
+      "seller": "GARCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCEIRCFRVX",
+      "sequence": "7",
+      "sessionIdHex": "8e6f0055b6f587835608a297c1a53f46ec5a26ec2ba32e03821197acb195f5e3"
+    }
+  ],
+  "synthetic": "All addresses are repeated-byte synthetic strkeys with no known secret key. The only real network value is the public testnet passphrase.",
+  "usageCommitments": [
+    {
+      "actualAmount": "1",
+      "contractId": "CDA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4CFV6",
+      "measurementHashHex": "c37140ad8234fbf5f416a231aa7a9a62d220c51da4bd1ef4b7a6ab3fb7cd4892",
+      "name": "actual-amount-one",
+      "networkIdHex": "cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd472",
+      "networkPassphrase": "Test SDF Network ; September 2015",
+      "preimageXdrHex": "0000001000000001000000020000000d000000880000001000000001000000040000000d0000001c6c756d656e62617a6161722f75736167652d636f6d6d69746d656e7400000003000000030000000d00000020cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd4720000001200000001c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c10000000d000000a000000010000000010000000500000003000000010000000d00000020f361b584768c43d31720ccc9216676bf51e0c651cc7bae113d0dd2f213adaf540000000a000000000000000000000000000000010000000d0000002009090909090909090909090909090909090909090909090909090909090909090000000d00000020c37140ad8234fbf5f416a231aa7a9a62d220c51da4bd1ef4b7a6ab3fb7cd4892",
+      "receiptSchemaVersion": 1,
+      "resourceHashHex": "0909090909090909090909090909090909090909090909090909090909090909",
+      "sessionIdHex": "f361b584768c43d31720ccc9216676bf51e0c651cc7bae113d0dd2f213adaf54",
+      "usageHashHex": "3c6e35b6b5a6744ca2ed38750483f518e444e6d586ae05594524ecc58b4f16b2"
+    },
+    {
+      "actualAmount": "210000000",
+      "contractId": "CDA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4CFV6",
+      "measurementHashHex": "c37140ad8234fbf5f416a231aa7a9a62d220c51da4bd1ef4b7a6ab3fb7cd4892",
+      "name": "actual-amount-typical",
+      "networkIdHex": "cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd472",
+      "networkPassphrase": "Test SDF Network ; September 2015",
+      "preimageXdrHex": "0000001000000001000000020000000d000000880000001000000001000000040000000d0000001c6c756d656e62617a6161722f75736167652d636f6d6d69746d656e7400000003000000030000000d00000020cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd4720000001200000001c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c10000000d000000a000000010000000010000000500000003000000010000000d00000020f361b584768c43d31720ccc9216676bf51e0c651cc7bae113d0dd2f213adaf540000000a0000000000000000000000000c8458800000000d0000002009090909090909090909090909090909090909090909090909090909090909090000000d00000020c37140ad8234fbf5f416a231aa7a9a62d220c51da4bd1ef4b7a6ab3fb7cd4892",
+      "receiptSchemaVersion": 1,
+      "resourceHashHex": "0909090909090909090909090909090909090909090909090909090909090909",
+      "sessionIdHex": "f361b584768c43d31720ccc9216676bf51e0c651cc7bae113d0dd2f213adaf54",
+      "usageHashHex": "9e9346fb0714b4695b2023e799b77b41b35b38ff85c2b01bf6c3e4a347102860"
+    },
+    {
+      "actualAmount": "170141183460469231731687303715884105727",
+      "contractId": "CDA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4CFV6",
+      "measurementHashHex": "5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a",
+      "name": "actual-amount-i128-max",
+      "networkIdHex": "cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd472",
+      "networkPassphrase": "Test SDF Network ; September 2015",
+      "preimageXdrHex": "0000001000000001000000020000000d000000880000001000000001000000040000000d0000001c6c756d656e62617a6161722f75736167652d636f6d6d69746d656e7400000003000000030000000d00000020cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd4720000001200000001c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c10000000d000000a000000010000000010000000500000003000000010000000d00000020f361b584768c43d31720ccc9216676bf51e0c651cc7bae113d0dd2f213adaf540000000a7fffffffffffffffffffffffffffffff0000000d0000002009090909090909090909090909090909090909090909090909090909090909090000000d000000205a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a",
+      "receiptSchemaVersion": 1,
+      "resourceHashHex": "0909090909090909090909090909090909090909090909090909090909090909",
+      "sessionIdHex": "f361b584768c43d31720ccc9216676bf51e0c651cc7bae113d0dd2f213adaf54",
+      "usageHashHex": "0976f5ac5a881923bbb59e2d34051a2f58a0fc5aede9608f053f6045c0198f95"
+    }
+  ],
+  "usageReceipts": {
+    "invalid": [
+      {
+        "error": "not_nfc",
+        "name": "passphrase-nfd-latin",
+        "receipt": {
+          "amount": "210000000",
+          "contractId": "CDA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4CFV6",
+          "interfaceVersion": 3,
+          "measurement": {
+            "endedAtLedger": 5067542,
+            "quantity": "42",
+            "startedAtLedger": 5067500,
+            "unit": "request"
+          },
+          "networkPassphrase": "Réseau synthétique ; 2026",
+          "protocol": "lumenbazaar",
+          "receiptId": "usage_synthetic_0001",
+          "resourceHash": "0909090909090909090909090909090909090909090909090909090909090909",
+          "schemaVersion": 1,
+          "sessionId": "f361b584768c43d31720ccc9216676bf51e0c651cc7bae113d0dd2f213adaf54"
+        }
+      },
+      {
+        "error": "surrounding_whitespace",
+        "name": "passphrase-leading-whitespace",
+        "receipt": {
+          "amount": "210000000",
+          "contractId": "CDA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4CFV6",
+          "interfaceVersion": 3,
+          "measurement": {
+            "endedAtLedger": 5067542,
+            "quantity": "42",
+            "startedAtLedger": 5067500,
+            "unit": "request"
+          },
+          "networkPassphrase": " Test SDF Network ; September 2015",
+          "protocol": "lumenbazaar",
+          "receiptId": "usage_synthetic_0001",
+          "resourceHash": "0909090909090909090909090909090909090909090909090909090909090909",
+          "schemaVersion": 1,
+          "sessionId": "f361b584768c43d31720ccc9216676bf51e0c651cc7bae113d0dd2f213adaf54"
+        }
+      },
+      {
+        "error": "empty",
+        "name": "passphrase-empty",
+        "receipt": {
+          "amount": "210000000",
+          "contractId": "CDA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4CFV6",
+          "interfaceVersion": 3,
+          "measurement": {
+            "endedAtLedger": 5067542,
+            "quantity": "42",
+            "startedAtLedger": 5067500,
+            "unit": "request"
+          },
+          "networkPassphrase": "",
+          "protocol": "lumenbazaar",
+          "receiptId": "usage_synthetic_0001",
+          "resourceHash": "0909090909090909090909090909090909090909090909090909090909090909",
+          "schemaVersion": 1,
+          "sessionId": "f361b584768c43d31720ccc9216676bf51e0c651cc7bae113d0dd2f213adaf54"
+        }
+      },
+      {
+        "error": "empty",
+        "name": "receipt-id-empty",
+        "receipt": {
+          "amount": "210000000",
+          "contractId": "CDA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4CFV6",
+          "interfaceVersion": 3,
+          "measurement": {
+            "endedAtLedger": 5067542,
+            "quantity": "42",
+            "startedAtLedger": 5067500,
+            "unit": "request"
+          },
+          "networkPassphrase": "Test SDF Network ; September 2015",
+          "protocol": "lumenbazaar",
+          "receiptId": "",
+          "resourceHash": "0909090909090909090909090909090909090909090909090909090909090909",
+          "schemaVersion": 1,
+          "sessionId": "f361b584768c43d31720ccc9216676bf51e0c651cc7bae113d0dd2f213adaf54"
+        }
+      },
+      {
+        "error": "too_long",
+        "name": "receipt-id-over-max-129",
+        "receipt": {
+          "amount": "210000000",
+          "contractId": "CDA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4CFV6",
+          "interfaceVersion": 3,
+          "measurement": {
+            "endedAtLedger": 5067542,
+            "quantity": "42",
+            "startedAtLedger": 5067500,
+            "unit": "request"
+          },
+          "networkPassphrase": "Test SDF Network ; September 2015",
+          "protocol": "lumenbazaar",
+          "receiptId": "rxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          "resourceHash": "0909090909090909090909090909090909090909090909090909090909090909",
+          "schemaVersion": 1,
+          "sessionId": "f361b584768c43d31720ccc9216676bf51e0c651cc7bae113d0dd2f213adaf54"
+        }
+      },
+      {
+        "error": "invalid_characters",
+        "name": "receipt-id-non-ascii",
+        "receipt": {
+          "amount": "210000000",
+          "contractId": "CDA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4CFV6",
+          "interfaceVersion": 3,
+          "measurement": {
+            "endedAtLedger": 5067542,
+            "quantity": "42",
+            "startedAtLedger": 5067500,
+            "unit": "request"
+          },
+          "networkPassphrase": "Test SDF Network ; September 2015",
+          "protocol": "lumenbazaar",
+          "receiptId": "usage_café",
+          "resourceHash": "0909090909090909090909090909090909090909090909090909090909090909",
+          "schemaVersion": 1,
+          "sessionId": "f361b584768c43d31720ccc9216676bf51e0c651cc7bae113d0dd2f213adaf54"
+        }
+      },
+      {
+        "error": "too_long",
+        "name": "unit-over-max-65",
+        "receipt": {
+          "amount": "210000000",
+          "contractId": "CDA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4CFV6",
+          "interfaceVersion": 3,
+          "measurement": {
+            "endedAtLedger": 5067542,
+            "quantity": "42",
+            "startedAtLedger": 5067500,
+            "unit": "uxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          },
+          "networkPassphrase": "Test SDF Network ; September 2015",
+          "protocol": "lumenbazaar",
+          "receiptId": "usage_synthetic_0001",
+          "resourceHash": "0909090909090909090909090909090909090909090909090909090909090909",
+          "schemaVersion": 1,
+          "sessionId": "f361b584768c43d31720ccc9216676bf51e0c651cc7bae113d0dd2f213adaf54"
+        }
+      },
+      {
+        "error": "non_positive",
+        "name": "amount-zero",
+        "receipt": {
+          "amount": "0",
+          "contractId": "CDA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4CFV6",
+          "interfaceVersion": 3,
+          "measurement": {
+            "endedAtLedger": 5067542,
+            "quantity": "42",
+            "startedAtLedger": 5067500,
+            "unit": "request"
+          },
+          "networkPassphrase": "Test SDF Network ; September 2015",
+          "protocol": "lumenbazaar",
+          "receiptId": "usage_synthetic_0001",
+          "resourceHash": "0909090909090909090909090909090909090909090909090909090909090909",
+          "schemaVersion": 1,
+          "sessionId": "f361b584768c43d31720ccc9216676bf51e0c651cc7bae113d0dd2f213adaf54"
+        }
+      },
+      {
+        "error": "non_canonical_decimal",
+        "name": "amount-leading-zero",
+        "receipt": {
+          "amount": "0210000000",
+          "contractId": "CDA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4CFV6",
+          "interfaceVersion": 3,
+          "measurement": {
+            "endedAtLedger": 5067542,
+            "quantity": "42",
+            "startedAtLedger": 5067500,
+            "unit": "request"
+          },
+          "networkPassphrase": "Test SDF Network ; September 2015",
+          "protocol": "lumenbazaar",
+          "receiptId": "usage_synthetic_0001",
+          "resourceHash": "0909090909090909090909090909090909090909090909090909090909090909",
+          "schemaVersion": 1,
+          "sessionId": "f361b584768c43d31720ccc9216676bf51e0c651cc7bae113d0dd2f213adaf54"
+        }
+      }
+    ],
+    "valid": [
+      {
+        "canonicalUtf8": "{\"schemaVersion\":1,\"protocol\":\"lumenbazaar\",\"interfaceVersion\":3,\"networkPassphrase\":\"Test SDF Network ; September 2015\",\"contractId\":\"CDA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4CFV6\",\"sessionId\":\"f361b584768c43d31720ccc9216676bf51e0c651cc7bae113d0dd2f213adaf54\",\"amount\":\"210000000\",\"resourceHash\":\"0909090909090909090909090909090909090909090909090909090909090909\",\"measurement\":{\"unit\":\"request\",\"quantity\":\"42\",\"startedAtLedger\":5067500,\"endedAtLedger\":5067542},\"receiptId\":\"usage_synthetic_0001\"}",
+        "canonicalUtf8Bytes": 509,
+        "name": "baseline-ascii",
+        "receipt": {
+          "amount": "210000000",
+          "contractId": "CDA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4CFV6",
+          "interfaceVersion": 3,
+          "measurement": {
+            "endedAtLedger": 5067542,
+            "quantity": "42",
+            "startedAtLedger": 5067500,
+            "unit": "request"
+          },
+          "networkPassphrase": "Test SDF Network ; September 2015",
+          "protocol": "lumenbazaar",
+          "receiptId": "usage_synthetic_0001",
+          "resourceHash": "0909090909090909090909090909090909090909090909090909090909090909",
+          "schemaVersion": 1,
+          "sessionId": "f361b584768c43d31720ccc9216676bf51e0c651cc7bae113d0dd2f213adaf54"
+        },
+        "sha256": "c37140ad8234fbf5f416a231aa7a9a62d220c51da4bd1ef4b7a6ab3fb7cd4892"
+      },
+      {
+        "canonicalUtf8": "{\"schemaVersion\":1,\"protocol\":\"lumenbazaar\",\"interfaceVersion\":3,\"networkPassphrase\":\"Réseau synthétique ; 2026\",\"contractId\":\"CDA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4CFV6\",\"sessionId\":\"f361b584768c43d31720ccc9216676bf51e0c651cc7bae113d0dd2f213adaf54\",\"amount\":\"210000000\",\"resourceHash\":\"0909090909090909090909090909090909090909090909090909090909090909\",\"measurement\":{\"unit\":\"request\",\"quantity\":\"42\",\"startedAtLedger\":5067500,\"endedAtLedger\":5067542},\"receiptId\":\"usage_synthetic_0001\"}",
+        "canonicalUtf8Bytes": 503,
+        "name": "passphrase-nfc-latin",
+        "receipt": {
+          "amount": "210000000",
+          "contractId": "CDA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4CFV6",
+          "interfaceVersion": 3,
+          "measurement": {
+            "endedAtLedger": 5067542,
+            "quantity": "42",
+            "startedAtLedger": 5067500,
+            "unit": "request"
+          },
+          "networkPassphrase": "Réseau synthétique ; 2026",
+          "protocol": "lumenbazaar",
+          "receiptId": "usage_synthetic_0001",
+          "resourceHash": "0909090909090909090909090909090909090909090909090909090909090909",
+          "schemaVersion": 1,
+          "sessionId": "f361b584768c43d31720ccc9216676bf51e0c651cc7bae113d0dd2f213adaf54"
+        },
+        "sha256": "82c72a1365c6ff74a8ddbc22722223fab4878fa12404f7fa40d843094edd02bc"
+      },
+      {
+        "canonicalUtf8": "{\"schemaVersion\":1,\"protocol\":\"lumenbazaar\",\"interfaceVersion\":3,\"networkPassphrase\":\"Synthetic 🛰️ network ; 2026\",\"contractId\":\"CDA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4CFV6\",\"sessionId\":\"f361b584768c43d31720ccc9216676bf51e0c651cc7bae113d0dd2f213adaf54\",\"amount\":\"210000000\",\"resourceHash\":\"0909090909090909090909090909090909090909090909090909090909090909\",\"measurement\":{\"unit\":\"request\",\"quantity\":\"42\",\"startedAtLedger\":5067500,\"endedAtLedger\":5067542},\"receiptId\":\"usage_synthetic_0001\"}",
+        "canonicalUtf8Bytes": 508,
+        "name": "passphrase-emoji",
+        "receipt": {
+          "amount": "210000000",
+          "contractId": "CDA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4CFV6",
+          "interfaceVersion": 3,
+          "measurement": {
+            "endedAtLedger": 5067542,
+            "quantity": "42",
+            "startedAtLedger": 5067500,
+            "unit": "request"
+          },
+          "networkPassphrase": "Synthetic 🛰️ network ; 2026",
+          "protocol": "lumenbazaar",
+          "receiptId": "usage_synthetic_0001",
+          "resourceHash": "0909090909090909090909090909090909090909090909090909090909090909",
+          "schemaVersion": 1,
+          "sessionId": "f361b584768c43d31720ccc9216676bf51e0c651cc7bae113d0dd2f213adaf54"
+        },
+        "sha256": "9378afb2931f86fe794a9ffb3f8182e3892a65e42a0e0c30fb52ed5f68a2e88d"
+      },
+      {
+        "canonicalUtf8": "{\"schemaVersion\":1,\"protocol\":\"lumenbazaar\",\"interfaceVersion\":3,\"networkPassphrase\":\"Test SDF Network ; September 2015\",\"contractId\":\"CDA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4CFV6\",\"sessionId\":\"f361b584768c43d31720ccc9216676bf51e0c651cc7bae113d0dd2f213adaf54\",\"amount\":\"210000000\",\"resourceHash\":\"0909090909090909090909090909090909090909090909090909090909090909\",\"measurement\":{\"unit\":\"request\",\"quantity\":\"42\",\"startedAtLedger\":5067500,\"endedAtLedger\":5067542},\"receiptId\":\"rxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"}",
+        "canonicalUtf8Bytes": 617,
+        "name": "receipt-id-max-128",
+        "receipt": {
+          "amount": "210000000",
+          "contractId": "CDA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4CFV6",
+          "interfaceVersion": 3,
+          "measurement": {
+            "endedAtLedger": 5067542,
+            "quantity": "42",
+            "startedAtLedger": 5067500,
+            "unit": "request"
+          },
+          "networkPassphrase": "Test SDF Network ; September 2015",
+          "protocol": "lumenbazaar",
+          "receiptId": "rxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          "resourceHash": "0909090909090909090909090909090909090909090909090909090909090909",
+          "schemaVersion": 1,
+          "sessionId": "f361b584768c43d31720ccc9216676bf51e0c651cc7bae113d0dd2f213adaf54"
+        },
+        "sha256": "d0924e8d82cb8df2b9e7f4b2982f383ef9cbc8807994ccf89c73f72a629e6179"
+      },
+      {
+        "canonicalUtf8": "{\"schemaVersion\":1,\"protocol\":\"lumenbazaar\",\"interfaceVersion\":3,\"networkPassphrase\":\"Test SDF Network ; September 2015\",\"contractId\":\"CDA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4CFV6\",\"sessionId\":\"f361b584768c43d31720ccc9216676bf51e0c651cc7bae113d0dd2f213adaf54\",\"amount\":\"210000000\",\"resourceHash\":\"0909090909090909090909090909090909090909090909090909090909090909\",\"measurement\":{\"unit\":\"request\",\"quantity\":\"42\",\"startedAtLedger\":5067500,\"endedAtLedger\":5067542},\"receiptId\":\"rxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"}",
+        "canonicalUtf8Bytes": 616,
+        "name": "receipt-id-below-max-127",
+        "receipt": {
+          "amount": "210000000",
+          "contractId": "CDA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4CFV6",
+          "interfaceVersion": 3,
+          "measurement": {
+            "endedAtLedger": 5067542,
+            "quantity": "42",
+            "startedAtLedger": 5067500,
+            "unit": "request"
+          },
+          "networkPassphrase": "Test SDF Network ; September 2015",
+          "protocol": "lumenbazaar",
+          "receiptId": "rxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          "resourceHash": "0909090909090909090909090909090909090909090909090909090909090909",
+          "schemaVersion": 1,
+          "sessionId": "f361b584768c43d31720ccc9216676bf51e0c651cc7bae113d0dd2f213adaf54"
+        },
+        "sha256": "43a4d787587fe1334076527303bee46cd4c8d19cc45eeac6dd44fd4f0a4a6cda"
+      },
+      {
+        "canonicalUtf8": "{\"schemaVersion\":1,\"protocol\":\"lumenbazaar\",\"interfaceVersion\":3,\"networkPassphrase\":\"Test SDF Network ; September 2015\",\"contractId\":\"CDA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4CFV6\",\"sessionId\":\"f361b584768c43d31720ccc9216676bf51e0c651cc7bae113d0dd2f213adaf54\",\"amount\":\"210000000\",\"resourceHash\":\"0909090909090909090909090909090909090909090909090909090909090909\",\"measurement\":{\"unit\":\"uxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\",\"quantity\":\"42\",\"startedAtLedger\":5067500,\"endedAtLedger\":5067542},\"receiptId\":\"usage_synthetic_0001\"}",
+        "canonicalUtf8Bytes": 566,
+        "name": "unit-max-64",
+        "receipt": {
+          "amount": "210000000",
+          "contractId": "CDA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4CFV6",
+          "interfaceVersion": 3,
+          "measurement": {
+            "endedAtLedger": 5067542,
+            "quantity": "42",
+            "startedAtLedger": 5067500,
+            "unit": "uxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          },
+          "networkPassphrase": "Test SDF Network ; September 2015",
+          "protocol": "lumenbazaar",
+          "receiptId": "usage_synthetic_0001",
+          "resourceHash": "0909090909090909090909090909090909090909090909090909090909090909",
+          "schemaVersion": 1,
+          "sessionId": "f361b584768c43d31720ccc9216676bf51e0c651cc7bae113d0dd2f213adaf54"
+        },
+        "sha256": "2fc3fdd5ee09a018347153e91b291bc26d1b0094c1d7417399783bc985386811"
+      },
+      {
+        "canonicalUtf8": "{\"schemaVersion\":1,\"protocol\":\"lumenbazaar\",\"interfaceVersion\":3,\"networkPassphrase\":\"Test SDF Network ; September 2015\",\"contractId\":\"CDA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4CFV6\",\"sessionId\":\"f361b584768c43d31720ccc9216676bf51e0c651cc7bae113d0dd2f213adaf54\",\"amount\":\"1\",\"resourceHash\":\"0909090909090909090909090909090909090909090909090909090909090909\",\"measurement\":{\"unit\":\"request\",\"quantity\":\"42\",\"startedAtLedger\":5067500,\"endedAtLedger\":5067542},\"receiptId\":\"usage_synthetic_0001\"}",
+        "canonicalUtf8Bytes": 501,
+        "name": "amount-one",
+        "receipt": {
+          "amount": "1",
+          "contractId": "CDA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4CFV6",
+          "interfaceVersion": 3,
+          "measurement": {
+            "endedAtLedger": 5067542,
+            "quantity": "42",
+            "startedAtLedger": 5067500,
+            "unit": "request"
+          },
+          "networkPassphrase": "Test SDF Network ; September 2015",
+          "protocol": "lumenbazaar",
+          "receiptId": "usage_synthetic_0001",
+          "resourceHash": "0909090909090909090909090909090909090909090909090909090909090909",
+          "schemaVersion": 1,
+          "sessionId": "f361b584768c43d31720ccc9216676bf51e0c651cc7bae113d0dd2f213adaf54"
+        },
+        "sha256": "93a3db47644f8d96f1d19747b9b8445f2ad3910d337c1ebe0dff67221b4740e6"
+      },
+      {
+        "canonicalUtf8": "{\"schemaVersion\":1,\"protocol\":\"lumenbazaar\",\"interfaceVersion\":3,\"networkPassphrase\":\"Test SDF Network ; September 2015\",\"contractId\":\"CDA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4CFV6\",\"sessionId\":\"f361b584768c43d31720ccc9216676bf51e0c651cc7bae113d0dd2f213adaf54\",\"amount\":\"170141183460469231731687303715884105727\",\"resourceHash\":\"0909090909090909090909090909090909090909090909090909090909090909\",\"measurement\":{\"unit\":\"request\",\"quantity\":\"42\",\"startedAtLedger\":5067500,\"endedAtLedger\":5067542},\"receiptId\":\"usage_synthetic_0001\"}",
+        "canonicalUtf8Bytes": 539,
+        "name": "amount-i128-max",
+        "receipt": {
+          "amount": "170141183460469231731687303715884105727",
+          "contractId": "CDA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4CFV6",
+          "interfaceVersion": 3,
+          "measurement": {
+            "endedAtLedger": 5067542,
+            "quantity": "42",
+            "startedAtLedger": 5067500,
+            "unit": "request"
+          },
+          "networkPassphrase": "Test SDF Network ; September 2015",
+          "protocol": "lumenbazaar",
+          "receiptId": "usage_synthetic_0001",
+          "resourceHash": "0909090909090909090909090909090909090909090909090909090909090909",
+          "schemaVersion": 1,
+          "sessionId": "f361b584768c43d31720ccc9216676bf51e0c651cc7bae113d0dd2f213adaf54"
+        },
+        "sha256": "bd51dea991d0c96b0253b9f5ac3936e4936b6b0d0a4e6317f86dc0ba8ca8b0e1"
+      }
+    ]
+  },
+  "version": 1
+}

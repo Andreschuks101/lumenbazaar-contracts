@@ -87,6 +87,25 @@ pub struct BuyerSessionCount {
 
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub enum CapIncreaseStatus {
+    Missing,
+    Waiting,
+    Ready,
+    Expired,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CapIncreaseStatusResponse {
+    pub status: CapIncreaseStatus,
+    pub proposed_max_amount: Option<i128>,
+    pub active_at_ledger: Option<u32>,
+    pub expires_at_ledger: Option<u32>,
+    pub is_ready: bool,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CapIncreaseProposal {
     pub proposed_max_amount: i128,
     pub active_at_ledger: u32,
@@ -298,6 +317,32 @@ pub struct SessionStatusResponse {
 pub enum BatchSessionStatus {
     Found(Session),
     NotFound,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum AuditIndexCategory {
+    ResourceCommitment,
+    UsageCommitment,
+    SellerStateCount,
+    BuyerOpenSessions,
+    SellerOpenSessions,
+    SessionNotFound,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SessionIndexMismatch {
+    pub session_id: BytesN<32>,
+    pub category: AuditIndexCategory,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SessionIndexAuditResult {
+    pub audited_count: u32,
+    pub mismatches: Vec<SessionIndexMismatch>,
+    pub is_consistent: bool,
 }
 
 #[contracttype]
