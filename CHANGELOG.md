@@ -4,6 +4,22 @@
 
 ### Added
 
+- Add pending administrator rotation status query (#243).
+  Compatibility: additive method and result type; existing admin and admin rotation queries are unchanged.
+  Migration: none.
+
+- Add seller exposure headroom query (#242).
+  Compatibility: additive method and result type; existing seller exposure ceiling and exposure queries are unchanged.
+  Migration: none.
+
+- Add buyer exposure headroom query (#241).
+  Compatibility: additive method and result type; existing buyer exposure ceiling and exposure queries are unchanged.
+  Migration: none.
+
+- Add asset exposure headroom query (#240).
+  Compatibility: additive method and result type; existing exposure ceiling and liability queries are unchanged.
+  Migration: none.
+
 - Add typed transaction evidence helpers to the TypeScript binding
   (`createSessionWithEvidence`, `settleWithEvidence`, `cancelWithEvidence`,
   `extendTtlWithEvidence`) that sign through an injected signer, confirm through RPC and

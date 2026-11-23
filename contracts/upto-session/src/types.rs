@@ -351,3 +351,45 @@ pub struct BatchSessionResult {
     pub session_id: BytesN<32>,
     pub status: BatchSessionStatus,
 }
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AssetExposureHeadroom {
+    pub ceiling: i128,
+    pub exposure: i128,
+    pub headroom: i128,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct BuyerExposureHeadroom {
+    pub ceiling: i128,
+    pub exposure: i128,
+    pub headroom: i128,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SellerExposureHeadroom {
+    pub ceiling: Option<i128>,
+    pub exposure: i128,
+    pub headroom: Option<i128>,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum AdminRotationStatus {
+    NoProposal,
+    Active {
+        pending_admin: Address,
+        expires_at_ledger: u32,
+    },
+    Expired {
+        pending_admin: Address,
+        expires_at_ledger: u32,
+    },
+}
+
+
+
+

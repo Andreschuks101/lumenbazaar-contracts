@@ -10,15 +10,15 @@ pub mod validation;
 
 pub use errors::ContractError;
 pub use types::{
-    AdminRotation, AssetLifecycle, AssetPolicy, AssetPolicyResponse, AssetSolvency,
-    AssetSolvencySnapshot, AssetStatus, AuditIndexCategory, BatchRecoveryResult, BatchRecoveryStatus,
-    BatchSessionResult, BatchSessionStatus, BuyerSessionCount, CapIncreaseProposal,
-    CapIncreaseStatus, CapIncreaseStatusResponse,
-    CommitmentDomainMetadata, CommitmentKind, ContractConfiguration, OperationalState,
-    RecoverabilityStatus, Session, SessionIndexAuditResult, SessionIndexMismatch,
-    SessionRecoverability, SessionStateCounts, SessionStatus,
-    SessionStatusResponse, SettlementPreview, SettlementRejectionReason, SolvencyAssetState,
-    SolvencyStatus, TerminalEvidence, TerminalEvidenceDigest,
+    AdminRotation, AdminRotationStatus, AssetExposureHeadroom, AssetLifecycle, AssetPolicy,
+    AssetPolicyResponse, AssetSolvency, AssetSolvencySnapshot, AssetStatus, AuditIndexCategory,
+    BatchRecoveryResult, BatchRecoveryStatus, BatchSessionResult, BatchSessionStatus,
+    BuyerExposureHeadroom, BuyerSessionCount, CapIncreaseProposal, CapIncreaseStatus,
+    CapIncreaseStatusResponse, CommitmentDomainMetadata, CommitmentKind, ContractConfiguration,
+    OperationalState, RecoverabilityStatus, SellerExposureHeadroom, Session,
+    SessionIndexAuditResult, SessionIndexMismatch, SessionRecoverability, SessionStateCounts,
+    SessionStatus, SessionStatusResponse, SettlementPreview, SettlementRejectionReason,
+    SolvencyAssetState, SolvencyStatus, TerminalEvidence, TerminalEvidenceDigest,
 };
 
 use soroban_sdk::{contract, contractimpl, token, Address, BytesN, Env, Vec};
@@ -413,6 +413,27 @@ impl UptoSessionContract {
         Ok(storage::read_seller_exposure(&env, &seller, &asset))
     }
 
+    pub fn get_seller_exposure_headroom(
+        env: Env,
+        seller: Address,
+        asset: Address,
+    ) -> Result<SellerExposureHeadroom, ContractError> {
+        if !storage::has_admin(&env) {
+            return Err(ContractError::NotInitialized);
+        }
+        if !storage::is_supported_asset(&env, &asset) {
+            return Err(ContractError::UnsupportedAsset);
+        }
+        let exposure = storage::read_seller_exposure(&env, &seller, &asset);
+        let ceiling = storage::read_seller_exposure_ceiling(&env, &asset);
+        let headroom = ceiling.map(|c| c.saturating_sub(exposure));
+        Ok(SellerExposureHeadroom {
+            ceiling,
+            exposure,
+            headroom,
+        })
+    }
+
     pub fn set_max_buyer_open_sessions(env: Env, limit: u32) -> Result<(), ContractError> {
         let admin = storage::read_admin(&env).ok_or(ContractError::NotInitialized)?;
         if limit == 0 {
@@ -592,6 +613,27 @@ impl UptoSessionContract {
             .ok_or(ContractError::ExposureCeilingNotConfigured)
     }
 
+    pub fn get_asset_exposure_headroom(
+        env: Env,
+        asset: Address,
+    ) -> Result<AssetExposureHeadroom, ContractError> {
+        if !storage::has_admin(&env) {
+            return Err(ContractError::NotInitialized);
+        }
+        if !storage::is_supported_asset(&env, &asset) {
+            return Err(ContractError::UnsupportedAsset);
+        }
+        let ceiling = storage::read_asset_exposure_ceiling(&env, &asset)
+            .ok_or(ContractError::ExposureCeilingNotConfigured)?;
+        let exposure = storage::read_liability(&env, &asset);
+        let headroom = ceiling.saturating_sub(exposure);
+        Ok(AssetExposureHeadroom {
+            ceiling,
+            exposure,
+            headroom,
+        })
+    }
+
     /// Admin-only: sets the ceiling on open escrow any single buyer may hold
     /// for `asset`. Each buyer has an independent counter.
     pub fn set_buyer_exposure_ceiling(
@@ -643,6 +685,28 @@ impl UptoSessionContract {
             }
             None => Err(ContractError::UnsupportedAsset),
         }
+    }
+
+    pub fn get_buyer_exposure_headroom(
+        env: Env,
+        buyer: Address,
+        asset: Address,
+    ) -> Result<BuyerExposureHeadroom, ContractError> {
+        if !storage::has_admin(&env) {
+            return Err(ContractError::NotInitialized);
+        }
+        if !storage::is_supported_asset(&env, &asset) {
+            return Err(ContractError::UnsupportedAsset);
+        }
+        let ceiling = storage::read_buyer_exposure_ceiling(&env, &asset)
+            .ok_or(ContractError::ExposureCeilingNotConfigured)?;
+        let exposure = storage::read_buyer_exposure(&env, &buyer, &asset);
+        let headroom = ceiling.saturating_sub(exposure);
+        Ok(BuyerExposureHeadroom {
+            ceiling,
+            exposure,
+            headroom,
+        })
     }
 
     pub fn propose_admin(
@@ -713,6 +777,29 @@ impl UptoSessionContract {
 
     pub fn get_admin_rotation(env: Env) -> Option<AdminRotation> {
         storage::read_admin_rotation(&env)
+    }
+
+    pub fn get_admin_rotation_status(env: Env) -> Result<AdminRotationStatus, ContractError> {
+        if !storage::has_admin(&env) {
+            return Err(ContractError::NotInitialized);
+        }
+        match storage::read_admin_rotation(&env) {
+            None => Ok(AdminRotationStatus::NoProposal),
+            Some(rotation) => {
+                let current_ledger = env.ledger().sequence();
+                if current_ledger >= rotation.expires_at_ledger {
+                    Ok(AdminRotationStatus::Expired {
+                        pending_admin: rotation.pending_admin,
+                        expires_at_ledger: rotation.expires_at_ledger,
+                    })
+                } else {
+                    Ok(AdminRotationStatus::Active {
+                        pending_admin: rotation.pending_admin,
+                        expires_at_ledger: rotation.expires_at_ledger,
+                    })
+                }
+            }
+        }
     }
 
     pub fn get_configuration(env: Env) -> Result<ContractConfiguration, ContractError> {
