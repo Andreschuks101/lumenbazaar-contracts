@@ -27,11 +27,15 @@ seller, refunds the unused cap to the recorded buyer, clears
 Cancellation removes the same liability and returns the entire escrow to the
 recorded buyer.
 
-Cancellation is available only before expiry. At the exact expiry ledger and
-afterward, `recover_expired` is permissionless but has no recipient or amount
-arguments: it always refunds the complete escrow to the stored buyer and marks
-the session `Expired`. Settlement, cancellation, and recovery are mutually
-exclusive terminal paths.
+Cancellation is available only before expiry; seller rejection (`reject`) is likewise
+available to the stored seller before expiry and refunds the full escrow to the
+stored buyer. At the exact expiry ledger and afterward, `recover_expired` is
+permissionless but has no recipient or amount arguments: it always refunds the
+complete escrow to the stored buyer and marks the session `Expired`. Settlement,
+cancellation, seller rejection, and recovery are mutually exclusive terminal
+paths: whichever valid terminal transaction lands first finalizes the session and
+causes all subsequent terminal attempts to fail closed without duplicate payout or
+refund.
 
 `extend_session_expiry` requires both the recorded buyer and seller, only advances an open and unexpired session, and leaves escrow liability and deposited balances unchanged.
 
@@ -105,11 +109,19 @@ buyer_exposure[b, a] + new_max_amount <= max_buyer_exposure[a]  (checked at crea
 - An active asset without a stored ceiling fails creation closed with
   `ExposureCeilingNotConfigured` (38).
 
+### Same-ledger cap-reduction and session-creation ordering
+
+When a cap or exposure change and a `create_session` call execute in the same ledger sequence, each transaction evaluates against the state committed by prior transactions in that ledger:
+
+- **Cap/ceiling reduction before `create_session`**: `set_asset_max_session_amount` or `set_buyer_exposure_ceiling` takes effect immediately and emits `AssetSessionCapUpdated` or `BuyerExposureCeilingUpdated` before `SessionCreated`. A creation exceeding the reduced cap/ceiling fails closed with `AmountExceedsCap` or `BuyerExposureCeilingExceeded` before buyer auth or fund transfer.
+- **`create_session` before cap/ceiling reduction**: creation is evaluated against the pre-reduction cap/ceiling, emits `SessionCreated` first, and establishes an open session at that authorized cap; the subsequent reduction updates stored policy for future creations, emits `AssetSessionCapUpdated` / `BuyerExposureCeilingUpdated` after `SessionCreated`, and leaves existing open sessions able to settle/cancel/recover cleanly.
+- **Buyer `reduce_session_cap` vs `create_session`**: reducing an open session's cap atomically refunds the delta to the buyer, decrements asset liability, seller exposure, and `BuyerExposure(buyer, asset)`, and emits `SessionCapReduced`. When ordered before `create_session`, freed exposure capacity is immediately available to the new session; when ordered after, a creation exceeding prior headroom fails closed before moving funds, and accepted creations followed by `reduce_session_cap` emit `SessionCreated` then `SessionCapReduced` while keeping final exposure bounded and exact.
+
 ## Bounded State Model
 
 `formal/escrow-model` exhaustively explores the reachable states of one
 session through bounded sequences of initialization, creation, settlement,
-cancellation, expiry, recovery, asset lifecycle (deprecation and removal), and
+cancellation, seller rejection, expiry, recovery, asset lifecycle (deprecation and removal), and
 two-step admin rotation (proposal, acceptance, cancellation, expiry) actions.
 The finite model checks:
 
@@ -141,8 +153,9 @@ model action to implementation and test evidence that must remain green.
 | --- | --- | --- |
 | `Initialize` | `initialize` and `admin.require_auth()` | `initialize_stores_admin_once`, `initialize_rejects_empty_duplicate_or_invalid_asset_policies` |
 | `Create` | `create_session`, supported-asset gate, buyer authorization, token transfer, liability increase | `create_session_stores_open_session`, `create_session_requires_buyer_auth`, `insufficient_funding_prevents_session_creation` |
-| `Settle` | `settle`, seller authorization, amount and expiry validation, liability decrease | `settle_rejects_wrong_seller_auth`, `settle_accepts_exact_cap_without_refund`, `settlement_isolates_concurrent_sessions_sharing_an_asset` |
-| `Cancel` | `cancel`, buyer authorization, pre-expiry gate, full refund | `cancel_requires_buyer_auth`, `cancel_allows_buyer_cancellation_before_settlement`, `cancel_rejects_already_cancelled_session` |
+| `Settle` | `settle`, seller authorization, amount and expiry validation, liability decrease | `settle_rejects_wrong_seller_auth`, `settle_accepts_exact_cap_without_refund`, `settlement_isolates_concurrent_sessions_sharing_an_asset`, `seller_settlement_before_rejection_prevents_refund_and_asserts_auth_evidence`, `counterexample_seller_rejection_and_settlement_ordering_is_mutually_exclusive` |
+| `Cancel` | `cancel`, buyer authorization, pre-expiry gate, full refund | `cancel_requires_buyer_auth`, `cancel_allows_buyer_cancellation_before_settlement`, `cancel_rejects_already_cancelled_session`, `distinct_valid_signers_buyer_cancel_and_seller_terminal_actions_both_orderings`, `counterexample_buyer_cancel_and_seller_terminal_actions_are_mutually_exclusive` |
+| `Reject` | `reject`, seller authorization, pre-expiry gate, full buyer refund | `reject_allows_seller_rejection_and_refunds_buyer_only`, `reject_requires_seller_auth`, `reject_rejects_terminal_and_expired_states`, `rejected_sessions_never_settle_cancel_extend_or_recover`, `seller_rejection_before_settlement_prevents_payout_and_asserts_auth_evidence`, `seller_settlement_before_rejection_prevents_refund_and_asserts_auth_evidence`, `wrong_signer_cannot_trigger_reject_or_settle_before_valid_terminal_action`, `counterexample_seller_rejection_and_settlement_ordering_is_mutually_exclusive` |
 | `AdvanceToExpiry` | ledger sequence compared with `expires_at_ledger` | `expiry_boundary_selects_exactly_one_terminal_path` |
 | `ExtendExpiry` | `extend_session_expiry`, buyer and seller authorization, pre-expiry and maximum-duration gates | `extend_session_expiry_succeeds_and_emits_event`, `production_expiry_extension_requires_both_buyer_and_seller_authorization_trees` |
 | `Recover` | `recover_expired`, fixed stored buyer recipient, full refund | `expiry_recovery_is_permissionless_fixed_recipient_and_single_use`, `expiry_recovery_rejects_missing_settled_and_cancelled_sessions` |

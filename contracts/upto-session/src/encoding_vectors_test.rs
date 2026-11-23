@@ -33,7 +33,15 @@ use soroban_sdk::{
     xdr::{self, Limits, ScAddress, ScVal, ToXdr, WriteXdr},
     Address, Bytes, BytesN, Env, String as SorobanString,
 };
-use std::{borrow::ToOwned, format, path::PathBuf, str::FromStr, string::String, vec, vec::Vec};
+use std::{
+    borrow::ToOwned,
+    format,
+    path::PathBuf,
+    str::FromStr,
+    string::{String, ToString},
+    vec,
+    vec::Vec,
+};
 
 /// Version of the published vector set. Bump it (and add a new lock and
 /// changelog entry) whenever any existing vector or encoding rule changes.
@@ -865,7 +873,7 @@ fn classify_resource_hash(text: &str) -> Result<[u8; 32], &'static str> {
             "invalid_hex"
         });
     }
-    if text.len() % 2 != 0 {
+    if !text.len().is_multiple_of(2) {
         return Err("invalid_hex");
     }
     if text.len() != 64 {

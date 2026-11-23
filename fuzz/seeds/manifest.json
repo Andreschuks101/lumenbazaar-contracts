@@ -621,6 +621,69 @@
       "purpose": "cap-increase-not-higher",
       "expectedOutcome": "defined-contract-result-without-host-failure",
       "generator": "reviewed-boundary-seed-v1"
+    },
+    {
+      "path": "fuzz/seeds/token_amount/15-create-rollover-wrapped-expiry.hex",
+      "sha256": "d10fa2ad31af7f356b1a286a0769122179fcf26d4c346a63894a9233c4ef7ba2",
+      "target": "token_amount",
+      "schema": "token_amount-input-v1",
+      "purpose": "create-rollover-wrapped-expiry",
+      "expectedOutcome": "defined-contract-result-without-host-failure",
+      "generator": "reviewed-boundary-seed-v1"
+    },
+    {
+      "path": "fuzz/seeds/token_amount/16-create-rollover-max-duration.hex",
+      "sha256": "9e668294b2eb14156754720b0808add5b9ef1e7082fc18f3f101b6cd2ee8d5c5",
+      "target": "token_amount",
+      "schema": "token_amount-input-v1",
+      "purpose": "create-rollover-max-duration",
+      "expectedOutcome": "defined-contract-result-without-host-failure",
+      "generator": "reviewed-boundary-seed-v1"
+    },
+    {
+      "path": "fuzz/seeds/token_amount/17-extend-expiry-rollover-wrapped.hex",
+      "sha256": "0c43d07790f9f54289828b37a17930716baf957dcd8b7d9addc6b72d290ec650",
+      "target": "token_amount",
+      "schema": "token_amount-input-v1",
+      "purpose": "extend-expiry-rollover-wrapped",
+      "expectedOutcome": "defined-contract-result-without-host-failure",
+      "generator": "reviewed-boundary-seed-v1"
+    },
+    {
+      "path": "fuzz/seeds/token_amount/18-admin-rotation-rollover-overflow.hex",
+      "sha256": "cfe669741d133157146fe8ed3b46c1e9583ea1d6014d2f165813376cad724b51",
+      "target": "token_amount",
+      "schema": "token_amount-input-v1",
+      "purpose": "admin-rotation-rollover-overflow",
+      "expectedOutcome": "defined-contract-result-without-host-failure",
+      "generator": "reviewed-boundary-seed-v1"
+    },
+    {
+      "path": "fuzz/seeds/token_amount/19-admin-rotation-rollover-wrapped.hex",
+      "sha256": "070518540cf695342b3f9d80f644009de5c51be23e2ab520dffdca1ba65d8259",
+      "target": "token_amount",
+      "schema": "token_amount-input-v1",
+      "purpose": "admin-rotation-rollover-wrapped",
+      "expectedOutcome": "defined-contract-result-without-host-failure",
+      "generator": "reviewed-boundary-seed-v1"
+    },
+    {
+      "path": "fuzz/seeds/token_amount/20-cap-increase-expiry-overflow.hex",
+      "sha256": "72afad320ad3e877271ecf04af60460149a4abd2c21d3cbf0ad87af5aeefbfa5",
+      "target": "token_amount",
+      "schema": "token_amount-input-v1",
+      "purpose": "cap-increase-expiry-overflow",
+      "expectedOutcome": "defined-contract-result-without-host-failure",
+      "generator": "reviewed-boundary-seed-v1"
+    },
+    {
+      "path": "fuzz/seeds/token_amount/21-cap-increase-wrapped-active.hex",
+      "sha256": "10e69c218bb09c56202836762833f895997ca8e0ac7e7fd52e56fd33c3766694",
+      "target": "token_amount",
+      "schema": "token_amount-input-v1",
+      "purpose": "cap-increase-wrapped-active",
+      "expectedOutcome": "defined-contract-result-without-host-failure",
+      "generator": "reviewed-boundary-seed-v1"
     }
   ]
 }
