@@ -1,0 +1,5 @@
+# token_amount: helper 4 (validate_cap_increase_proposal) ledger u32::MAX - 99 wrapped active 1 => InvalidCapIncreaseDelay
+# Synthetic. Layout: fuzz/README.md.
+04000000000000000000000000000000
+00000000000000000000000000000000
+00000000000001000000640300000000

@@ -53,13 +53,13 @@ covers aggregate overflow and zero underflow.
 
 `contracts/upto-session/src/transition_test.rs` replays bounded action sequences against one real
 session and a real Stellar asset contract, with a pure model of every permitted and forbidden
-transition. Actions: settle with zero, one, half, exact-cap, or over-cap amounts; cancel; recover;
+transition. Actions: settle with zero, one, half, exact-cap, or over-cap amounts; cancel; reject; recover;
 batch recover; extend TTL; and advance the ledger to one before, at, or after expiry. After every
 step the test checks the exact error, emitted events, buyer/seller/escrow balances, the escrow
 liability, and the full stored session.
 
-Proved properties: a session finalizes at most once; cancelled sessions never settle; settled
-sessions never cancel, extend, recover, or settle again; failing steps and no-op steps (including a
+Proved properties: a session finalizes at most once; cancelled and rejected sessions never settle; settled
+sessions never cancel, reject, extend, recover, or settle again; failing steps and no-op steps (including a
 successful TTL extension) emit no event, move no tokens, and leave the session byte-for-byte equal.
 
 Two runs cover it:
@@ -67,7 +67,7 @@ Two runs cover it:
 - `generated_sequences_follow_the_transition_table`: 128 random sequences of 1 to 16 actions, fixed
   seed `0x4c554d4554524e53`.
 - `every_sequence_up_to_depth_three_follows_the_transition_table`: every 1 to 3 step sequence over a
-  six-action alphabet (258 sequences), no randomness.
+  seven-action alphabet (399 sequences), no randomness.
 
 ```bash
 cargo test -p upto-session transition_harness -- --nocapture
