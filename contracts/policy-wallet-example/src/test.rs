@@ -1036,6 +1036,127 @@ fn authorization_limit_isolation_and_rollover() {
     assert_eq!(client.authorized_count_today(&agent_a), 1);
 }
 
+#[test]
+fn test_policy_active_window_status_boundaries_and_revocation() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, agent, seller, asset, _owner, resource_hash) = initialized_wallet(&env);
+
+    // 1. Policy not found for unregistered agent
+    let unregistered = Address::generate(&env);
+    assert_eq!(
+        client.try_get_policy_status(&unregistered),
+        Err(Ok(PolicyWalletError::PolicyNotFound))
+    );
+
+    // 2. Set policy with validity window [100, 200]
+    let mut policy = standard_policy(&env, &agent, &seller, &asset, &resource_hash, 200);
+    policy.valid_from_ledger = 100;
+    client.set_policy(&policy, &0);
+
+    // Pending: ledger 99 (< valid_from 100)
+    env.ledger().set_sequence_number(99);
+    assert_eq!(
+        client.get_policy_status(&agent),
+        PolicyActiveWindowStatus {
+            status: PolicyStatus::Pending,
+            current_ledger: 99,
+            valid_from_ledger: 100,
+            valid_until_ledger: 200,
+            next_boundary_ledger: Some(100),
+        }
+    );
+    // Matches authorization enforcement
+    assert_eq!(
+        client.try_check_payment(&agent, &seller, &asset, &10, &resource_hash),
+        Err(Ok(PolicyWalletError::PolicyNotActive))
+    );
+
+    // Active exact valid_from: ledger 100
+    env.ledger().set_sequence_number(100);
+    assert_eq!(
+        client.get_policy_status(&agent),
+        PolicyActiveWindowStatus {
+            status: PolicyStatus::Active,
+            current_ledger: 100,
+            valid_from_ledger: 100,
+            valid_until_ledger: 200,
+            next_boundary_ledger: Some(201),
+        }
+    );
+    assert!(client.try_check_payment(&agent, &seller, &asset, &10, &resource_hash).is_ok());
+
+    // Active interior: ledger 150
+    env.ledger().set_sequence_number(150);
+    assert_eq!(
+        client.get_policy_status(&agent),
+        PolicyActiveWindowStatus {
+            status: PolicyStatus::Active,
+            current_ledger: 150,
+            valid_from_ledger: 100,
+            valid_until_ledger: 200,
+            next_boundary_ledger: Some(201),
+        }
+    );
+    assert!(client.try_check_payment(&agent, &seller, &asset, &10, &resource_hash).is_ok());
+
+    // Active exact valid_until: ledger 200 (inclusive upper bound)
+    env.ledger().set_sequence_number(200);
+    assert_eq!(
+        client.get_policy_status(&agent),
+        PolicyActiveWindowStatus {
+            status: PolicyStatus::Active,
+            current_ledger: 200,
+            valid_from_ledger: 100,
+            valid_until_ledger: 200,
+            next_boundary_ledger: Some(201),
+        }
+    );
+    assert!(client.try_check_payment(&agent, &seller, &asset, &10, &resource_hash).is_ok());
+
+    // Expired exact: ledger 201 (> valid_until 200)
+    env.ledger().set_sequence_number(201);
+    assert_eq!(
+        client.get_policy_status(&agent),
+        PolicyActiveWindowStatus {
+            status: PolicyStatus::Expired,
+            current_ledger: 201,
+            valid_from_ledger: 100,
+            valid_until_ledger: 200,
+            next_boundary_ledger: None,
+        }
+    );
+    assert_eq!(
+        client.try_check_payment(&agent, &seller, &asset, &10, &resource_hash),
+        Err(Ok(PolicyWalletError::PolicyExpired))
+    );
+
+    // 3. Revocation takes precedence over temporal state
+    // Revoke at ledger 150 (within active window)
+    env.ledger().set_sequence_number(150);
+    client.revoke_policy(&agent);
+    assert_eq!(
+        client.get_policy_status(&agent),
+        PolicyActiveWindowStatus {
+            status: PolicyStatus::Revoked,
+            current_ledger: 150,
+            valid_from_ledger: 0,
+            valid_until_ledger: 0,
+            next_boundary_ledger: None,
+        }
+    );
+    assert_eq!(
+        client.try_check_payment(&agent, &seller, &asset, &10, &resource_hash),
+        Err(Ok(PolicyWalletError::PolicyRevoked))
+    );
+
+    // Revocation status holds even at ledger before valid_from or after valid_until
+    env.ledger().set_sequence_number(50);
+    assert_eq!(client.get_policy_status(&agent).status, PolicyStatus::Revoked);
+    env.ledger().set_sequence_number(250);
+    assert_eq!(client.get_policy_status(&agent).status, PolicyStatus::Revoked);
+}
+
 fn record_upto_event_names(
     env: &Env,
     contract_id: &Address,
@@ -1362,11 +1483,113 @@ fn same_ledger_concurrent_cap_reductions_enforce_revision_and_seller_resource_or
 }
 
 #[test]
+fn test_same_ledger_authorization_ordering_permutations_and_rejections() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, agent, seller, asset, _owner, resource_hash) = initialized_wallet(&env);
+    let wrong_seller = Address::generate(&env);
+    // Set standard policy: payment cap = 75, daily cap = 100, max authorizations per day = 3
+    let mut policy = standard_policy(&env, &agent, &seller, &asset, &resource_hash, 100_000);
+    policy.max_authorizations_per_day = 3;
+    client.set_policy(&policy, &0);
+
+    // Ensure we are at a fixed ledger (same ledger throughout all permutation tests)
+    env.ledger().set_sequence_number(1_000);
+
+    // 1. Rejected calls (e.g. wrong seller, amount over per-payment cap, non-positive amount)
+    // executed in various positions do NOT cause state drift or increment spend/auth counters.
+    assert_eq!(
+        client.try_authorize_payment(&agent, &wrong_seller, &asset, &20, &resource_hash),
+        Err(Ok(PolicyWalletError::SellerNotAllowed))
+    );
+    assert_eq!(client.spent_today(&agent), 0);
+    assert_eq!(client.authorized_count_today(&agent), 0);
+
+    assert_eq!(
+        client.try_authorize_payment(&agent, &seller, &asset, &80, &resource_hash),
+        Err(Ok(PolicyWalletError::AmountExceedsPaymentCap))
+    );
+    assert_eq!(client.spent_today(&agent), 0);
+    assert_eq!(client.authorized_count_today(&agent), 0);
+
+    assert_eq!(
+        client.try_authorize_payment(&agent, &seller, &asset, &0, &resource_hash),
+        Err(Ok(PolicyWalletError::InvalidAmount))
+    );
+    assert_eq!(client.spent_today(&agent), 0);
+    assert_eq!(client.authorized_count_today(&agent), 0);
+
+    // 2. Successful same-ledger sequence: First call consumes 40
+    assert!(client.try_authorize_payment(&agent, &seller, &asset, &40, &resource_hash).is_ok());
+    assert_eq!(client.spent_today(&agent), 40);
+    assert_eq!(client.authorized_count_today(&agent), 1);
+
+    // Rejected call interleaved in the middle of a same-ledger sequence:
+    assert_eq!(
+        client.try_authorize_payment(&agent, &wrong_seller, &asset, &10, &resource_hash),
+        Err(Ok(PolicyWalletError::SellerNotAllowed))
+    );
+    assert_eq!(client.spent_today(&agent), 40);
+    assert_eq!(client.authorized_count_today(&agent), 1);
+
+    // Second valid call: consumes 50 (40 + 50 = 90 <= 100 daily cap)
+    assert!(client.try_authorize_payment(&agent, &seller, &asset, &50, &resource_hash).is_ok());
+    assert_eq!(client.spent_today(&agent), 90);
+    assert_eq!(client.authorized_count_today(&agent), 2);
+
+    // Payment exceeding remaining daily cap (90 + 20 = 110 > 100): rejected, no state drift
+    assert_eq!(
+        client.try_authorize_payment(&agent, &seller, &asset, &20, &resource_hash),
+        Err(Ok(PolicyWalletError::AmountExceedsDailyCap))
+    );
+    assert_eq!(client.spent_today(&agent), 90);
+    assert_eq!(client.authorized_count_today(&agent), 2);
+
+    // Third valid call: consumes 10 (reaches exact daily cap 100 and auth limit 3)
+    assert!(client.try_authorize_payment(&agent, &seller, &asset, &10, &resource_hash).is_ok());
+    assert_eq!(client.spent_today(&agent), 100);
+    assert_eq!(client.authorized_count_today(&agent), 3);
+
+    // Subsequent call fails on authorization count limit (even for amount 0 or within cap)
+    assert_eq!(
+        client.try_authorize_payment(&agent, &seller, &asset, &1, &resource_hash),
+        Err(Ok(PolicyWalletError::AuthorizationLimitExceeded))
+    );
+    assert_eq!(client.spent_today(&agent), 100);
+    assert_eq!(client.authorized_count_today(&agent), 3);
+
+    // 3. Alternative ordering test on fresh agent to verify deterministic order-independent final states
+    let agent2 = Address::generate(&env);
+    let mut policy2 = standard_policy(&env, &agent2, &seller, &asset, &resource_hash, 100_000);
+    policy2.agent = agent2.clone();
+    policy2.max_authorizations_per_day = 3;
+    client.set_policy(&policy2, &0);
+
+    // Same ledger: execute in reverse amount order: 10, then 50, then 40
+    assert!(client.try_authorize_payment(&agent2, &seller, &asset, &10, &resource_hash).is_ok());
+    assert_eq!(client.spent_today(&agent2), 10);
+    assert_eq!(client.authorized_count_today(&agent2), 1);
+
+    assert!(client.try_authorize_payment(&agent2, &seller, &asset, &50, &resource_hash).is_ok());
+    assert_eq!(client.spent_today(&agent2), 60);
+    assert_eq!(client.authorized_count_today(&agent2), 2);
+
+    assert!(client.try_authorize_payment(&agent2, &seller, &asset, &40, &resource_hash).is_ok());
+    assert_eq!(client.spent_today(&agent2), 100);
+    assert_eq!(client.authorized_count_today(&agent2), 3);
+
+    // Reached exact same terminal totals on the same ledger
+    assert_eq!(client.spent_today(&agent), client.spent_today(&agent2));
+    assert_eq!(client.authorized_count_today(&agent), client.authorized_count_today(&agent2));
+}
+
+#[test]
 fn preview_payment_matches_check_payment_and_never_mutates_state() {
     let env = Env::default();
     env.mock_all_auths();
     let (client, agent, seller, asset, _owner, resource_hash) = initialized_wallet(&env);
     let wrong_seller = Address::generate(&env);
+
     let wrong_asset = Address::generate(&env);
     let wrong_resource = BytesN::from_array(&env, &[99; 32]);
 
