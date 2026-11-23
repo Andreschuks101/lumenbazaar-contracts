@@ -21,8 +21,20 @@ Spending policy validity boundaries are inclusive: a policy is active for ledger
 | Stale revision write | `stale_expected_revision_fails_without_modifying_policy_or_spend` | An outdated expected revision returns `StaleRevision` without changing policy or spend. |
 | Oversized allowlist | `allowlists_enforce_exact_limits_and_fail_at_limit_plus_one` | More than 16 sellers, assets, or resource hashes returns `InvalidPolicy`. |
 | Duplicate allowlist entries | `allowlists_reject_duplicate_sellers_deterministically` | Duplicate seller, asset, or resource hash entries return `InvalidPolicy`. |
+| Same-ledger cap reduction & creation | `same_ledger_policy_cap_reduction_and_session_creation_both_orderings` | Both transaction orderings follow visible policy state and never exceed authorized exposure. |
+| Concurrent cap reduction & seller/resource ordering | `same_ledger_concurrent_cap_reductions_enforce_revision_and_seller_resource_ordering` | Stale revisions fail with `StaleRevision` and tight caps hold across resources. |
 
 ## Policy Replacement and Day Rollover Semantics
 
 - **Policy Replacement**: When a spending policy is replaced via `set_policy`, stored same-day and historical spend counters (`DailySpend`, `DailySellerSpend`, and `DailyResourceSpend`) are preserved. New caps take effect immediately against already-accumulated daily spend.
 - **Day Rollover**: All daily spending counters are partitioned by ledger day (`sequence / LEDGERS_PER_DAY`). When the ledger sequence advances past the day boundary, all spend queries and authorization checks reset to zero automatically.
+
+## Same-Ledger Cap-Reduction and Session-Creation Ordering Semantics
+
+When a wallet owner reduces spending caps (`set_policy`) and an agent authorizes a payment and opens an escrow session (`authorize_payment` -> `upto-session::create_session`) within the same ledger sequence:
+
+- **Transaction-order visibility**: `authorize_payment` and `upto-session::create_session` validate against the policy state visible at their exact execution point in the ledger.
+  - If `set_policy` executes first, the authorization sees the reduced per-payment and daily caps immediately and rejects any excess amount before incrementing spend or creating a session.
+  - If `authorize_payment` + `create_session` executes first, it is evaluated against the prior revision and establishes a valid session; the subsequent `set_policy` preserves same-day spend counters, immediately preventing any additional authorization that would exceed the lowered cap.
+- **No post-reduction excess**: After a cap reduction lands, no subsequent transaction path in that ledger (including per-seller or per-resource authorizations) can exceed the lowered policy ceiling. Concurrent same-ledger policy updates require the current monotonic `revision` via `expected_revision` and fail closed with `StaleRevision`.
+- **Auditability**: Policy revisions (`get_policy_revision`) paired with `upto-session` events (`SessionCreated`, `AssetSessionCapUpdated`, `BuyerExposureCeilingUpdated`, and `SessionCapReduced`) provide a deterministic, ordered audit trail of when limits changed relative to created or reduced escrow sessions.

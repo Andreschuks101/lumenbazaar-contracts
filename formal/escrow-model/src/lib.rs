@@ -759,4 +759,239 @@ mod tests {
         )
         .is_ok());
     }
+
+    #[test]
+    fn counterexample_seller_rejection_and_settlement_ordering_is_mutually_exclusive() {
+        let mut base = State::default();
+        apply(
+            &mut base,
+            Action::Initialize {
+                admin_authorized: true,
+            },
+        )
+        .unwrap();
+        apply(
+            &mut base,
+            Action::Create {
+                buyer_authorized: true,
+                cap: 2,
+            },
+        )
+        .unwrap();
+
+        // Unauthorized signer attempts never mutate state or consume the terminal exit.
+        let mut reject_unauth = base;
+        assert_eq!(
+            apply(
+                &mut reject_unauth,
+                Action::Reject {
+                    seller_authorized: false,
+                }
+            ),
+            Err(Rejection::Unauthorized)
+        );
+        assert_eq!(reject_unauth, base);
+
+        let mut settle_unauth = base;
+        assert_eq!(
+            apply(
+                &mut settle_unauth,
+                Action::Settle {
+                    seller_authorized: false,
+                    amount: 1,
+                }
+            ),
+            Err(Rejection::Unauthorized)
+        );
+        assert_eq!(settle_unauth, base);
+
+        // Order A: Reject first, then Settle -> Reject wins; Settle is blocked; buyer refunded once.
+        let mut reject_then_settle = base;
+        assert_eq!(
+            apply(
+                &mut reject_then_settle,
+                Action::Reject {
+                    seller_authorized: true,
+                }
+            ),
+            Ok(())
+        );
+        assert_eq!(reject_then_settle.status, Status::Rejected);
+        assert_eq!(reject_then_settle.buyer_refunded, 2);
+        assert_eq!(reject_then_settle.seller_paid, 0);
+        assert_eq!(reject_then_settle.liability, 0);
+        assert_eq!(reject_then_settle.terminal_transitions, 1);
+
+        assert_eq!(
+            apply(
+                &mut reject_then_settle,
+                Action::Settle {
+                    seller_authorized: true,
+                    amount: 1,
+                }
+            ),
+            Err(Rejection::InvalidState)
+        );
+        assert_eq!(invariant_violation(&reject_then_settle), None);
+        assert_eq!(reject_then_settle.status, Status::Rejected);
+        assert_eq!(reject_then_settle.seller_paid, 0);
+        assert_eq!(reject_then_settle.buyer_refunded, 2);
+
+        // Order B: Settle first, then Reject -> Settle wins; Reject is blocked; payout + refund occur once.
+        let mut settle_then_reject = base;
+        assert_eq!(
+            apply(
+                &mut settle_then_reject,
+                Action::Settle {
+                    seller_authorized: true,
+                    amount: 1,
+                }
+            ),
+            Ok(())
+        );
+        assert_eq!(settle_then_reject.status, Status::Settled);
+        assert_eq!(settle_then_reject.seller_paid, 1);
+        assert_eq!(settle_then_reject.buyer_refunded, 1);
+        assert_eq!(settle_then_reject.liability, 0);
+        assert_eq!(settle_then_reject.terminal_transitions, 1);
+
+        assert_eq!(
+            apply(
+                &mut settle_then_reject,
+                Action::Reject {
+                    seller_authorized: true,
+                }
+            ),
+            Err(Rejection::InvalidState)
+        );
+        assert_eq!(invariant_violation(&settle_then_reject), None);
+        assert_eq!(settle_then_reject.status, Status::Settled);
+        assert_eq!(settle_then_reject.seller_paid, 1);
+        assert_eq!(settle_then_reject.buyer_refunded, 1);
+    }
+
+    #[test]
+    fn counterexample_buyer_cancel_and_seller_terminal_actions_are_mutually_exclusive() {
+        let mut base = State::default();
+        apply(
+            &mut base,
+            Action::Initialize {
+                admin_authorized: true,
+            },
+        )
+        .unwrap();
+        apply(
+            &mut base,
+            Action::Create {
+                buyer_authorized: true,
+                cap: 2,
+            },
+        )
+        .unwrap();
+
+        let mut unauth_cancel = base;
+        assert_eq!(
+            apply(
+                &mut unauth_cancel,
+                Action::Cancel {
+                    buyer_authorized: false,
+                }
+            ),
+            Err(Rejection::Unauthorized)
+        );
+        assert_eq!(unauth_cancel, base);
+
+        // All 4 orderings across distinct buyer (Cancel) vs seller (Settle/Reject) signers:
+        // 1. Cancel -> Settle
+        let mut c_then_s = base;
+        apply(
+            &mut c_then_s,
+            Action::Cancel {
+                buyer_authorized: true,
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            apply(
+                &mut c_then_s,
+                Action::Settle {
+                    seller_authorized: true,
+                    amount: 2,
+                }
+            ),
+            Err(Rejection::InvalidState)
+        );
+        assert_eq!(c_then_s.status, Status::Cancelled);
+        assert_eq!(c_then_s.buyer_refunded, 2);
+        assert_eq!(c_then_s.seller_paid, 0);
+        assert_eq!(invariant_violation(&c_then_s), None);
+
+        // 2. Settle -> Cancel
+        let mut s_then_c = base;
+        apply(
+            &mut s_then_c,
+            Action::Settle {
+                seller_authorized: true,
+                amount: 2,
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            apply(
+                &mut s_then_c,
+                Action::Cancel {
+                    buyer_authorized: true
+                }
+            ),
+            Err(Rejection::InvalidState)
+        );
+        assert_eq!(s_then_c.status, Status::Settled);
+        assert_eq!(s_then_c.seller_paid, 2);
+        assert_eq!(s_then_c.buyer_refunded, 0);
+        assert_eq!(invariant_violation(&s_then_c), None);
+
+        // 3. Cancel -> Reject
+        let mut c_then_r = base;
+        apply(
+            &mut c_then_r,
+            Action::Cancel {
+                buyer_authorized: true,
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            apply(
+                &mut c_then_r,
+                Action::Reject {
+                    seller_authorized: true,
+                }
+            ),
+            Err(Rejection::InvalidState)
+        );
+        assert_eq!(c_then_r.status, Status::Cancelled);
+        assert_eq!(c_then_r.buyer_refunded, 2);
+        assert_eq!(invariant_violation(&c_then_r), None);
+
+        // 4. Reject -> Cancel
+        let mut r_then_c = base;
+        apply(
+            &mut r_then_c,
+            Action::Reject {
+                seller_authorized: true,
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            apply(
+                &mut r_then_c,
+                Action::Cancel {
+                    buyer_authorized: true
+                }
+            ),
+            Err(Rejection::InvalidState)
+        );
+        assert_eq!(r_then_c.status, Status::Rejected);
+        assert_eq!(r_then_c.buyer_refunded, 2);
+        assert_eq!(invariant_violation(&r_then_c), None);
+    }
 }

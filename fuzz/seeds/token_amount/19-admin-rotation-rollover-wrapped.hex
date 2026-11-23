@@ -1,0 +1,5 @@
+# token_amount: helper 7 (validate_admin_rotation) ledger u32::MAX wrapped expiry 1 => InvalidAdminRotationExpiry
+# Synthetic. Layout: fuzz/README.md.
+07000000000000000000000000000000
+00000000000000000000000000000000
+00000000000001000000000200000000
