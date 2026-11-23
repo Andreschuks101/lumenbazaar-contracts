@@ -1,13 +1,19 @@
 #![no_std]
 
 use soroban_sdk::{
-    contract, contracterror, contractevent, contractimpl, contracttype, Address, BytesN, Env, Vec,
+    contract, contracterror, contractevent, contractimpl, contracttype, xdr::ToXdr, Address,
+    Bytes, BytesN, Env, Vec,
 };
 
 pub const LEDGERS_PER_DAY: u32 = 17_280;
 pub const MAX_ALLOWED_SELLERS: u32 = 16;
 pub const MAX_ALLOWED_ASSETS: u32 = 16;
 pub const MAX_ALLOWED_RESOURCE_HASHES: u32 = 16;
+pub const MAX_STORED_AGENT_POLICIES: u32 = 32;
+pub const MAX_POLICY_PAGE_SIZE: u32 = 10;
+
+pub const POLICY_CONFIGURATION_DOMAIN: &[u8] = b"lumenbazaar/policy-configuration";
+pub const POLICY_CONFIGURATION_VERSION: u32 = 1;
 pub const AUTHORIZATION_NONCE_TTL_LEDGERS: u32 = 17_280 * 30; // 30 days retention
 
 // TTL management constants for instance storage keys
@@ -25,6 +31,7 @@ pub enum DataKey {
     DailyAuthCount(Address, u32),
     /// Ledger at which the owner revoked the agent's policy.
     RevokedPolicy(Address),
+    AgentPolicyIndex(Address),
     OwnerRotation,
     AuthorizationNonce(Address, BytesN<32>),
 }
@@ -123,6 +130,14 @@ pub struct SpendingPolicy {
 
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PolicyPage {
+    pub policy_ids: Vec<BytesN<32>>,
+    pub next_cursor: Option<u32>,
+    pub total_count: u32,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AuthorizationRecord {
     pub request_hash: BytesN<32>,
     pub authorized_at_ledger: u32,
@@ -162,6 +177,8 @@ pub enum PolicyWalletError {
     StaleRevision = 20,
     RevisionOverflow = 21,
     ReplayConflict = 22,
+    InvalidPageLimit = 23,
+    PolicyIndexFull = 24,
 }
 
 /// Emitted once when the owner revokes an agent's policy.
@@ -237,6 +254,10 @@ impl PolicyWalletExampleContract {
             .ok_or(PolicyWalletError::RevisionOverflow)?;
 
         policy.revision = next_revision;
+
+        let policy_id = compute_policy_configuration_digest(&env, &read_config(&env)?.owner, &policy);
+        update_agent_policy_index_on_upsert(&env, &agent, &policy_id)?;
+
         // Setting a policy is an explicit re-grant and clears a revocation.
         env.storage()
             .instance()
@@ -275,6 +296,7 @@ impl PolicyWalletExampleContract {
         env.storage()
             .instance()
             .set(&DataKey::RevokedPolicy(agent.clone()), &revoked_at_ledger);
+        update_agent_policy_index_on_revoke(&env, &agent);
         AgentPolicyRevoked {
             agent,
             owner,
@@ -297,8 +319,67 @@ impl PolicyWalletExampleContract {
         read_policy(&env, &agent)
     }
 
+    /// Queries the versioned, domain-separated cryptographic digest of an agent's active policy configuration.
+    /// The digest binds policy owner, limits, validity windows, allowlists, and contract identity.
+    pub fn get_policy_configuration_digest(
+        env: Env,
+        agent: Address,
+    ) -> Result<BytesN<32>, PolicyWalletError> {
+        let config = read_config(&env)?;
+        let policy = read_policy(&env, &agent)?;
+        Ok(compute_policy_configuration_digest(&env, &config.owner, &policy))
+    }
+
     pub fn get_policy_revision(env: Env, agent: Address) -> Result<u32, PolicyWalletError> {
         Ok(read_policy(&env, &agent)?.revision)
+    }
+
+    /// Returns a paginated view of policy IDs assigned to a specific agent.
+    /// Results are deterministically ordered and bounded by MAX_POLICY_PAGE_SIZE.
+    pub fn get_agent_policies(
+        env: Env,
+        agent: Address,
+        cursor: Option<u32>,
+        limit: Option<u32>,
+    ) -> Result<PolicyPage, PolicyWalletError> {
+        let page_limit = match limit {
+            Some(l) => {
+                if l == 0 || l > MAX_POLICY_PAGE_SIZE {
+                    return Err(PolicyWalletError::InvalidPageLimit);
+                }
+                l
+            }
+            None => MAX_POLICY_PAGE_SIZE,
+        };
+
+        let stored_ids: Vec<BytesN<32>> = env
+            .storage()
+            .instance()
+            .get(&DataKey::AgentPolicyIndex(agent))
+            .unwrap_or(Vec::new(&env));
+
+        let total_count = stored_ids.len();
+        let start = cursor.unwrap_or(0);
+
+        let mut page_ids = Vec::new(&env);
+        if start < total_count {
+            let end = (start + page_limit).min(total_count);
+            for i in start..end {
+                page_ids.push_back(stored_ids.get(i).unwrap());
+            }
+            let next_cursor = if end < total_count { Some(end) } else { None };
+            Ok(PolicyPage {
+                policy_ids: page_ids,
+                next_cursor,
+                total_count,
+            })
+        } else {
+            Ok(PolicyPage {
+                policy_ids: page_ids,
+                next_cursor: None,
+                total_count,
+            })
+        }
     }
 
     /// Read-only status query reporting whether an agent's policy is Pending, Active,
@@ -924,6 +1005,68 @@ fn read_daily_auth_count(env: &Env, agent: &Address, ledger_day: u32) -> u32 {
 
 fn current_ledger_day(env: &Env) -> u32 {
     env.ledger().sequence() / LEDGERS_PER_DAY
+}
+
+/// Computes the canonical, versioned, domain-separated SHA-256 digest
+/// over the wallet owner and policy configuration fields (owner, limits, windows, allowlists).
+pub fn compute_policy_configuration_digest(
+    env: &Env,
+    owner: &Address,
+    policy: &SpendingPolicy,
+) -> BytesN<32> {
+    let domain = (
+        Bytes::from_slice(env, POLICY_CONFIGURATION_DOMAIN),
+        POLICY_CONFIGURATION_VERSION,
+        env.ledger().network_id(),
+        env.current_contract_address(),
+    )
+        .to_xdr(env);
+    let payload = (
+        domain,
+        owner.clone(),
+        policy.agent.clone(),
+        policy.max_amount_per_payment,
+        policy.max_amount_per_day,
+        policy.max_authorizations_per_day,
+        policy.valid_from_ledger,
+        policy.valid_until_ledger,
+        policy.allowed_sellers.clone(),
+        policy.allowed_assets.clone(),
+        policy.allowed_resource_hashes.clone(),
+        policy.seller_limits.clone(),
+        policy.resource_limits.clone(),
+    );
+    env.crypto().sha256(&payload.to_xdr(env)).to_bytes()
+}
+
+fn update_agent_policy_index_on_upsert(
+    env: &Env,
+    agent: &Address,
+    policy_id: &BytesN<32>,
+) -> Result<(), PolicyWalletError> {
+    let key = DataKey::AgentPolicyIndex(agent.clone());
+    let mut stored: Vec<BytesN<32>> = env.storage().instance().get(&key).unwrap_or(Vec::new(env));
+
+    // If ID already present (e.g. replacing identical configuration or re-granting same config), maintain idempotence
+    for i in 0..stored.len() {
+        if stored.get(i).unwrap() == *policy_id {
+            return Ok(());
+        }
+    }
+
+    if stored.len() >= MAX_STORED_AGENT_POLICIES {
+        return Err(PolicyWalletError::PolicyIndexFull);
+    }
+
+    stored.push_back(policy_id.clone());
+    env.storage().instance().set(&key, &stored);
+    env.storage().instance().extend_ttl(DEFAULT_TTL_THRESHOLD, TTL_EXTENSION_AMOUNT);
+    Ok(())
+}
+
+fn update_agent_policy_index_on_revoke(env: &Env, agent: &Address) {
+    let key = DataKey::AgentPolicyIndex(agent.clone());
+    env.storage().instance().remove(&key);
 }
 
 #[cfg(test)]

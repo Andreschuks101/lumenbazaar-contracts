@@ -1037,6 +1037,358 @@ fn authorization_limit_isolation_and_rollover() {
 }
 
 #[test]
+fn policy_configuration_digest_is_deterministic_domain_separated_and_sensitive_to_all_fields() {
+    let env = Env::default();
+    env.mock_all_auths();
+    env.ledger().set_network_id([5; 32]);
+    let contract_id = env.register(PolicyWalletExampleContract, ());
+    let other_contract_id = env.register(PolicyWalletExampleContract, ());
+    let client = PolicyWalletExampleContractClient::new(&env, &contract_id);
+    let other_client = PolicyWalletExampleContractClient::new(&env, &other_contract_id);
+
+    let owner = Address::generate(&env);
+    let upto_session = Address::generate(&env);
+    client.initialize(&owner, &upto_session);
+    other_client.initialize(&owner, &upto_session);
+
+    let agent = Address::generate(&env);
+    let seller = Address::generate(&env);
+    let asset = Address::generate(&env);
+    let resource_hash = BytesN::from_array(&env, &[1; 32]);
+
+    let baseline_policy = SpendingPolicy {
+        agent: agent.clone(),
+        max_amount_per_payment: 100,
+        max_amount_per_day: 1000,
+        max_authorizations_per_day: 50,
+        valid_from_ledger: 10,
+        valid_until_ledger: 10000,
+        allowed_sellers: vec![&env, seller.clone()],
+        allowed_assets: vec![&env, asset.clone()],
+        allowed_resource_hashes: vec![&env, resource_hash.clone()],
+        seller_limits: vec![
+            &env,
+            SellerSpendingLimit {
+                seller: seller.clone(),
+                max_amount_per_payment: 50,
+                max_amount_per_day: 500,
+            },
+        ],
+        resource_limits: vec![
+            &env,
+            ResourceSpendingLimit {
+                resource_hash: resource_hash.clone(),
+                max_amount_per_payment: 40,
+                max_amount_per_day: 400,
+            },
+        ],
+        revision: 0,
+    };
+
+    client.set_policy(&baseline_policy, &0);
+    other_client.set_policy(&baseline_policy, &0);
+
+    // 1. Acceptance Criteria: Equivalent configurations produce identical digests
+    let digest_1 = client.get_policy_configuration_digest(&agent);
+    let digest_2 = client.get_policy_configuration_digest(&agent);
+    assert_eq!(digest_1, digest_2);
+
+    // Domain separation: Different contract address -> different digest
+    let other_contract_digest = other_client.get_policy_configuration_digest(&agent);
+    assert_ne!(digest_1, other_contract_digest);
+
+    // Domain separation: Different network id -> different digest
+    let digest_owner_scope = env.as_contract(&contract_id, || {
+        compute_policy_configuration_digest(&env, &owner, &baseline_policy)
+    });
+    assert_eq!(digest_1, digest_owner_scope);
+
+    // 2. Acceptance Criteria: Any enforced policy field changes the digest
+    // Field sensitivity checks:
+
+    // Changing agent
+    let other_agent = Address::generate(&env);
+    let mut modified = baseline_policy.clone();
+    modified.agent = other_agent;
+    let digest_mod = env.as_contract(&contract_id, || {
+        compute_policy_configuration_digest(&env, &owner, &modified)
+    });
+    assert_ne!(digest_1, digest_mod);
+
+    // Changing owner
+    let other_owner = Address::generate(&env);
+    let digest_mod = env.as_contract(&contract_id, || {
+        compute_policy_configuration_digest(&env, &other_owner, &baseline_policy)
+    });
+    assert_ne!(digest_1, digest_mod);
+
+    // Changing max_amount_per_payment
+    let mut modified = baseline_policy.clone();
+    modified.max_amount_per_payment = 99;
+    let digest_mod = env.as_contract(&contract_id, || {
+        compute_policy_configuration_digest(&env, &owner, &modified)
+    });
+    assert_ne!(digest_1, digest_mod);
+
+    // Changing max_amount_per_day
+    let mut modified = baseline_policy.clone();
+    modified.max_amount_per_day = 999;
+    let digest_mod = env.as_contract(&contract_id, || {
+        compute_policy_configuration_digest(&env, &owner, &modified)
+    });
+    assert_ne!(digest_1, digest_mod);
+
+    // Changing max_authorizations_per_day
+    let mut modified = baseline_policy.clone();
+    modified.max_authorizations_per_day = 49;
+    let digest_mod = env.as_contract(&contract_id, || {
+        compute_policy_configuration_digest(&env, &owner, &modified)
+    });
+    assert_ne!(digest_1, digest_mod);
+
+    // Changing valid_from_ledger
+    let mut modified = baseline_policy.clone();
+    modified.valid_from_ledger = 11;
+    let digest_mod = env.as_contract(&contract_id, || {
+        compute_policy_configuration_digest(&env, &owner, &modified)
+    });
+    assert_ne!(digest_1, digest_mod);
+
+    // Changing valid_until_ledger
+    let mut modified = baseline_policy.clone();
+    modified.valid_until_ledger = 9999;
+    let digest_mod = env.as_contract(&contract_id, || {
+        compute_policy_configuration_digest(&env, &owner, &modified)
+    });
+    assert_ne!(digest_1, digest_mod);
+
+    // Changing allowed_sellers
+    let other_seller = Address::generate(&env);
+    let mut modified = baseline_policy.clone();
+    modified.allowed_sellers = vec![&env, other_seller.clone()];
+    let digest_mod = env.as_contract(&contract_id, || {
+        compute_policy_configuration_digest(&env, &owner, &modified)
+    });
+    assert_ne!(digest_1, digest_mod);
+
+    // Changing allowed_assets
+    let other_asset = Address::generate(&env);
+    let mut modified = baseline_policy.clone();
+    modified.allowed_assets = vec![&env, other_asset.clone()];
+    let digest_mod = env.as_contract(&contract_id, || {
+        compute_policy_configuration_digest(&env, &owner, &modified)
+    });
+    assert_ne!(digest_1, digest_mod);
+
+    // Changing allowed_resource_hashes
+    let other_res_hash = BytesN::from_array(&env, &[2; 32]);
+    let mut modified = baseline_policy.clone();
+    modified.allowed_resource_hashes = vec![&env, other_res_hash.clone()];
+    let digest_mod = env.as_contract(&contract_id, || {
+        compute_policy_configuration_digest(&env, &owner, &modified)
+    });
+    assert_ne!(digest_1, digest_mod);
+
+    // Changing seller_limits
+    let mut modified = baseline_policy.clone();
+    modified.seller_limits = vec![
+        &env,
+        SellerSpendingLimit {
+            seller: seller.clone(),
+            max_amount_per_payment: 45,
+            max_amount_per_day: 500,
+        },
+    ];
+    let digest_mod = env.as_contract(&contract_id, || {
+        compute_policy_configuration_digest(&env, &owner, &modified)
+    });
+    assert_ne!(digest_1, digest_mod);
+
+    // Changing resource_limits
+    let mut modified = baseline_policy.clone();
+    modified.resource_limits = vec![
+        &env,
+        ResourceSpendingLimit {
+            resource_hash: resource_hash.clone(),
+            max_amount_per_payment: 35,
+            max_amount_per_day: 400,
+        },
+    ];
+    let digest_mod = env.as_contract(&contract_id, || {
+        compute_policy_configuration_digest(&env, &owner, &modified)
+    });
+    assert_ne!(digest_1, digest_mod);
+
+    // 3. Acceptance Criteria: Golden vector documents canonical field ordering
+    // Canonical tuple layout:
+    // (
+    //   domain: (Bytes("lumenbazaar/policy-configuration"), version: 1, network_id, contract_id),
+    //   owner,
+    //   policy.agent,
+    //   policy.max_amount_per_payment,
+    //   policy.max_amount_per_day,
+    //   policy.max_authorizations_per_day,
+    //   policy.valid_from_ledger,
+    //   policy.valid_until_ledger,
+    //   policy.allowed_sellers,
+    //   policy.allowed_assets,
+    //   policy.allowed_resource_hashes,
+    //   policy.seller_limits,
+    //   policy.resource_limits,
+    // )
+    let domain = (
+        Bytes::from_slice(&env, POLICY_CONFIGURATION_DOMAIN),
+        POLICY_CONFIGURATION_VERSION,
+        env.ledger().network_id(),
+        env.current_contract_address(),
+    )
+        .to_xdr(&env);
+    let expected_payload = (
+        domain,
+        owner.clone(),
+        baseline_policy.agent.clone(),
+        baseline_policy.max_amount_per_payment,
+        baseline_policy.max_amount_per_day,
+        baseline_policy.max_authorizations_per_day,
+        baseline_policy.valid_from_ledger,
+        baseline_policy.valid_until_ledger,
+        baseline_policy.allowed_sellers.clone(),
+        baseline_policy.allowed_assets.clone(),
+        baseline_policy.allowed_resource_hashes.clone(),
+        baseline_policy.seller_limits.clone(),
+        baseline_policy.resource_limits.clone(),
+    );
+    let manual_digest = env.crypto().sha256(&expected_payload.to_xdr(&env)).to_bytes();
+    assert_eq!(digest_1, manual_digest);
+}
+
+#[test]
+fn agent_policy_cursor_pagination_and_index_lifecycle() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let contract_id = env.register(PolicyWalletExampleContract, ());
+    let client = PolicyWalletExampleContractClient::new(&env, &contract_id);
+
+    let owner = Address::generate(&env);
+    let upto_session = Address::generate(&env);
+    client.initialize(&owner, &upto_session);
+
+    let agent_a = Address::generate(&env);
+    let agent_b = Address::generate(&env);
+    let seller = Address::generate(&env);
+    let asset = Address::generate(&env);
+    let resource_hash = BytesN::from_array(&env, &[1; 32]);
+
+    // Initial empty pagination
+    let initial_page = client.get_agent_policies(&agent_a, &None, &None);
+    assert_eq!(initial_page.total_count, 0);
+    assert!(initial_page.policy_ids.is_empty());
+    assert_eq!(initial_page.next_cursor, None);
+
+    // 1. Create policy for Agent A -> index updated with policy ID
+    let mut policy_a1 = standard_policy(&env, &agent_a, &seller, &asset, &resource_hash, 100);
+    client.set_policy(&policy_a1, &0);
+    let id_a1 = client.get_policy_configuration_digest(&agent_a);
+
+    let page = client.get_agent_policies(&agent_a, &None, &None);
+    assert_eq!(page.total_count, 1);
+    assert_eq!(page.policy_ids.len(), 1);
+    assert_eq!(page.policy_ids.get(0).unwrap(), id_a1);
+
+    // Agent B index is completely empty (Multi-agent isolation: pagination cannot expose policies for another agent)
+    let page_b = client.get_agent_policies(&agent_b, &None, &None);
+    assert_eq!(page_b.total_count, 0);
+    assert!(page_b.policy_ids.is_empty());
+
+    // 2. Replacement path: Update Agent A policy with new limit -> new policy ID recorded
+    policy_a1.max_amount_per_payment = 80;
+    client.set_policy(&policy_a1, &1);
+    let id_a2 = client.get_policy_configuration_digest(&agent_a);
+    assert_ne!(id_a1, id_a2);
+
+    let page_after_replace = client.get_agent_policies(&agent_a, &None, &None);
+    assert_eq!(page_after_replace.total_count, 2);
+    assert_eq!(page_after_replace.policy_ids.len(), 2);
+    assert_eq!(page_after_replace.policy_ids.get(0).unwrap(), id_a1);
+    assert_eq!(page_after_replace.policy_ids.get(1).unwrap(), id_a2);
+
+    // Re-setting the exact same policy (idempotent / same ID) does not duplicate entry in index
+    client.set_policy(&policy_a1, &2);
+    let page_same = client.get_agent_policies(&agent_a, &None, &None);
+    assert_eq!(page_same.total_count, 2);
+
+    // 3. Revoke path: Revoking Agent A's policy clears its index
+    client.revoke_policy(&agent_a);
+    let page_after_revoke = client.get_agent_policies(&agent_a, &None, &None);
+    assert_eq!(page_after_revoke.total_count, 0);
+    assert!(page_after_revoke.policy_ids.is_empty());
+    assert_eq!(page_after_revoke.next_cursor, None);
+
+    // Create policy for Agent B to verify agent isolation after A's revocation
+    let policy_b = standard_policy(&env, &agent_b, &seller, &asset, &resource_hash, 100);
+    client.set_policy(&policy_b, &0);
+    let id_b = client.get_policy_configuration_digest(&agent_b);
+
+    let page_b_active = client.get_agent_policies(&agent_b, &None, &None);
+    assert_eq!(page_b_active.total_count, 1);
+    assert_eq!(page_b_active.policy_ids.get(0).unwrap(), id_b);
+    assert_eq!(client.get_agent_policies(&agent_a, &None, &None).total_count, 0);
+
+    // 4. Cursor pagination and boundary testing
+    // Set multiple policies for Agent A
+    let mut current_expected_ids = std::vec::Vec::new();
+    for i in 1_u32..=15 {
+        let mut p = standard_policy(&env, &agent_a, &seller, &asset, &resource_hash, 100 + i);
+        p.max_amount_per_payment = 10 + i as i128;
+        client.set_policy(&p, &(i - 1));
+        current_expected_ids.push(client.get_policy_configuration_digest(&agent_a));
+    }
+
+    // Page 1: limit 5, cursor 0
+    let p1 = client.get_agent_policies(&agent_a, &Some(0), &Some(5));
+    assert_eq!(p1.total_count, 15);
+    assert_eq!(p1.policy_ids.len(), 5);
+    assert_eq!(p1.next_cursor, Some(5));
+    for i in 0..5 {
+        assert_eq!(p1.policy_ids.get(i as u32).unwrap(), current_expected_ids[i]);
+    }
+
+    // Page 2: limit 5, cursor 5
+    let p2 = client.get_agent_policies(&agent_a, &Some(5), &Some(5));
+    assert_eq!(p2.total_count, 15);
+    assert_eq!(p2.policy_ids.len(), 5);
+    assert_eq!(p2.next_cursor, Some(10));
+    for i in 0..5 {
+        assert_eq!(p2.policy_ids.get(i as u32).unwrap(), current_expected_ids[i + 5]);
+    }
+
+    // Page 3: limit 5, cursor 10
+    let p3 = client.get_agent_policies(&agent_a, &Some(10), &Some(5));
+    assert_eq!(p3.total_count, 15);
+    assert_eq!(p3.policy_ids.len(), 5);
+    assert_eq!(p3.next_cursor, None); // Reached end
+    for i in 0..5 {
+        assert_eq!(p3.policy_ids.get(i as u32).unwrap(), current_expected_ids[i + 10]);
+    }
+
+    // Cursor past total_count returns empty page with None next_cursor
+    let p_empty = client.get_agent_policies(&agent_a, &Some(20), &Some(5));
+    assert_eq!(p_empty.total_count, 15);
+    assert!(p_empty.policy_ids.is_empty());
+    assert_eq!(p_empty.next_cursor, None);
+
+    // Limit exceeding MAX_POLICY_PAGE_SIZE fails with InvalidPageLimit
+    assert_eq!(
+        client.try_get_agent_policies(&agent_a, &Some(0), &Some(MAX_POLICY_PAGE_SIZE + 1)),
+        Err(Ok(PolicyWalletError::InvalidPageLimit))
+    );
+    // Limit of 0 fails with InvalidPageLimit
+    assert_eq!(
+        client.try_get_agent_policies(&agent_a, &Some(0), &Some(0)),
+        Err(Ok(PolicyWalletError::InvalidPageLimit))
+    );
+}
+#[test]
 fn test_policy_active_window_status_boundaries_and_revocation() {
     let env = Env::default();
     env.mock_all_auths();
