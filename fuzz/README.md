@@ -8,7 +8,7 @@ helpers. All inputs are synthetic and no target ever contacts a network.
 | `create` | `create_session`: parties (including equal, unfunded, unknown-contract, and the escrow's own address), amounts, expiries around the duration limit, resource hashes (all-zero, all-0xFF, single-bit, raw, and wrong-length via raw invocation). |
 | `settle` | `settle` on open, settled, cancelled, recovered, and lapsed sessions, unknown and off-by-one session IDs, amounts around the cap, ledgers around expiry, usage hashes, and wrong-length session IDs and usage hashes. |
 | `policy` | `set_policy` with arbitrary caps, authorization limits, windows, allowlists, and limits, followed by up to eight `check_payment` / `authorize_payment` steps across a day boundary. |
-| `token_amount` | `validate_asset_cap`, `validate_asset_policy`, `validate_settlement_amount`, `validate_cap_increase_proposal` (including ledger overflow), and checked liability arithmetic. |
+| `token_amount` | `validate_asset_cap`, `validate_asset_policy`, `validate_settlement_amount`, `validate_cap_increase_proposal`, `validate_create_session`, `validate_expiry_extension`, `validate_admin_rotation` (including ledger rollover boundaries), and checked liability arithmetic. |
 
 Every target checks that:
 
@@ -78,7 +78,7 @@ selectors (`% 10`): 0 default, 1 `0`, 2 `1`, 3 `-1`, 4 `i128::MIN`, 5 `i128::MAX
 | `create` | 0 ledger selector, 1–4 raw ledger; 5 buyer; 6 seller; 7 asset; 8 amount selector, 9–24 raw; 25 expiry selector, 26–29 raw; 30 resource hash selector, 31–62 raw (also used for synthetic addresses and wrong-length size); 63 malformed (odd: raw invoke with a wrong-length resource hash). |
 | `settle` | 0 cap selector, 1–16 raw; 17 session state; 18 session ID selector, 19–50 raw; 51 ledger selector, 52–55 raw; 56 amount selector, 57–72 raw; 73 usage hash selector, 74–105 raw; 106 malformed (1 wrong-length session ID, 2 wrong-length usage hash). |
 | `policy` | 0 payment cap, 17 daily cap (amount selectors); 34 authorization limit, 35–38 raw; 39 `valid_from`, 40–43 raw; 44 `valid_until`, 45–48 raw; 49 seller, 50 asset, 51 resource allowlist masks; 52 seller limit, 53 resource limit; from 54, eight-byte steps: ledger move, seller, asset, resource, amount selector, two raw amount bytes, check-only flag. |
-| `token_amount` | 0 helper; 1 `a` and 18 `b` (amount selectors); 35–38 `x`; 39–42 `y`; 43 ledger selector, 44–47 raw. |
+| `token_amount` | 0 helper (`% 8`); 1 `a` and 18 `b` (amount selectors); 35–38 `x`; 39–42 `y`; 43 ledger selector (`% 6`, including rollover-adjacent values), 44–47 raw. |
 
 The source of truth is the target code in `fuzz/src`.
 

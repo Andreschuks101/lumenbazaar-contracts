@@ -18,6 +18,42 @@
 
 - Forbid unwrap and expect calls in production contract modules via clippy deny lints and repository source gate (`scripts/check-no-production-unwrap.mjs`).
   Compatibility: internal implementation refactoring; contract interfaces unchanged.
+- Add deterministic cursor pagination `get_agent_policies` and per-agent policy index to
+  `policy-wallet-example` with bounded page sizes and strict agent isolation.
+  Compatibility: additive read-only query; existing policy evaluation is unchanged.
+  Migration: none.
+
+- Add versioned, domain-separated `get_policy_configuration_digest` query to `policy-wallet-example`
+  fingerprinting wallet owner, agent, limits, validity windows, and allowlists.
+  Compatibility: additive read-only query; existing policy evaluation is unchanged.
+  Migration: none.
+
+- Add bounded, read-only `preview_recover_expired_batch` query to `upto-session` with
+  per-session recoverability and refund metadata matching batch recovery behavior.
+  Compatibility: additive read-only query; existing recovery execution is unchanged.
+  Migration: none.
+
+- Add policy active-window status query (`get_policy_status`) in `policy-wallet-example`
+  reporting whether a policy is pending, active, expired, or revoked at the current ledger
+  sequence, with the active ledger window and next transition boundary.
+  Compatibility: additive method and return types (`PolicyStatus`, `PolicyActiveWindowStatus`);
+  existing authorization semantics are unchanged.
+  Migration: none.
+
+- Add pending administrator rotation status query (#243).
+  Compatibility: additive method and result type; existing admin and admin rotation queries are unchanged.
+  Migration: none.
+
+- Add seller exposure headroom query (#242).
+  Compatibility: additive method and result type; existing seller exposure ceiling and exposure queries are unchanged.
+  Migration: none.
+
+- Add buyer exposure headroom query (#241).
+  Compatibility: additive method and result type; existing buyer exposure ceiling and exposure queries are unchanged.
+  Migration: none.
+
+- Add asset exposure headroom query (#240).
+  Compatibility: additive method and result type; existing exposure ceiling and liability queries are unchanged.
   Migration: none.
 
 - Add typed transaction evidence helpers to the TypeScript binding
@@ -66,6 +102,14 @@
   Migration: [v2-to-v3 replacement routing](artifacts/interface/migrations/v2-to-v3.json).
 
 ### Fixed
+
+- Decrement per-buyer active exposure in `reduce_session_cap` alongside escrow liability and
+  per-seller exposure, and return `ContractError::SessionNotFound` when querying
+  `get_terminal_evidence` for an unknown session.
+  Compatibility: Preserve the public contract ABI, storage layout, and error variants; callers
+  reading `get_buyer_exposure` or handling missing sessions now observe consistent state and
+  `SessionNotFound` (`#5`).
+  Migration: No contract reinitialization or state migration is required.
 
 - Bind `idempotencyKey` in the TypeScript `deriveSessionId` helper so it matches the
   contract's v3 session ID preimage. Compatibility: `SessionIdInputV3` now requires

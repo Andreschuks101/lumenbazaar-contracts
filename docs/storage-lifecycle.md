@@ -49,6 +49,27 @@ Every extension in this contract uses the same pair: `extend_instance_ttl`
 `extend_session_ttl` (`storage.rs:429`) for persistent keys. Ledger close time varies, so durations
 in days are approximate. Contract logic uses ledger sequences only.
 
+### Rollover-adjacent ledger behavior
+
+- Session creation (`MAX_SESSION_DURATION_LEDGERS`), expiry extension, admin rotation
+  (`MIN_ADMIN_ROTATION_DURATION_LEDGERS..=MAX_ADMIN_ROTATION_DURATION_LEDGERS`), and cap-increase
+  cooldown/timelock windows (`MIN_CAP_INCREASE_DELAY_LEDGERS..=MAX_CAP_INCREASE_DELAY_LEDGERS`)
+  compute bounds with checked `u32` addition/subtraction before any storage write or TTL extension.
+- Wrapped ledgers (`0`, `1`, ...) never satisfy `expires_at_ledger > current_ledger` or
+  `current_ledger.checked_add(...)` bounds, so rollover-adjacent calls fail closed with typed
+  `ContractError` values without trapping or extending TTL.
+- In `soroban-env-host`, `Storage::extend_ttl` requires
+  `sequence_number.checked_add(TTL_EXTENSION_AMOUNT)` to fit in `u32`, so succeeding mutating
+  entry points that call `extend_ttl` (and Stellar Asset Contract `balance()` when `preview_settle`
+  checks escrow funding for non-expired sessions) are bounded to
+  `sequence_number <= u32::MAX - TTL_EXTENSION_AMOUNT`. Furthermore,
+  `LedgerInfo::min_live_until_ledger_checked` and `max_live_until_ledger_checked` (invoked by auth
+  nonce tracking) compute `sequence_number.checked_add(min_persistent_entry_ttl - 1)` and
+  `sequence_number.checked_add(max_entry_ttl - 1)`; with `min_persistent_entry_ttl = 1`,
+  `min_temp_entry_ttl = 1`, and `max_entry_ttl = 1`, `ttl_test.rs`, `test.rs`, and the
+  `token_amount` fuzz target (`fuzz/src/amount.rs`) verify read-only expiry views and all rejected
+  entry points up to `u32::MAX` inclusive without host traps.
+
 ## Key inventory
 
 "Admin entry points" below means exactly these functions, each of which calls `extend_instance_ttl`

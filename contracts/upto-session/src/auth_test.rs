@@ -288,6 +288,7 @@ fn production_escrow_funds_and_settles_with_exact_authorization_trees() {
         }])
         .initialize(&identities.admin, &asset_policies);
 
+    let idempotency_key = BytesN::from_array(&env, &[43; 32]);
     let session_id = client
         .mock_auths(&[MockAuth {
             address: &identities.buyer,

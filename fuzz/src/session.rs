@@ -169,6 +169,7 @@ pub fn create(data: &[u8]) {
     let before = h.observe();
 
     let idempotency_key = BytesN::from_array(env, &[1; 32]);
+    let idempotency_key = BytesN::from_array(env, &input.array::<32>(64));
     if input.u8(63) % 2 == 1 {
         let args = vec![
             env,
@@ -255,6 +256,7 @@ pub fn settle(data: &[u8]) {
         &expiry,
         &BytesN::from_array(env, &[7; 32]),
         &BytesN::from_array(env, &[1; 32]),
+        &BytesN::from_array(env, &[9; 32]),
     );
     let state = input.u8(17) % 5;
     match state {

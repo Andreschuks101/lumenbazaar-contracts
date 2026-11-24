@@ -83,6 +83,7 @@ impl Lifecycle {
             &expires_at_ledger,
             &BytesN::from_array(&self.env, &[7; 32]),
             &self.next_key(),
+            &unique_idempotency_key(&self.env),
         )
     }
 
@@ -473,6 +474,7 @@ fn sr9_missing_instance_config_blocks_creation_and_admin_but_not_exits() {
             &EXPIRY,
             &BytesN::from_array(&h.env, &[7; 32]),
             &h.next_key(),
+            &unique_idempotency_key(&h.env),
         ),
         Err(Ok(ContractError::NotInitialized))
     );
@@ -499,6 +501,9 @@ fn sr9_missing_instance_config_blocks_creation_and_admin_but_not_exits() {
         client.try_get_escrow_liability(&h.asset),
         Err(Ok(ContractError::NotInitialized))
     );
+    h.env.as_contract(&h.contract_id, || {
+        assert_eq!(storage::read_liability(&h.env, &h.asset), 0);
+    });
 }
 
 #[test]

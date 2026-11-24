@@ -128,6 +128,7 @@ fn create_session(
     input: CreateInput<'_>,
 ) -> BytesN<32> {
     let idempotency_key = input.resource_hash.clone();
+    let idempotency_key = super::unique_idempotency_key(env);
     client
         .mock_auths(&[MockAuth {
             address: input.buyer,

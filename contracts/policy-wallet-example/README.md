@@ -25,6 +25,14 @@ Spending policies are keyed by agent address and can restrict:
 
 Each policy carries a monotonic `revision`. `set_policy(policy, expected_revision)` rejects stale updates with `StaleRevision`; new policies use revision zero as the expectation and are stored at revision one. `create_policy(policy)` is the revision-zero convenience entrypoint, and `get_policy_revision(agent)` returns the current value.
 
+## Policy Configuration Digest and Pagination
+
+`get_policy_configuration_digest(agent)` computes a versioned, domain-separated SHA-256 fingerprint over the wallet owner, agent, limits, ledger validity windows, and allowlists. The digest domain binds domain label `b"lumenbazaar/policy-configuration"`, version `1`, the network ID, and the contract instance address. Any modification to enforced policy fields or the wallet owner deterministically changes the digest.
+
+`get_agent_policies(agent, cursor, limit)` provides deterministic cursor pagination over policy identifiers assigned to an agent. The stored index length is bounded by `MAX_STORED_AGENT_POLICIES` (32) and the page size is bounded by `MAX_POLICY_PAGE_SIZE` (10). Revocation clears the agent's index, and querying policies for one agent cannot expose identifiers for another.
+
+When a cap reduction and a session-creation authorization land in the same ledger sequence, each executes against the policy revision visible in its transaction order; preserved daily-spend counters block any post-reduction spend above the tightened ceiling. See [Same-Ledger Cap-Reduction and Session-Creation Ordering Semantics](docs/policy-examples.md#same-ledger-cap-reduction-and-session-creation-ordering-semantics).
+
 ## Revocation
 
 `revoke_policy(agent)` requires the owner's signature. It removes the agent's policy, records the revocation ledger, and publishes `AgentPolicyRevoked`. From then on `get_policy`, `check_payment`, and `authorize_payment` for that agent return `PolicyRevoked` (14). `get_policy_revocation(agent)` returns the revocation ledger, or `None` when the agent is not revoked.

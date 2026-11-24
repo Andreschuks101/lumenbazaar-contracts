@@ -51,10 +51,29 @@ interface v3 source is published in `deployments/testnet-2026-10-20.json` and
 - Caps and settlement amounts must be positive, and settlement cannot exceed the stored cap.
   Settling exactly the cap is allowed; `actual_amount > max_amount` returns `#8 AmountExceedsCap`
   (`validate_settlement_amount` in `contracts/upto-session/src/validation.rs`).
-- Expiry is ledger-sequence based, not timestamp based. `settle` and `cancel` reject when
-  `ledger.sequence >= expires_at_ledger` with `#4 ExpiredSession` (`validate_settlement_amount`
-  and `cancel` in `contracts/upto-session/src/lib.rs`), so the last ledger that can settle or cancel
-  is `expires_at_ledger - 1`. `recover_expired` is allowed from `expires_at_ledger` onward.
+- Expiry is ledger-sequence based, not timestamp based. `settle`, `cancel`, `reject`, and
+  `reduce_session_cap` reject when `ledger.sequence >= expires_at_ledger` with `#4 ExpiredSession`
+  (`validate_settlement_amount` and session entry points in `contracts/upto-session/src/lib.rs`),
+  so the last valid ledger is `expires_at_ledger - 1`. `recover_expired` is allowed from
+  `expires_at_ledger` onward.
+- Ledger rollover boundary behavior (`u32::MAX` and rollover-adjacent sequences):
+  - All expiry, duration, admin rotation, and cap-increase cooldown/timelock comparisons use
+    checked `u32` arithmetic (`checked_add` / `checked_sub` in
+    `contracts/upto-session/src/validation.rs`) and strict `expires_at_ledger > current_ledger`
+    ordering, so wrapped ledger values (`0`, `1`, ...) fail closed with typed errors
+    (`ExpiredSession`, `SessionDurationTooLong`, `InvalidAdminRotationExpiry`,
+    `InvalidCapIncreaseDelay`) and never trap or accept a wrapped ledger.
+  - Because `soroban-env-host` checks `sequence_number.checked_add(extend_to)` in
+    `Storage::extend_ttl` (`TTL_EXTENSION_AMOUNT = 1_000_000`), evaluates
+    `min_live_until_ledger_checked` as `sequence_number.checked_add(min_persistent_entry_ttl - 1)`,
+    and evaluates `max_live_until_ledger_checked` (used during `require_auth()`) as
+    `sequence_number.checked_add(max_entry_ttl - 1)`, setting `min_persistent_entry_ttl = 1`,
+    `min_temp_entry_ttl = 1`, and `max_entry_ttl = 1` in `ttl_test.rs` and `test.rs` exercises all
+    validation-rejected and non-SAC view paths through `u32::MAX` inclusive without host storage
+    traps. Succeeding mutating paths that extend TTL remain bounded by
+    `sequence_number <= u32::MAX - TTL_EXTENSION_AMOUNT`, and Stellar Asset Contract `balance()`
+    internally calls `extend_current_contract_instance_and_code_ttl` when `preview_settle` checks
+    funding on a non-expired session.
 - `settle` checks status, amount, cap, expiry, and usage hash before seller authorization, and
   `cancel` checks status and expiry before buyer authorization. A rejected call therefore reports the
   first failed rule.
